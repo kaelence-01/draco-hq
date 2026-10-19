@@ -151,6 +151,8 @@ terminales no lo soporta): necesita el nombre en letras grandes con caracteres.
 | Flujos preparar → revisar → publicar sin E/S | Un solo núcleo para el modo comando y el visual, testeable sin red |
 | Datos de instancia de Jira del QA en config (`qa_jira`) | El proyecto es abierto: lo propio de una instancia no se compila |
 | Licencia MIT | La misma de gtt |
+| Ramas `main` → `develop` → `feature/<tema>`, un commit por actividad, PR a `develop` | Historial corto y legible; `main` solo recibe lo integrado |
+| Bitácora por actividad (`docs/bitacora/`) y comentarios mínimos en el código | La historia de cada decisión en un solo lugar, el código limpio |
 
 ## Decisiones pendientes
 
