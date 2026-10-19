@@ -34,3 +34,7 @@ go.work.sum
 
 # Contexto privado de Claude Code
 CLAUDE.local.md
+
+# Claude Code: ajustes locales y términos privados para cerrar-actividad
+.claude/settings.local.json
+.claude/terminos-privados.txt

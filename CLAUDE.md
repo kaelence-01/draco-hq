@@ -136,3 +136,27 @@ de comandos será un `map[string]func([]string) error` como en gtt, sin Cobra.
   (`go build -o x && ./x`). Fuera de su carpeta de instalación ofrecerá
   instalarse y puede reemplazar el `draco` instalado. Usar `go run .`, que el
   instalador debe detectar y saltar (`/go-build/` en la ruta), como en gtt.
+
+## Flujo de trabajo (regla)
+
+```
+main ── develop ── feature/<tema>   (PR → develop, nunca a main)
+```
+
+- Toda actividad nace de `develop` actualizada en `feature/<tema>` (o `fix/`,
+  `docs/`), termina en **un solo commit** y llega a `develop` por PR. El push y
+  el PR los hace el autor.
+- Toda actividad lleva su entrada en **`docs/bitacora/NNN-<tema>.md`** en ese
+  mismo commit, y su fila en el índice. Las entradas de actividades ya
+  fusionadas no se reescriben.
+- La historia y el porqué de las decisiones van a la bitácora, **no a
+  comentarios del código**: comentarios mínimos (ver `estandares-desarrollo`).
+
+Skills obligatorias (`.claude/skills/`):
+
+| Skill | Cuándo |
+|---|---|
+| `nueva-actividad` | Antes de cambiar archivos para una tarea nueva |
+| `estandares-desarrollo` | Al escribir o editar código y al revisar el diff propio |
+| `bitacora` | En toda actividad, antes del commit |
+| `cerrar-actividad` | Al terminar: verificaciones (`check.sh`), commit único, push y PR |
