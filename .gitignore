@@ -31,3 +31,6 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# Contexto privado de Claude Code
+CLAUDE.local.md
