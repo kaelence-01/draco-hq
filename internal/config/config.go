@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -91,6 +92,11 @@ type QAJiraConfig struct {
 	// Empty means DefaultTestingStatus.
 	TestingStatus string `yaml:"testing_status,omitempty"`
 
+	// SprintName is how a module's sprint is named in Jira, with {module} and
+	// {sprint} as placeholders. It is a team convention, not a Jira rule.
+	// Empty means DefaultSprintName.
+	SprintName string `yaml:"sprint_name,omitempty"`
+
 	Fields QAJiraFields `yaml:"fields,omitempty"`
 }
 
@@ -103,6 +109,18 @@ type QAJiraFields struct {
 
 // DefaultTestingStatus is the TestingStatus used when the config leaves it empty.
 const DefaultTestingStatus = "Testing"
+
+// DefaultSprintName is the SprintName used when the config leaves it empty.
+const DefaultSprintName = "{module}_Sprint {sprint}"
+
+// SprintNameFor renders SprintName for one module and sprint number.
+func (q *QAJiraConfig) SprintNameFor(module string, sprint int) string {
+	tmpl := q.SprintName
+	if strings.TrimSpace(tmpl) == "" {
+		tmpl = DefaultSprintName
+	}
+	return strings.NewReplacer("{module}", module, "{sprint}", strconv.Itoa(sprint)).Replace(tmpl)
+}
 
 var customFieldRe = regexp.MustCompile(`^customfield_\d+$`)
 
@@ -118,6 +136,10 @@ func (q *QAJiraConfig) Validate() error {
 	}
 	if len(q.Statuses) == 0 {
 		problems = append(problems, "qa_jira.statuses: estados (id o nombre) de una tarea que ya llegó a QA")
+	}
+	// Without {sprint} every run would search the same sprint.
+	if q.SprintName != "" && !strings.Contains(q.SprintName, "{sprint}") {
+		problems = append(problems, fmt.Sprintf("qa_jira.sprint_name: debe incluir {sprint} (ej: %s)", DefaultSprintName))
 	}
 	for name, v := range map[string]string{
 		"coding_errors": q.Fields.CodingErrors,

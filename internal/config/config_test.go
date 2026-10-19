@@ -103,6 +103,33 @@ func TestQAJiraValidateAcceptsCompleteConfig(t *testing.T) {
 	}
 }
 
+func TestSprintNameFor(t *testing.T) {
+	cases := []struct {
+		tmpl, want string
+	}{
+		{"", "Pagos_Sprint 12"},
+		{"Sprint {sprint} - {module}", "Sprint 12 - Pagos"},
+	}
+	for _, c := range cases {
+		q := &QAJiraConfig{SprintName: c.tmpl}
+		if got := q.SprintNameFor("Pagos", 12); got != c.want {
+			t.Errorf("plantilla %q → %q, esperaba %q", c.tmpl, got, c.want)
+		}
+	}
+}
+
+func TestQAJiraValidateSprintNameNeedsSprint(t *testing.T) {
+	q := &QAJiraConfig{
+		Project:    "OPS",
+		Statuses:   []string{"10001"},
+		SprintName: "{module}_Sprint",
+		Fields:     QAJiraFields{CodingErrors: "customfield_1", DevReturns: "customfield_2", DevStatus: "customfield_3"},
+	}
+	if err := q.Validate(); err == nil || !strings.Contains(err.Error(), "qa_jira.sprint_name") {
+		t.Errorf("una plantilla sin {sprint} debe rechazarse, obtuve: %v", err)
+	}
+}
+
 func TestQAJiraValidateNil(t *testing.T) {
 	var q *QAJiraConfig
 	if err := q.Validate(); err == nil || !strings.Contains(err.Error(), "qa_jira") {
