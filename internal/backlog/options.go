@@ -5,12 +5,9 @@ import (
 	"strings"
 )
 
-// Options tunes the detectors. Every field has a generic default (see
-// WithDefaults); stack-specific values such as where the classes live belong
-// in the project's config.yaml, not in the binary.
+// Options tunes the detectors; empty fields take the defaults of WithDefaults.
 type Options struct {
-	// Since bounds the git history read by the hotspot detector, in any form
-	// `git log --since` accepts ("90 days ago", "2026-07-01").
+	// Since bounds the history read, in any form `git log --since` accepts.
 	Since string
 	// Extensions limits which tracked files count as source code.
 	Extensions []string
@@ -21,23 +18,17 @@ type Options struct {
 	// MinCommits is how many commits in the period make a file a hotspot.
 	MinCommits int
 	// FixKeywords mark a commit subject as a fix (case-insensitive substrings).
-	// They only add evidence to a hotspot: teams often name a fix by its
-	// symptom, so the keywords cannot decide on their own what is a hotspot.
+	// They only add evidence; they never decide what is a hotspot.
 	FixKeywords []string
-	// ClassGlobs select the files whose class should be covered by a test.
-	// Empty disables the untested-class detector.
+	// ClassGlobs select the files whose class needs a test; empty disables the detector.
 	ClassGlobs []string
-	// TestsDir is the directory holding the tests, relative to the repo root.
-	// Ignored when TestGlobs is set.
+	// TestsDir is the tests directory, relative to the repo root; ignored with TestGlobs.
 	TestsDir string
-	// TestGlobs select the test files by pattern, for stacks whose tests live
-	// next to the code ("**/*.spec.ts"). When set, it replaces both TestsDir
-	// and the default test name patterns.
+	// TestGlobs select test files by pattern ("**/*.spec.ts"), replacing TestsDir
+	// and the default test names.
 	TestGlobs []string
-	// Modules map paths to modules, first match wins. Each entry is either a
-	// pattern whose {modulo} segment names the module ("app/Http/{modulo}/**")
-	// or a fixed name and a pattern ("Facturacion=resources/views/reportesFac/**").
-	// Empty leaves findings without module.
+	// Modules map paths to modules, first match wins: "app/Http/{modulo}/**"
+	// or a fixed name, "Facturacion=resources/views/reportesFac/**".
 	Modules []string
 }
 
@@ -49,8 +40,7 @@ var (
 		"**/*.min.js", "**/*.lock", "**/package-lock.json",
 		"**/migrations/**", "**/seeders/**", "**/fixtures/**", "**/testdata/**",
 	}
-	// defaultTestNames recognize the test files of common stacks by name, so a
-	// colocated test (Angular, Jest, Go) is never analysed as source code.
+	// defaultTestNames keep colocated tests (Angular, Jest, Go) out of the source files.
 	defaultTestNames = []string{
 		"**/*.spec.*", "**/*.test.*", "**/*_test.*", "**/test_*.py", "**/*Test.*", "**/*Tests.*",
 	}
@@ -90,8 +80,7 @@ func (o Options) WithDefaults() Options {
 	return o
 }
 
-// isSource reports whether a tracked path is source code worth analysing:
-// a known extension, not excluded and not under the tests directory.
+// isSource reports whether a tracked path is source code to analyse.
 func (o Options) isSource(p string) bool {
 	return o.hasSourceExtension(p) && !o.isExcluded(p) && !o.isTest(p)
 }
@@ -119,7 +108,6 @@ func (o Options) isTest(p string) bool {
 	return inTestsDir || matchAny(defaultTestNames, p)
 }
 
-// isFixCommit reports whether a commit subject contains one of the fix keywords.
 func (o Options) isFixCommit(subject string) bool {
 	s := strings.ToLower(subject)
 	for _, k := range o.FixKeywords {
@@ -130,7 +118,6 @@ func (o Options) isFixCommit(subject string) bool {
 	return false
 }
 
-// matchAny reports whether p matches any of the glob patterns.
 func matchAny(patterns []string, p string) bool {
 	for _, pat := range patterns {
 		if matchGlob(pat, p) {
@@ -140,9 +127,8 @@ func matchAny(patterns []string, p string) bool {
 	return false
 }
 
-// matchGlob matches a slash-separated path against a pattern where "**"
-// matches zero or more whole segments and the other segments follow
-// path.Match ("*", "?", "[...]"). A malformed segment never matches.
+// matchGlob matches a path where "**" is zero or more whole segments and the
+// other segments follow path.Match. A malformed segment never matches.
 func matchGlob(pattern, p string) bool {
 	return matchSegments(strings.Split(pattern, "/"), strings.Split(p, "/"))
 }

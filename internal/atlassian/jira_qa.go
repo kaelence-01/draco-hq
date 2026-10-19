@@ -9,11 +9,8 @@ import (
 	"time"
 )
 
-// QASchema maps the QA consolidated report onto one Jira instance: the project
-// key, the workflow statuses of a task that reached QA, and the custom fields
-// the report reads. All of it belongs to the user's instance and comes from
-// config (qa_jira); nothing here is compiled in. See
-// docs/security/patrones-seguros.md (P-008).
+// QASchema maps the QA report onto one Jira instance. It comes from config
+// (qa_jira), never from code (P-008).
 type QASchema struct {
 	Project       string
 	Statuses      []string // ids or names
@@ -24,9 +21,7 @@ type QASchema struct {
 	FieldDevStatus    string // Development panel: PR state
 }
 
-// statusList renders the statuses for a JQL "status in (...)" clause. A
-// numeric id goes bare, as Jira expects; anything else is a status name and is
-// quoted as a literal.
+// statusList renders a JQL "status in (...)" list: ids bare, names quoted.
 func (s QASchema) statusList() string {
 	parts := make([]string, len(s.Statuses))
 	for i, st := range s.Statuses {
@@ -42,7 +37,7 @@ func (s QASchema) statusList() string {
 
 var numericRe = regexp.MustCompile(`^\d+$`)
 
-// QAIssue holds the evaluation data for one task in the QA consolidated report.
+// QAIssue is one task of the QA report with its evaluation.
 type QAIssue struct {
 	Key             string
 	URL             string
@@ -55,10 +50,8 @@ type QAIssue struct {
 	ReviewTaskKey   string // QA review task key (e.g. APP-2160)
 	ReviewTaskURL   string // QA review task URL
 
-	// DeployDocUnknown is set when the remote-link lookup failed, so the
-	// report can say "unverified" instead of claiming the document is
-	// missing. This table is published as QA evidence: a network or
-	// permission error must never be rendered as a failed check.
+	// DeployDocUnknown is set when the lookup failed: the report is evidence,
+	// so an error must never render as a missing document.
 	DeployDocUnknown bool
 }
 
@@ -69,8 +62,8 @@ type jiraSearchResponse struct {
 	} `json:"issues"`
 }
 
-// GetQATasksForReview returns sprint dev tasks that have reached or passed
-// through QA for the given module. QA review tasks themselves are excluded.
+// GetQATasksForReview returns the module's sprint dev tasks that reached QA,
+// excluding the QA review tasks themselves.
 func (c *Client) GetQATasksForReview(s QASchema, sprintName, module string) ([]QAIssue, error) {
 	all, err := c.searchQAIssues(s, sprintReviewJQL(s, sprintName, module))
 	if err != nil {
@@ -86,8 +79,7 @@ func sprintReviewJQL(s QASchema, sprintName, module string) string {
 	)
 }
 
-// devTasksOnly drops the QA review tasks ("Revisión de Tarea - …", "QA …")
-// from a search result, leaving the development tasks under review.
+// devTasksOnly drops the QA review tasks ("Revisión de Tarea - …", "QA …").
 func devTasksOnly(all []QAIssue) []QAIssue {
 	dev := make([]QAIssue, 0, len(all))
 	for _, t := range all {
@@ -101,8 +93,8 @@ func devTasksOnly(all []QAIssue) []QAIssue {
 	return dev
 }
 
-// GetQATasksAsAssignee returns sprint tasks assigned to the given email (or currentUser() if empty).
-// Resolves the email to an accountId first since Jira Cloud JQL requires accountId, not email.
+// GetQATasksAsAssignee returns the sprint tasks assigned to qaEmail, or to
+// currentUser() when it is empty or cannot be resolved.
 func (c *Client) GetQATasksAsAssignee(s QASchema, sprintName, qaEmail string) ([]QAIssue, error) {
 	return c.searchQAIssues(s, sprintAssigneeJQL(s, sprintName, c.assigneeClause(qaEmail)))
 }
@@ -114,9 +106,8 @@ func sprintAssigneeJQL(s QASchema, sprintName, assignee string) string {
 	)
 }
 
-// assigneeClause returns the JQL value for the QA user: the accountId of
-// qaEmail, already quoted, or currentUser() when there is no email or it
-// cannot be resolved.
+// assigneeClause returns qaEmail's accountId quoted (Jira Cloud JQL does not
+// accept emails), or currentUser().
 func (c *Client) assigneeClause(qaEmail string) string {
 	if qaEmail != "" {
 		if accountID, err := c.resolveAccountID(qaEmail); err == nil && accountID != "" {
@@ -126,8 +117,8 @@ func (c *Client) assigneeClause(qaEmail string) string {
 	return "currentUser()"
 }
 
-// BuildReviewMap builds a map of devTaskKey → QAIssue from a list of QA review tasks.
-// QA review tasks follow the pattern "Revisión de Tarea - APP-XXXX".
+// BuildReviewMap maps each dev task key to its QA review task
+// ("Revisión de Tarea - OPS-7").
 func BuildReviewMap(qaTasks []QAIssue) map[string]QAIssue {
 	m := make(map[string]QAIssue, len(qaTasks))
 	for _, t := range qaTasks {
@@ -138,22 +129,14 @@ func BuildReviewMap(qaTasks []QAIssue) map[string]QAIssue {
 	return m
 }
 
-// issueKeyRe matches a Jira issue key: a project key followed by a number.
 var issueKeyRe = regexp.MustCompile(`[A-Z][A-Z0-9]*-\d+`)
 
-// parseDevTaskKey extracts the dev task key from a QA review task summary,
-// e.g. "Revisión de Tarea - APP-1257" → "APP-1257".
-//
-// The first key in the summary wins: the descriptive prefix never contains one,
-// so the first match is the task under review even when a trailing note
-// mentions another key. Splitting on "-" instead — as this used to — broke on
-// any summary with a suffix ("… - APP-1257 - ajuste" yielded "1257 - ajuste")
-// and on an em dash.
+// parseDevTaskKey returns the first issue key in a review task summary: the
+// prefix never has one, and a trailing note may mention another key.
 func parseDevTaskKey(summary string) string {
 	return issueKeyRe.FindString(strings.ToUpper(summary))
 }
 
-// resolveAccountID looks up the Jira accountId for a given email address.
 func (c *Client) resolveAccountID(email string) (string, error) {
 	body, err := c.Get("/rest/api/3/user/search?query=" + url.QueryEscape(email))
 	if err != nil {
@@ -216,11 +199,8 @@ func (c *Client) searchQAIssues(s QASchema, jql string) ([]QAIssue, error) {
 	return issues, nil
 }
 
-// GetNovedadComment returns the observation text from comments matching "Novedad::texto".
-// If multiple such comments exist they are joined with "; ".
-// Returns an empty string and a nil error when the issue simply has none; an
-// error means the comments could not be read and the result says nothing about
-// whether observations exist.
+// GetNovedadComment returns the text after "Novedad::" in the issue's comments,
+// joined with "; ". An error means unknown, not "no observations".
 func (c *Client) GetNovedadComment(issueKey string) (string, error) {
 	body, err := c.Get(fmt.Sprintf("/rest/api/3/issue/%s/comment?orderBy=-created&maxResults=50", issueKey))
 	if err != nil {
@@ -249,7 +229,6 @@ func (c *Client) GetNovedadComment(issueKey string) (string, error) {
 	return strings.Join(parts, "; "), nil
 }
 
-// adfExtractText recursively collects all plain text nodes from an ADF document.
 func adfExtractText(node map[string]any) string {
 	if node["type"] == "text" {
 		if t, ok := node["text"].(string); ok {
@@ -267,7 +246,7 @@ func adfExtractText(node map[string]any) string {
 	return sb.String()
 }
 
-// businessDaysAgo returns the date N business days before from, skipping weekends.
+// businessDaysAgo returns the date n weekdays before from.
 func businessDaysAgo(n int, from time.Time) time.Time {
 	d := from
 	for count := 0; count < n; {
@@ -287,8 +266,8 @@ func KanbanWindow(now time.Time) (since time.Time, period string) {
 	return
 }
 
-// GetQATasksForReviewKanban returns all Kanban dev tasks (any component) that
-// transitioned to the testing status on or after sinceDate (format YYYY-MM-DD).
+// GetQATasksForReviewKanban returns the dev tasks of any module that moved to
+// the testing status after sinceDate (YYYY-MM-DD).
 func (c *Client) GetQATasksForReviewKanban(s QASchema, sinceDate string) ([]QAIssue, error) {
 	all, err := c.searchQAIssues(s, kanbanReviewJQL(s, sinceDate))
 	if err != nil {
@@ -304,7 +283,7 @@ func kanbanReviewJQL(s QASchema, sinceDate string) string {
 	)
 }
 
-// GetQATasksAsAssigneeKanban returns tasks assigned to the QA user updated on or after sinceDate.
+// GetQATasksAsAssigneeKanban returns the QA user's tasks updated since sinceDate.
 func (c *Client) GetQATasksAsAssigneeKanban(s QASchema, sinceDate, qaEmail string) ([]QAIssue, error) {
 	return c.searchQAIssues(s, kanbanAssigneeJQL(s, sinceDate, c.assigneeClause(qaEmail)))
 }
@@ -316,13 +295,8 @@ func kanbanAssigneeJQL(s QASchema, sinceDate, assignee string) string {
 	)
 }
 
-// HasDeployDocLink returns true if the issue has a remote link titled
-// "Documento de Despliegue...".
-//
-// A false with a non-nil error means "could not check", not "no document":
-// the caller must distinguish them, because the answer lands in a QA report
-// published as evidence. Returning false on error — as this used to — marked
-// compliant tasks as missing their document whenever the API hiccuped.
+// HasDeployDocLink reports whether the issue links a deploy document. An error
+// means "could not check", not "no document".
 func (c *Client) HasDeployDocLink(issueKey string) (bool, error) {
 	body, err := c.Get(fmt.Sprintf("/rest/api/3/issue/%s/remotelink", issueKey))
 	if err != nil {

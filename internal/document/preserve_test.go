@@ -5,9 +5,7 @@ import (
 	"testing"
 )
 
-// roundTrip marshals and unmarshals a document so the test exercises the same
-// float64-typed numbers that come back from Confluence, not the ints a freshly
-// built map holds.
+// roundTrip yields the float64 numbers a document has when it comes back from Confluence.
 func roundTrip(t *testing.T, doc map[string]any) map[string]any {
 	t.Helper()
 	raw, err := json.Marshal(doc)
@@ -44,7 +42,6 @@ func TestExtractSectionReturnsNodesBelowHeading(t *testing.T) {
 }
 
 func TestExtractSectionPreservesTaskStateVerbatim(t *testing.T) {
-	// A task the user already checked in Confluence must come back as DONE.
 	done := map[string]any{
 		"type":  "taskList",
 		"attrs": map[string]any{"localId": "tasklist-1"},
@@ -174,7 +171,6 @@ func TestBuildUsesPreservedSectionInsteadOfTemplate(t *testing.T) {
 		PreservedConsider: []any{marker},
 	})
 
-	// The regenerated document must round-trip the preserved section back out.
 	got := ExtractSection(roundTrip(t, adf), ConsiderHeading)
 	if len(got) != 1 {
 		t.Fatalf("esperaba 1 nodo preservado, obtuve %d", len(got))

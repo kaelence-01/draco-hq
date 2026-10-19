@@ -5,9 +5,7 @@ import (
 	"testing"
 )
 
-// sampleStorage covers the elements and macros StorageToText handles: headings,
-// inline formatting, ordered and nested lists, tables, status and note macros
-// and task lists.
+// sampleStorage has one of each element and macro StorageToText handles.
 const sampleStorage = `<h1>Resumen</h1><p>Texto <strong>clave</strong> del despliegue.</p>` +
 	`<h2>Pasos</h2><ol><li>Primero</li><li>Segundo<ul><li>Detalle</li></ul></li></ol>` +
 	`<h3>Tabla</h3><table><tbody><tr><th>Campo</th><th>Valor</th></tr><tr><td>Rama</td><td>main</td></tr></tbody></table>` +
@@ -21,8 +19,6 @@ var (
 	sep80 = strings.Repeat("-", 80)
 )
 
-// TestStorageToTextOutput pins the exact plain text produced for sampleStorage,
-// so a refactor of the builder cannot change what `draco fetch` writes.
 func TestStorageToTextOutput(t *testing.T) {
 	want := "\n" + bar80 + "\nRESUMEN\n" + bar80 + "\n" +
 		"Texto clave del despliegue.\n" +
@@ -82,8 +78,6 @@ func TestBuildIssueTxtVersionNeedsCreatedDate(t *testing.T) {
 	}
 }
 
-// TestStorageToTextRegressions covers one defect each, as rendered before the
-// fix and reproduced with real storage-format input.
 func TestStorageToTextRegressions(t *testing.T) {
 	cases := []struct {
 		name string
@@ -91,19 +85,16 @@ func TestStorageToTextRegressions(t *testing.T) {
 		want string
 	}{
 		{
-			// Whitespace between inline elements was dropped: "Rama:main".
 			name: "espacio entre elementos inline",
 			in:   `<p><strong>Rama:</strong> <code>main</code> y <em>dev</em></p>`,
 			want: "Rama: main y dev\n",
 		},
 		{
-			// HTML entities were left literal: "caf&eacute;", "Hola&nbsp;mundo".
 			name: "entidades HTML",
 			in:   `<p>Hola&nbsp;mundo &amp; caf&eacute; &lt;tag&gt;</p>`,
 			want: "Hola mundo & café <tag>\n",
 		},
 		{
-			// Every task was printed unchecked, even the completed ones.
 			name: "tareas completadas",
 			in: `<ac:task-list>` +
 				`<ac:task><ac:task-id>1</ac:task-id><ac:task-status>complete</ac:task-status><ac:task-body>Hecho</ac:task-body></ac:task>` +
@@ -112,8 +103,6 @@ func TestStorageToTextRegressions(t *testing.T) {
 			want: "  ☑ Hecho\n  ☐ Pendiente\n",
 		},
 		{
-			// A macro inside a panel reset the shared macro state and the panel
-			// lost its "[INFO: ...]" header.
 			name: "macro anidada en panel",
 			in: `<ac:structured-macro ac:name="info"><ac:parameter ac:name="title">Aviso</ac:parameter>` +
 				`<ac:rich-text-body><p>Estado <ac:structured-macro ac:name="status"><ac:parameter ac:name="title">OK</ac:parameter></ac:structured-macro> listo</p></ac:rich-text-body>` +
@@ -121,25 +110,21 @@ func TestStorageToTextRegressions(t *testing.T) {
 			want: "\n[INFO: Aviso]\nEstado [OK] listo\n",
 		},
 		{
-			// The sublist was glued to its parent item: "• Uno   • Uno.a".
 			name: "lista anidada",
 			in:   `<ul><li>Uno<ul><li>Uno.a</li><li>Uno.b</li></ul></li><li>Dos</li></ul>`,
 			want: "• Uno\n   • Uno.a\n   • Uno.b\n• Dos\n",
 		},
 		{
-			// An unclosed <br> swallowed the rest of the document.
 			name: "br sin cerrar",
 			in:   `<p>Linea 1<br>Linea 2</p><p>Siguiente</p>`,
 			want: "Linea 1\nLinea 2\nSiguiente\n",
 		},
 		{
-			// The start attribute of an ordered list was ignored.
 			name: "lista numerada con start",
 			in:   `<ol start="3"><li>Tres</li><li>Cuatro</li></ol>`,
 			want: "3. Tres\n4. Cuatro\n",
 		},
 		{
-			// Indentation between block elements must not leak into the text.
 			name: "indentación entre bloques",
 			in:   "<p>Uno</p>\n  <p>Dos</p>\n<ul>\n  <li>A</li>\n  <li>B</li>\n</ul>",
 			want: "Uno\nDos\n• A\n• B\n",
@@ -153,9 +138,6 @@ func TestStorageToTextRegressions(t *testing.T) {
 	}
 }
 
-// TestStorageToTextMarksTruncatedOutput checks that a body the parser cannot
-// read to the end keeps the text read so far and says it is incomplete, instead
-// of silently passing for the whole document.
 func TestStorageToTextMarksTruncatedOutput(t *testing.T) {
 	got := StorageToText(`<p>Antes</p><p>a</q><p>Despues</p>`)
 

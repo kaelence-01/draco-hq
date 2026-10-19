@@ -26,7 +26,6 @@ func textOf(nodes []any) string {
 }
 
 func TestQAPreservedSurvivesRegeneration(t *testing.T) {
-	// The page as QA left it: a note in the summary and two considerations.
 	published := roundTrip(t, qaReport(QAPreserved{
 		Observation: []any{paragraph(textNode("Sin bloqueos"))},
 		Considerations: []any{
@@ -43,7 +42,6 @@ func TestQAPreservedSurvivesRegeneration(t *testing.T) {
 		t.Fatalf("esperaba 2 nodos en Consideraciones, obtuve %d", len(got.Considerations))
 	}
 
-	// Regenerating with what was read back keeps it, a second time too.
 	again := ExtractQAPreserved(roundTrip(t, qaReport(got)))
 	if textOf(again.Observation) != "Sin bloqueos" || len(again.Considerations) != 2 {
 		t.Errorf("la segunda regeneración perdió contenido: %#v", again)

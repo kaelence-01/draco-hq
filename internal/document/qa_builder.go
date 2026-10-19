@@ -8,8 +8,7 @@ import (
 	"github.com/kaelence-01/draco-hq/internal/atlassian"
 )
 
-// QADoc holds all data needed to build the QA consolidated report ADF document.
-// Sprint > 0 means sprint mode; Sprint == 0 with Period set means Kanban mode.
+// QADoc is the data of the QA report. Sprint 0 with Period set is Kanban mode.
 type QADoc struct {
 	Sprint  int
 	Period  string // used in Kanban mode, e.g. "08/05 al 22/05/2026"
@@ -17,34 +16,29 @@ type QADoc struct {
 	Tasks   []atlassian.QAIssue // Tabla Consolidada (Testing / En Revisión)
 	QATasks []atlassian.QAIssue // Resumen — tasks assigned to the QA user
 
-	// Names for the report header, read from config (qa_report). Empty values
-	// render as "—" rather than a placeholder that looks like real data.
+	// Header names from qa_report; empty renders as "—".
 	LiderTecnico string
 	PMO          string
 	QA           string
 
-	// Preserved is what QA wrote by hand in the page being replaced; zero for a
-	// new report.
+	// Preserved is zero for a new report.
 	Preserved QAPreserved
 }
 
-// Headings that open the parts of the report QA fills in by hand.
 const (
 	qaSummaryHeading        = "Resumen"
 	qaConsiderationsHeading = "Consideraciones"
 )
 
-// QAPreserved holds what QA wrote by hand in a published report: the
-// "Observación" cell of the summary and the "Consideraciones" section.
-// Confluence replaces the whole body on update, so both are read back from the
-// current page and emitted again. A nil field renders empty, as in a new report.
+// QAPreserved is what QA writes by hand: the summary's "Observación" cell and
+// the "Consideraciones" section. An update replaces the whole body, so both are
+// read back and emitted again. A nil field renders empty.
 type QAPreserved struct {
 	Observation    []any // content of the "Observación" cell
 	Considerations []any // nodes under the "Consideraciones" heading
 }
 
-// ExtractQAPreserved reads the hand-written parts back from a published report.
-// A nil field means the part was not found, or was found empty.
+// ExtractQAPreserved reads them back; a nil field means not found or empty.
 func ExtractQAPreserved(adf map[string]any) QAPreserved {
 	return QAPreserved{
 		Observation:    summaryObservation(adf),
@@ -52,8 +46,7 @@ func ExtractQAPreserved(adf map[string]any) QAPreserved {
 	}
 }
 
-// summaryObservation returns the content of the "Observación" cell: the second
-// cell of the data row in the first table under the summary heading.
+// summaryObservation reads the second cell of the data row of the summary table.
 func summaryObservation(adf map[string]any) []any {
 	for _, raw := range ExtractSection(adf, qaSummaryHeading) {
 		node, ok := raw.(map[string]any)
@@ -76,7 +69,7 @@ func summaryObservation(adf map[string]any) []any {
 	return nil
 }
 
-// BuildQA constructs the ADF document for the QA consolidated report.
+// BuildQA builds the ADF of the QA report.
 func BuildQA(doc QADoc) map[string]any {
 	var periodHeader, periodValue string
 	if doc.Sprint > 0 {
@@ -108,7 +101,7 @@ func qaConsiderations(preserved []any) []any {
 	return []any{qaEmptyBullet()}
 }
 
-// BuildQATitle returns "Consolidado de Pruebas QA - FAC - Sprint 17".
+// BuildQATitle returns "Consolidado de Pruebas QA - Pagos - Sprint 17".
 func BuildQATitle(module string, sprint int) string {
 	return fmt.Sprintf("Consolidado de Pruebas QA - %s - Sprint %d", module, sprint)
 }
@@ -144,8 +137,6 @@ func qaInfoTable(periodHeader, periodValue string, doc QADoc) map[string]any {
 	})
 }
 
-// orDash renders an unset value as an em dash, so a missing config key is
-// visibly empty in the published report instead of silently absent.
 func orDash(s string) string {
 	if strings.TrimSpace(s) == "" {
 		return "—"
@@ -208,11 +199,8 @@ func qaResumenTable(totalTasks int, observation []any) map[string]any {
 	})
 }
 
-// qaCheck renders a verification whose answer may be unknown. An unverified
-// check shows "?" instead of a cross: a failed lookup is not evidence that the
-// task lacks its document, and this table is published as QA evidence. Plain
-// text rather than an emoji, so it renders regardless of which emoji set the
-// Confluence instance resolves.
+// qaCheck renders an unknown answer as "?", never as a cross: the table is QA
+// evidence. Plain text, so it renders with any emoji set.
 func qaCheck(ok, unknown bool) map[string]any {
 	if unknown {
 		return textNode("?")

@@ -17,10 +17,8 @@ var macroLabels = map[string]string{
 	"tip":     "TIP",
 }
 
-// blockContainers hold only block children. A whitespace-only run directly
-// inside them is source indentation between those children and is dropped;
-// anywhere else it separates inline words ("<b>Rama:</b> <code>main</code>")
-// and is kept as a single space.
+// blockContainers hold only block children: whitespace directly inside them is
+// indentation and is dropped; elsewhere it separates words and becomes a space.
 var blockContainers = map[string]bool{
 	"__root__": true, "ul": true, "ol": true,
 	"table": true, "tbody": true, "thead": true, "tfoot": true, "tr": true,
@@ -28,23 +26,18 @@ var blockContainers = map[string]bool{
 	"task-list": true, "task": true,
 }
 
-// truncatedNotice is appended when the storage body cannot be parsed to the
-// end, so a partial export is visible instead of passing for a complete one.
+// truncatedNotice marks an export the parser could not read to the end.
 const truncatedNotice = "[draco: el resto del documento no se pudo convertir a texto; revísalo en Confluence]"
 
-// StorageToText converts Confluence storage-format XML to readable plain text.
-// It handles common HTML elements (headings, lists, tables, paragraphs) and
-// the most frequent Confluence macros (status, note, warning, info, tip, tasks).
+// StorageToText converts Confluence storage-format XML to plain text.
 func StorageToText(raw string) string {
-	// Wrap with a root element that declares the Confluence namespaces so the
-	// XML parser doesn't reject namespace-prefixed elements.
+	// The root declares the Confluence namespaces so prefixed elements parse.
 	wrapped := `<__root__ xmlns:ac="atlassian:confluence:ac" xmlns:ri="atlassian:confluence:ri" xmlns:at="atlassian:confluence:at">` +
 		raw + `</__root__>`
 
 	dec := xml.NewDecoder(strings.NewReader(wrapped))
 	dec.Strict = false
-	// Storage bodies use HTML entities (&nbsp;, &eacute;) and may carry void
-	// elements written HTML-style (<br>), which plain XML would reject.
+	// Storage uses HTML entities and void elements (<br>) that strict XML rejects.
 	dec.Entity = xml.HTMLEntity
 	dec.AutoClose = xml.HTMLAutoClose
 
@@ -76,8 +69,7 @@ func StorageToText(raw string) string {
 	return cleanupStorageText(c.cur().buf.String())
 }
 
-// storageFrame is an open element: the text its children produced so far plus
-// the per-element state some elements need until they close.
+// storageFrame is an open element: its children's text and its own state.
 type storageFrame struct {
 	tag string
 	buf strings.Builder
@@ -88,27 +80,23 @@ type storageFrame struct {
 	taskDone  bool              // task: ac:task-status was "complete"
 }
 
-// storageConverter renders each element into its parent frame when it closes.
-// Macro and task state live in their own frame, so nested macros (a status
-// inside an info panel) do not overwrite the enclosing one.
+// storageConverter renders each element into its parent when it closes. State
+// lives per frame so a nested macro does not overwrite the enclosing one.
 type storageConverter struct {
 	stack      []*storageFrame
 	listStack  []string // "ul" or "ol" per nesting level
 	listCounts []int    // last number emitted per nesting level
 }
 
-// cur returns the innermost open element.
 func (c *storageConverter) cur() *storageFrame { return c.stack[len(c.stack)-1] }
 
-// pop closes the innermost open element and returns it.
 func (c *storageConverter) pop() *storageFrame {
 	f := c.stack[len(c.stack)-1]
 	c.stack = c.stack[:len(c.stack)-1]
 	return f
 }
 
-// flushUnclosed appends the text of every still-open element to its parent,
-// so a parse error keeps what was read up to that point.
+// flushUnclosed keeps the text of still-open elements after a parse error.
 func (c *storageConverter) flushUnclosed() {
 	for len(c.stack) > 1 {
 		f := c.pop()
@@ -116,7 +104,6 @@ func (c *storageConverter) flushUnclosed() {
 	}
 }
 
-// startElement opens a frame and records the state the element needs when it closes.
 func (c *storageConverter) startElement(t xml.StartElement) {
 	f := &storageFrame{tag: t.Name.Local}
 	c.stack = append(c.stack, f)
@@ -136,8 +123,7 @@ func (c *storageConverter) startElement(t xml.StartElement) {
 	}
 }
 
-// charData appends text to the open element. Whitespace-only runs become one
-// separating space, except directly inside block containers (see blockContainers).
+// charData appends text; see blockContainers for whitespace-only runs.
 func (c *storageConverter) charData(text string) {
 	f := c.cur()
 	text = strings.ReplaceAll(text, " ", " ")
@@ -154,7 +140,6 @@ func (c *storageConverter) charData(text string) {
 	}
 }
 
-// endElement closes the innermost element and renders its text into the parent.
 func (c *storageConverter) endElement() {
 	if len(c.stack) <= 1 {
 		return
@@ -211,7 +196,7 @@ func (c *storageConverter) endElement() {
 		writeLine(out, strings.TrimRight(content, "\n"))
 
 	case "tr":
-		// Each td/th appended its text + delimiter; strip trailing delimiter and emit row.
+		// Each cell appended a delimiter: drop the last one.
 		row := strings.TrimSpace(strings.TrimRight(strings.TrimSpace(content), "|"))
 		if row != "" {
 			writeLine(out, "  ", row)
@@ -249,23 +234,19 @@ func (c *storageConverter) endElement() {
 		// skip
 
 	case "link":
-		// ac:link — use body text if present, otherwise skip
 		out.WriteString(strings.TrimSpace(content))
 
 	case "image", "attachment", "emoticon", "inline-comment-marker",
 		"placeholder", "page", "user":
-		// skip non-text nodes
+		// no text
 
 	default:
-		// Inline formatting (strong, em, code, span…), pass-through containers
-		// (tbody, rich-text-body, task-list…), the root and unknown elements:
-		// emit their collected text so nothing is silently dropped.
+		// Inline, pass-through and unknown elements keep their text.
 		out.WriteString(content)
 	}
 }
 
-// writeListItem writes one list item, numbered for "ol" and bulleted for "ul",
-// indented by its nesting depth.
+// writeListItem writes a numbered or bulleted item, indented by nesting depth.
 func (c *storageConverter) writeListItem(out *strings.Builder, text string) {
 	indent := strings.Repeat("   ", max(len(c.listStack)-1, 0))
 
@@ -315,8 +296,7 @@ func attrValue(attrs []xml.Attr, local string) string {
 	return ""
 }
 
-// listStart returns the first number of an ordered list: its start attribute
-// when it is a valid positive integer, 1 otherwise.
+// listStart returns an ordered list's start attribute, or 1 if missing or invalid.
 func listStart(attrs []xml.Attr) int {
 	if n, err := strconv.Atoi(attrValue(attrs, "start")); err == nil && n > 0 {
 		return n
@@ -324,8 +304,6 @@ func listStart(attrs []xml.Attr) int {
 	return 1
 }
 
-// writeLine writes parts to b followed by a newline, without building an
-// intermediate concatenated string.
 func writeLine(b *strings.Builder, parts ...string) {
 	for _, p := range parts {
 		b.WriteString(p)

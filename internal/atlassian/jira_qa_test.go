@@ -69,7 +69,7 @@ func TestBuildReviewMapIndexesByDevTaskKey(t *testing.T) {
 }
 
 func TestBusinessDaysAgoSkipsWeekends(t *testing.T) {
-	// Lunes 2026-09-21 menos 10 días hábiles = lunes 2026-09-07.
+	// Monday 2026-09-21 minus 10 business days is Monday 2026-09-07.
 	from := time.Date(2026, 9, 21, 12, 0, 0, 0, time.UTC)
 	got := businessDaysAgo(10, from)
 
@@ -92,7 +92,6 @@ func TestKanbanWindow(t *testing.T) {
 }
 
 func TestBusinessDaysAgoNeverLandsOnWeekend(t *testing.T) {
-	// Every day of one week, for several window sizes.
 	for day := 19; day <= 25; day++ {
 		from := time.Date(2026, 9, day, 12, 0, 0, 0, time.UTC)
 		for _, n := range []int{1, 5, 10, 22} {

@@ -6,13 +6,10 @@ import (
 	"strings"
 )
 
-// modulePlaceholder marks, inside a module pattern, the path segment that
-// names the module: "app/Http/{modulo}/**".
+// modulePlaceholder is the path segment that names the module: "app/Http/{modulo}/**".
 const modulePlaceholder = "{modulo}"
 
-// modulePattern is one parsed entry of Options.Modules. A pattern either has
-// a fixed name ("Facturacion=resources/views/reportesFac/**") or takes the
-// name from the {modulo} segment of the path ("app/Http/{modulo}/**").
+// modulePattern is one parsed entry of Options.Modules.
 type modulePattern struct {
 	name  string // fixed name; empty when the name comes from {modulo}
 	glob  string // pattern with {modulo} replaced by *
@@ -25,9 +22,8 @@ type ModuleCount struct {
 	Count  int    `json:"hallazgos"`
 }
 
-// parseModulePatterns validates Options.Modules. {modulo} must be a whole
-// segment and cannot follow "**", or the segment that names the module would
-// be ambiguous. Invalid entries are returned as errors and left out.
+// parseModulePatterns validates Options.Modules, returning invalid entries as errors.
+// {modulo} must be a whole segment before any "**", or the module is ambiguous.
 func parseModulePatterns(entries []string) ([]modulePattern, []error) {
 	var patterns []modulePattern
 	var errs []error
@@ -69,10 +65,8 @@ func parseModulePatterns(entries []string) ([]modulePattern, []error) {
 	return patterns, errs
 }
 
-// moduleOf returns the module of a repo-relative path: the first pattern
-// that matches wins. Empty when no pattern matches. {modulo} must land on a
-// folder: "app/Http/Controller.php" matches "app/Http/{modulo}/**" but is a
-// file directly under app/Http, not a module, so the next pattern is tried.
+// moduleOf returns the module of the first matching pattern, or "".
+// {modulo} must land on a folder: a file directly above it is not a module.
 func moduleOf(patterns []modulePattern, p string) string {
 	segments := strings.Split(p, "/")
 	for _, mp := range patterns {
@@ -90,9 +84,7 @@ func moduleOf(patterns []modulePattern, p string) string {
 	return ""
 }
 
-// moduleDisplayName writes a folder name the way the backend names modules
-// (PascalCase), so the same module reads the same in every repo:
-// "cuentas-por-cobrar" → "CuentasPorCobrar", "pagos" → "Pagos".
+// moduleDisplayName writes a folder name in PascalCase: "cuentas-por-cobrar" → "CuentasPorCobrar".
 func moduleDisplayName(folder string) string {
 	parts := strings.FieldsFunc(folder, func(r rune) bool { return r == '-' || r == '_' || r == '.' })
 	var b strings.Builder
@@ -104,8 +96,7 @@ func moduleDisplayName(folder string) string {
 	return b.String()
 }
 
-// ModuleKey normalizes a module name for comparison: case, '-', '_' and
-// spaces do not matter, so "cuentas-por-cobrar" equals "CuentasPorCobrar".
+// ModuleKey normalizes a module name for comparison, ignoring case, '-', '_' and spaces.
 func ModuleKey(name string) string {
 	return strings.Map(func(r rune) rune {
 		if r == '-' || r == '_' || r == ' ' {
@@ -115,8 +106,7 @@ func ModuleKey(name string) string {
 	}, strings.ToLower(name))
 }
 
-// countModules summarizes findings per module, most findings first. Findings
-// without a module are counted under the empty name, always last.
+// countModules summarizes findings per module, most first; no module goes last.
 func countModules(findings []Finding) []ModuleCount {
 	counts := map[string]int{}
 	for _, f := range findings {
@@ -139,9 +129,8 @@ func countModules(findings []Finding) []ModuleCount {
 	return out
 }
 
-// FilterModules keeps only the findings of the given modules (compared with
-// ModuleKey) and records the filter in the report. Total becomes the number
-// of findings that pass; Modules keeps the summary of the whole scan.
+// FilterModules keeps the findings of the given modules. Total counts what
+// passes; Modules keeps the summary of the whole scan.
 func (r *Report) FilterModules(modules []string) {
 	keys := map[string]bool{}
 	for _, m := range modules {

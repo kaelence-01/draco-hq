@@ -15,8 +15,8 @@ type CommitFiles struct {
 	Files    []string
 }
 
-// GetChangedFiles runs git show --name-only and returns the list of changed files.
-// workDir sets the working directory for git; empty string uses the current directory.
+// GetChangedFiles lists the files changed by a commit. An empty workDir is the
+// current directory.
 func GetChangedFiles(commitHash, workDir string) ([]string, error) {
 	gitPath, err := exec.LookPath("git")
 	if err != nil {
@@ -50,8 +50,7 @@ func GetChangedFiles(commitHash, workDir string) ([]string, error) {
 	return files, nil
 }
 
-// GetChangedFilesMulti returns the union of changed files across multiple commits.
-// Duplicate file paths are deduplicated; order of first appearance is preserved.
+// GetChangedFilesMulti returns the deduplicated union, in order of first appearance.
 func GetChangedFilesMulti(hashes []string, workDir string) ([]string, error) {
 	seen := make(map[string]bool)
 	var all []string
@@ -70,9 +69,8 @@ func GetChangedFilesMulti(hashes []string, workDir string) ([]string, error) {
 	return all, nil
 }
 
-// explainGitError traduce el stderr de git en un mensaje accionable para el usuario.
-// Cubre los 3 errores más frecuentes al leer commits: hash inexistente localmente,
-// directorio que no es un repo Git, y hash ambiguo.
+// explainGitError turns git's stderr into an actionable message: unknown or
+// ambiguous hash, or not a git repository.
 func explainGitError(stderr, commitHash, workDir string) string {
 	s := strings.ToLower(stderr)
 	loc := workDir
@@ -114,8 +112,7 @@ func explainGitError(stderr, commitHash, workDir string) string {
 	return fmt.Sprintf("error al leer el commit %s: %s", commitHash, strings.TrimSpace(stderr))
 }
 
-// GroupByDirectory agrupa los archivos por su directorio padre,
-// útil para construir las filas de la tabla del documento.
+// GroupByDirectory groups file names by their parent directory.
 func GroupByDirectory(files []string) map[string][]string {
 	groups := make(map[string][]string)
 	for _, f := range files {

@@ -7,8 +7,7 @@ import (
 	"testing"
 )
 
-// isolateConfig points the home directory at an empty temp dir and clears the
-// env var layer, so the tests never read the developer's real config.yaml.
+// isolateConfig keeps the tests away from the developer's real config and env.
 func isolateConfig(t *testing.T) string {
 	t.Helper()
 	home := t.TempDir()
@@ -20,7 +19,6 @@ func isolateConfig(t *testing.T) string {
 	return home
 }
 
-// writeConfig writes content as ~/.config/draco/config.yaml under home.
 func writeConfig(t *testing.T, home, content string) {
 	t.Helper()
 	dir := filepath.Join(home, ".config", "draco")
