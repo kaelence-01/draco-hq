@@ -80,6 +80,17 @@ func TestBusinessDaysAgoSkipsWeekends(t *testing.T) {
 	}
 }
 
+func TestKanbanWindow(t *testing.T) {
+	now := time.Date(2026, 9, 21, 12, 0, 0, 0, time.UTC)
+	since, period := KanbanWindow(now)
+	if got := since.Format("2006-01-02"); got != "2026-09-07" {
+		t.Errorf("since = %s, esperaba 2026-09-07", got)
+	}
+	if period != "07/09 al 21/09/2026" {
+		t.Errorf("period = %q, esperaba %q", period, "07/09 al 21/09/2026")
+	}
+}
+
 func TestBusinessDaysAgoNeverLandsOnWeekend(t *testing.T) {
 	// Every day of one week, for several window sizes.
 	for day := 19; day <= 25; day++ {

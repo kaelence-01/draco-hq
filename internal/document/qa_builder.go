@@ -22,6 +22,58 @@ type QADoc struct {
 	LiderTecnico string
 	PMO          string
 	QA           string
+
+	// Preserved is what QA wrote by hand in the page being replaced; zero for a
+	// new report.
+	Preserved QAPreserved
+}
+
+// Headings that open the parts of the report QA fills in by hand.
+const (
+	qaSummaryHeading        = "Resumen"
+	qaConsiderationsHeading = "Consideraciones"
+)
+
+// QAPreserved holds what QA wrote by hand in a published report: the
+// "Observación" cell of the summary and the "Consideraciones" section.
+// Confluence replaces the whole body on update, so both are read back from the
+// current page and emitted again. A nil field renders empty, as in a new report.
+type QAPreserved struct {
+	Observation    []any // content of the "Observación" cell
+	Considerations []any // nodes under the "Consideraciones" heading
+}
+
+// ExtractQAPreserved reads the hand-written parts back from a published report.
+// A nil field means the part was not found, or was found empty.
+func ExtractQAPreserved(adf map[string]any) QAPreserved {
+	return QAPreserved{
+		Observation:    summaryObservation(adf),
+		Considerations: ExtractSection(adf, qaConsiderationsHeading),
+	}
+}
+
+// summaryObservation returns the content of the "Observación" cell: the second
+// cell of the data row in the first table under the summary heading.
+func summaryObservation(adf map[string]any) []any {
+	for _, raw := range ExtractSection(adf, qaSummaryHeading) {
+		node, ok := raw.(map[string]any)
+		if !ok || node["type"] != "table" {
+			continue
+		}
+		rows, _ := node["content"].([]any)
+		if len(rows) < 2 {
+			return nil
+		}
+		row, _ := rows[1].(map[string]any)
+		cells, _ := row["content"].([]any)
+		if len(cells) < 2 {
+			return nil
+		}
+		cell, _ := cells[1].(map[string]any)
+		content, _ := cell["content"].([]any)
+		return copyNodes(content)
+	}
+	return nil
 }
 
 // BuildQA constructs the ADF document for the QA consolidated report.
@@ -37,17 +89,23 @@ func BuildQA(doc QADoc) map[string]any {
 	return map[string]any{
 		"type":    "doc",
 		"version": 1,
-		"content": []any{
+		"content": append([]any{
 			heading(2, "Información General"),
 			qaInfoTable(periodHeader, periodValue, doc),
 			heading(2, "Tabla Consolidada"),
 			qaConsolidatedTable(doc.Tasks),
-			heading(2, "Resumen"),
-			qaResumenTable(len(doc.Tasks)),
-			heading(3, "Consideraciones"),
-			qaEmptyBullet(),
-		},
+			heading(2, qaSummaryHeading),
+			qaResumenTable(len(doc.Tasks), doc.Preserved.Observation),
+			heading(3, qaConsiderationsHeading),
+		}, qaConsiderations(doc.Preserved.Considerations)...),
 	}
+}
+
+func qaConsiderations(preserved []any) []any {
+	if len(preserved) > 0 {
+		return preserved
+	}
+	return []any{qaEmptyBullet()}
 }
 
 // BuildQATitle returns "Consolidado de Pruebas QA - FAC - Sprint 17".
@@ -133,7 +191,11 @@ func qaConsolidatedTable(tasks []atlassian.QAIssue) map[string]any {
 	return table("full-width", 800, rows)
 }
 
-func qaResumenTable(totalTasks int) map[string]any {
+func qaResumenTable(totalTasks int, observation []any) map[string]any {
+	obsCell := qaTableCellEmpty(560)
+	if len(observation) > 0 {
+		obsCell["content"] = observation
+	}
 	return table("full-width", 760, []any{
 		tableRow([]any{
 			tableHeader(200, textNode("Total de Tareas")),
@@ -141,7 +203,7 @@ func qaResumenTable(totalTasks int) map[string]any {
 		}),
 		tableRow([]any{
 			tableCell(200, textNode(fmt.Sprintf("%d", totalTasks))),
-			qaTableCellEmpty(560),
+			obsCell,
 		}),
 	})
 }
