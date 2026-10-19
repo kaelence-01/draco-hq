@@ -136,7 +136,6 @@ func TestHotspotFindingsThresholdAndSeverity(t *testing.T) {
 		got[f.Files[0]] = f.Severity
 	}
 
-	// A hotspot rises to high when it is also over MaxLines.
 	want := map[string]Severity{"app/Medio.php": SeverityMedium, "app/Alto.php": SeverityHigh}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("hotspots: %#v, want %#v", got, want)
@@ -207,7 +206,6 @@ func TestLargeFileFinding(t *testing.T) {
 	if largeFileFinding("a.php", 800, o) != nil {
 		t.Error("en el umbral exacto no debe reportarse")
 	}
-	// A large file that is not a hotspot is low priority unless it is huge.
 	for lines, want := range map[int]Severity{900: SeverityLow, 2399: SeverityLow, 2400: SeverityMedium} {
 		if f := largeFileFinding("a.php", lines, o); f == nil || f.Severity != want {
 			t.Errorf("%d líneas: %#v, want %s", lines, f, want)
@@ -318,7 +316,6 @@ func TestFindingIDIsStable(t *testing.T) {
 	}
 }
 
-// TestScanOnTempRepo runs a whole scan against a throwaway git repository.
 func TestScanOnTempRepo(t *testing.T) {
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git no está disponible")

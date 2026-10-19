@@ -16,8 +16,7 @@ type repo struct {
 	gitPath string
 }
 
-// openRepo resolves git to an absolute path (P-005) and checks that dir is the
-// root of a git work tree.
+// openRepo resolves git to an absolute path (P-005) and checks that dir is a work tree.
 func openRepo(dir string) (*repo, error) {
 	gitPath, err := exec.LookPath("git")
 	if err != nil {
@@ -39,7 +38,6 @@ func openRepo(dir string) (*repo, error) {
 	return r, nil
 }
 
-// git runs a git subcommand in the repo and returns its stdout.
 func (r *repo) git(args ...string) ([]byte, error) {
 	cmd := exec.Command(r.gitPath, args...)
 	cmd.Dir = r.dir
@@ -57,8 +55,7 @@ func (r *repo) git(args ...string) ([]byte, error) {
 	return out, nil
 }
 
-// trackedFiles lists the files git tracks, as slash-separated paths relative
-// to the repo root. Ignored files (vendor, builds) never appear.
+// trackedFiles lists tracked files as slash-separated repo-relative paths.
 func (r *repo) trackedFiles() ([]string, error) {
 	out, err := r.git("ls-files", "-z")
 	if err != nil {
@@ -73,13 +70,11 @@ func (r *repo) trackedFiles() ([]string, error) {
 	return files, nil
 }
 
-// readFile reads a tracked file by its repo-relative path.
 func (r *repo) readFile(rel string) ([]byte, error) {
 	return os.ReadFile(filepath.Join(r.dir, filepath.FromSlash(rel)))
 }
 
-// gitSubcommand names the git subcommand in args for error messages, skipping
-// leading "-c key=value" options.
+// gitSubcommand names the subcommand in args, skipping leading "-c key=value".
 func gitSubcommand(args []string) string {
 	for i := 0; i < len(args); i++ {
 		if args[i] == "-c" {

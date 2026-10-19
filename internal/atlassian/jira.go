@@ -6,14 +6,13 @@ import (
 	"strings"
 )
 
-// Issue represents a Jira issue (minimal fields we need).
+// Issue is the part of a Jira issue draco uses.
 type Issue struct {
 	Key     string
 	Summary string
 	URL     string
 }
 
-// jiraIssueResponse represents the Jira API response for an issue.
 type jiraIssueResponse struct {
 	Key    string `json:"key"`
 	Fields struct {
@@ -21,17 +20,15 @@ type jiraIssueResponse struct {
 	} `json:"fields"`
 }
 
-// JiraUser represents the authenticated user as returned by /rest/api/3/myself.
+// JiraUser is the authenticated user, as /rest/api/3/myself returns it.
 type JiraUser struct {
 	AccountID    string `json:"accountId"`
 	EmailAddress string `json:"emailAddress"`
 	DisplayName  string `json:"displayName"`
 }
 
-// Whoami returns the user authenticated by the current credentials.
-// Useful to detect typos in the configured email — Atlassian Basic Auth
-// silently returns empty results when the email/token combo is invalid,
-// so we verify against /rest/api/3/myself early.
+// Whoami returns the authenticated user. Basic Auth with a wrong email returns
+// empty results instead of failing, so callers verify the account early.
 func (c *Client) Whoami() (*JiraUser, error) {
 	body, err := c.Get("/rest/api/3/myself")
 	if err != nil {
@@ -44,10 +41,8 @@ func (c *Client) Whoami() (*JiraUser, error) {
 	return &u, nil
 }
 
-// VerifyCredentialsMatch calls Whoami and warns to stderr-style output if the
-// authenticated email doesn't match the configured one. Returns the user and
-// a non-nil error only when the call itself fails (auth/network).
-// A mismatch is reported via the warn callback so the caller can decide format.
+// VerifyCredentialsMatch calls Whoami and reports through warn when the
+// authenticated email differs from configuredEmail; it errors only if the call fails.
 func (c *Client) VerifyCredentialsMatch(configuredEmail string, warn func(string)) (*JiraUser, error) {
 	u, err := c.Whoami()
 	if err != nil {
@@ -65,8 +60,8 @@ func (c *Client) VerifyCredentialsMatch(configuredEmail string, warn func(string
 	return u, nil
 }
 
-// CreateJiraRemoteLink creates (or updates) a remote link on a Jira issue pointing to a Confluence page.
-// Using globalId makes the call idempotent — re-running generate updates the link instead of duplicating it.
+// CreateJiraRemoteLink links the issue to a Confluence page. The globalId makes
+// it idempotent: a rerun updates the link instead of duplicating it.
 func (c *Client) CreateJiraRemoteLink(issueKey, pageID, pageURL, pageTitle string) error {
 	payload := map[string]any{
 		"globalId":     "confluence-page:" + pageID,
@@ -80,7 +75,7 @@ func (c *Client) CreateJiraRemoteLink(issueKey, pageID, pageURL, pageTitle strin
 	return err
 }
 
-// GetIssue returns a Jira issue by key (e.g. APP-1999).
+// GetIssue returns a Jira issue by key.
 func (c *Client) GetIssue(issueKey string) (*Issue, error) {
 	path := fmt.Sprintf("/rest/api/3/issue/%s?fields=summary", issueKey)
 

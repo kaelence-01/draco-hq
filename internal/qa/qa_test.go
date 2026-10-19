@@ -13,7 +13,6 @@ import (
 	"github.com/kaelence-01/draco-hq/internal/document"
 )
 
-// fakeAPI records what the workflow asks Atlassian and answers from its fields.
 type fakeAPI struct {
 	me         *atlassian.JiraUser
 	meErr      error
@@ -121,8 +120,6 @@ func sprintTarget(t *testing.T) *Target {
 	return tg
 }
 
-// --- Resolve ---
-
 func TestResolveSprintMode(t *testing.T) {
 	tg := sprintTarget(t)
 	if tg.Kanban {
@@ -211,8 +208,6 @@ func TestResolveWithoutReportNamesWarns(t *testing.T) {
 	}
 }
 
-// --- CheckAccount ---
-
 func TestCheckAccount(t *testing.T) {
 	cases := []struct {
 		name    string
@@ -244,8 +239,6 @@ func TestCheckAccountPropagatesAuthError(t *testing.T) {
 		t.Errorf("un fallo de autenticación no es ErrNotQAAccount: %v", err)
 	}
 }
-
-// --- Collect ---
 
 func TestCollectSprintLinksReviewTasks(t *testing.T) {
 	api := &fakeAPI{
@@ -290,8 +283,6 @@ func TestCollectPropagatesErrors(t *testing.T) {
 	}
 }
 
-// --- EvaluateTask ---
-
 func TestEvaluateTaskFailedLookupIsUnknown(t *testing.T) {
 	api := &fakeAPI{docErr: map[string]error{"OPS-7": errors.New("403")}}
 	s := NewSession(api, sprintTarget(t))
@@ -305,7 +296,6 @@ func TestEvaluateTaskFailedLookupIsUnknown(t *testing.T) {
 		t.Errorf("esperaba un aviso con la tarea: %v", warnings)
 	}
 
-	// Re-evaluating after the error clears is not stuck on unknown.
 	api.docErr = nil
 	api.docLinks = map[string]bool{"OPS-7": true}
 	if w := s.EvaluateTask(0); len(w) != 0 || s.Tasks[0].DeployDocUnknown || !s.Tasks[0].HasDeployDoc {
@@ -332,8 +322,6 @@ func TestEvaluateTaskObservations(t *testing.T) {
 		t.Errorf("un fallo debe decirse en la celda y en un aviso: %q %v", s.Tasks[0].Observations, w)
 	}
 }
-
-// --- Draft ---
 
 // roundTrip passes a document through JSON, as it comes back from Confluence.
 func roundTrip(t *testing.T, doc map[string]any) map[string]any {
@@ -401,8 +389,6 @@ func TestDraftUpdateReportsLostParts(t *testing.T) {
 		t.Errorf("esperaba un aviso por el formato: %v", d.Warnings)
 	}
 }
-
-// --- Locations and Publish ---
 
 func TestLocations(t *testing.T) {
 	api := &fakeAPI{}

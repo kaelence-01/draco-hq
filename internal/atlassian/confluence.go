@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-// Page represents a Confluence page (minimal fields we need).
+// Page is the part of a Confluence page draco uses.
 type Page struct {
 	ID       string `json:"id"`
 	Title    string `json:"title"`
@@ -17,7 +17,6 @@ type Page struct {
 	WebURL   string
 }
 
-// SearchResult represents the Confluence search response.
 type searchResponse struct {
 	Results []struct {
 		Content struct {
@@ -33,7 +32,6 @@ type searchResponse struct {
 	} `json:"results"`
 }
 
-// pageResponse represents a single page response from Confluence API.
 type pageResponse struct {
 	ID       string `json:"id"`
 	Title    string `json:"title"`
@@ -48,14 +46,12 @@ type pageResponse struct {
 	} `json:"_links"`
 }
 
-// deployDocSearchLimit is the max number of recent deploy docs shown when
-// asking the user where to place a new document.
+// deployDocSearchLimit caps the deploy documents offered as a location.
 const deployDocSearchLimit = 10
 
-// deployDocTitlePrefix is the common prefix of every deploy document title.
 const deployDocTitlePrefix = "Documento de Despliegue"
 
-// ResolveSpaceID returns the numeric space ID for a given space key via the v2 API.
+// ResolveSpaceID returns the numeric space ID of a space key.
 func (c *Client) ResolveSpaceID(spaceKey string) (string, error) {
 	path := fmt.Sprintf("/wiki/api/v2/spaces?keys=%s&limit=1", url.QueryEscape(spaceKey))
 	body, err := c.Get(path)
@@ -77,23 +73,16 @@ func (c *Client) ResolveSpaceID(spaceKey string) (string, error) {
 	return result.Results[0].ID, nil
 }
 
-// FindLastDeployDoc finds the most recently created deploy documents in the given
-// space using the v2 pages API (direct DB lookup, sorted by creation date). This
-// avoids the search-index lag of CQL, which made freshly created docs invisible.
-// Results are filtered client-side by the deploy document title prefix.
-//
-// When accountID is non-empty, only documents created by that user are returned
-// (used to show "my docs" instead of the whole team's). If the user has no deploy
-// docs of their own, it falls back to the team-wide list and reports that via the
-// returned fellBack flag so the caller can warn the user.
+// FindLastDeployDoc returns the newest deploy documents of the space, read from
+// the v2 pages API (no CQL index lag). With an accountID it returns only that
+// user's, falling back to the team's with fellBack set when the user has none.
 func (c *Client) FindLastDeployDoc(spaceKey, accountID string) (pages []Page, fellBack bool, err error) {
 	spaceID, err := c.ResolveSpaceID(spaceKey)
 	if err != nil {
 		return nil, false, err
 	}
 
-	// Over-fetch since the v2 API can't filter by title prefix server-side;
-	// we keep only deploy docs and cap to deployDocSearchLimit afterwards.
+	// v2 cannot filter by title prefix: over-fetch and filter here.
 	path := fmt.Sprintf("/wiki/api/v2/pages?space-id=%s&sort=-created-date&limit=100", url.QueryEscape(spaceID))
 
 	body, err := c.Get(path)
@@ -108,7 +97,6 @@ func (c *Client) FindLastDeployDoc(spaceKey, accountID string) (pages []Page, fe
 		return nil, false, fmt.Errorf("error parseando respuesta: %w", err)
 	}
 
-	// Collect all deploy docs, tracking which ones belong to the current user.
 	all := make([]Page, 0, deployDocSearchLimit)
 	mine := make([]Page, 0, deployDocSearchLimit)
 	for _, r := range result.Results {
@@ -131,8 +119,6 @@ func (c *Client) FindLastDeployDoc(spaceKey, accountID string) (pages []Page, fe
 		}
 	}
 
-	// Prefer the user's own docs; fall back to the team-wide list only when the
-	// user has none (e.g. a first-time user who hasn't created any yet).
 	if accountID != "" && len(mine) > 0 {
 		return mine, false, nil
 	}
@@ -142,18 +128,14 @@ func (c *Client) FindLastDeployDoc(spaceKey, accountID string) (pages []Page, fe
 	return all, false, nil
 }
 
-// PageADF is a page together with its body parsed as an ADF document.
-// ADF is nil when the body is stored in another representation (a page written
-// in the legacy editor uses "storage"), which lets the caller warn instead of
-// silently discarding content it could not read.
+// PageADF is a page with its body parsed as ADF. ADF is nil when the body is in
+// another representation (legacy editor), so the caller can warn.
 type PageADF struct {
 	Page
 	ADF map[string]any
 }
 
-// pageADFResponse is a page response that also carries the ADF body. Confluence
-// returns the document as a JSON string inside body.atlas_doc_format.value, so
-// it needs a second unmarshal.
+// pageADFResponse carries the ADF as a JSON string, which needs a second unmarshal.
 type pageADFResponse struct {
 	pageResponse
 	Body struct {
@@ -163,11 +145,8 @@ type pageADFResponse struct {
 	} `json:"body"`
 }
 
-// GetPageADF returns a page by ID including its body parsed as ADF.
-//
-// Needed to preserve hand-edited sections across an update: the v2 update
-// endpoint replaces the whole body, so anything not carried over from the
-// previous version is lost.
+// GetPageADF returns a page by ID with its body parsed as ADF, to carry
+// hand-edited sections across an update (which replaces the whole body).
 func (c *Client) GetPageADF(pageID string) (*PageADF, error) {
 	path := fmt.Sprintf("/wiki/api/v2/pages/%s?body-format=atlas_doc_format", pageID)
 
@@ -203,7 +182,7 @@ func (c *Client) GetPageADF(pageID string) (*PageADF, error) {
 	return out, nil
 }
 
-// GetPage returns a page by ID including its parentId.
+// GetPage returns a page by ID, including its parent and space.
 func (c *Client) GetPage(pageID string) (*Page, error) {
 	path := fmt.Sprintf("/wiki/api/v2/pages/%s", pageID)
 
@@ -227,8 +206,8 @@ func (c *Client) GetPage(pageID string) (*Page, error) {
 	}, nil
 }
 
-// FindDeployDocByIssue searches for an existing deploy doc matching the given issue key.
-// spaceKey restricts the search to a specific Confluence space; empty string searches all spaces.
+// FindDeployDocByIssue searches a deploy document by issue key. It uses CQL, so
+// it is subject to index lag. An empty spaceKey searches all spaces.
 func (c *Client) FindDeployDocByIssue(issueKey, spaceKey string) (*Page, error) {
 	cqlBase := fmt.Sprintf(`title ~ %s AND title ~ %s`,
 		quoteLiteral(deployDocTitlePrefix), quoteLiteral(issueKey))
@@ -259,17 +238,10 @@ func (c *Client) FindDeployDocByIssue(issueKey, spaceKey string) (*Page, error) 
 	}, nil
 }
 
-// findPageByExactTitle looks up a page by its EXACT title via the v2 pages API.
-// Unlike CQL search, this is a direct DB lookup with no indexing delay, so it
-// reliably detects a page that was just created. This is the same uniqueness
-// condition Confluence enforces on creation, so it catches the "title already
-// exists" 400 before we attempt to create.
-//
-// spaceKey restricts the lookup to one space; empty string searches all spaces.
-// The v2 endpoint filters by numeric space-id only — there is no space-key
-// parameter and an unknown query param is ignored silently — so the key is
-// resolved to an id first. Getting this wrong makes the filter a no-op and lets
-// a same-titled page in another space be found, and then overwritten.
+// findPageByExactTitle looks up a page by exact title in the v2 API: no index
+// lag, and the same uniqueness rule Confluence applies on create. An empty
+// spaceKey searches all spaces; otherwise it is resolved to a space-id, since v2
+// silently ignores an unknown filter and would match another space's page.
 func (c *Client) findPageByExactTitle(title, spaceKey string) (*Page, error) {
 	path := fmt.Sprintf("/wiki/api/v2/pages?title=%s&limit=1", url.QueryEscape(title))
 	if spaceKey != "" {
@@ -307,7 +279,7 @@ func (c *Client) findPageByExactTitle(title, spaceKey string) (*Page, error) {
 	}, nil
 }
 
-// FindPageByTitle looks up a deploy document by its exact title.
+// FindPageByTitle looks up a page by its exact title, with no index lag.
 func (c *Client) FindPageByTitle(title, spaceKey string) (*Page, error) {
 	return c.findPageByExactTitle(title, spaceKey)
 }
@@ -347,7 +319,7 @@ func (c *Client) CreatePage(spaceID, parentID, title string, adfBody map[string]
 	}, nil
 }
 
-// UpdatePage updates an existing Confluence page with new content.
+// UpdatePage replaces the whole body of a page; currentVersion is the one read.
 func (c *Client) UpdatePage(pageID, title string, currentVersion int, adfBody map[string]any) (*Page, error) {
 	adfStr, err := marshalADF(adfBody)
 	if err != nil {
@@ -385,9 +357,8 @@ func (c *Client) UpdatePage(pageID, title string, currentVersion int, adfBody ma
 	}, nil
 }
 
-// FindQAPagesForModule returns recent QA consolidated pages for the given module.
-// If module is empty, returns any recent QA consolidated pages (used for Kanban mode).
-// spaceKey restricts the search to a specific space; empty string searches all spaces.
+// FindQAPagesForModule returns recent QA reports of a module, or of any module
+// when module is empty. An empty spaceKey searches all spaces.
 func (c *Client) FindQAPagesForModule(module, spaceKey string) ([]Page, error) {
 	title := "Consolidado de Pruebas QA"
 	if module != "" {
@@ -422,7 +393,6 @@ func (c *Client) FindQAPagesForModule(module, spaceKey string) ([]Page, error) {
 	return pages, nil
 }
 
-// marshalADF serializes the ADF document to a JSON string.
 func marshalADF(v any) (string, error) {
 	b, err := json.Marshal(v)
 	if err != nil {

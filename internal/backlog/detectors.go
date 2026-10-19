@@ -15,8 +15,6 @@ import (
 // maxEvidence caps the evidence lines kept per finding.
 const maxEvidence = 5
 
-// ── Hotspots ─────────────────────────────────────────────────────────────────
-
 // maxHotspotSubjects caps the commit subjects quoted as hotspot evidence.
 const maxHotspotSubjects = 3
 
@@ -27,16 +25,12 @@ type fileChurn struct {
 	subjects []string // most recent first, as git log lists them
 }
 
-// hotspotLogArgs reads the subject and touched files of every non-merge commit
-// in the period. Each commit starts with a record separator (\x1e) so subjects
-// and file lists can be told apart without guessing.
+// hotspotLogArgs starts each commit with \x1e so subjects and file lists cannot be confused.
 func hotspotLogArgs(since string) []string {
 	return []string{"-c", "core.quotePath=false", "log", "--since=" + since, "--no-merges", "--format=%x1e%s", "--name-only"}
 }
 
-// parseChurn counts, per file, the commits found in `git log` output produced
-// with hotspotLogArgs, and how many of them look like fixes. A file listed
-// twice in one commit counts once.
+// parseChurn counts, per file, the commits and fixes in hotspotLogArgs output.
 func parseChurn(log string, o Options) map[string]*fileChurn {
 	churn := map[string]*fileChurn{}
 
@@ -73,14 +67,7 @@ func parseChurn(log string, o Options) map[string]*fileChurn {
 	return churn
 }
 
-// hotspotFindings reports the tracked source files changed in at least
-// MinCommits commits of the period. Change frequency is the best predictor of
-// where defects concentrate; a hotspot that is also over MaxLines (lines holds
-// each source file's size) is the first candidate for a refactor.
-//
-// The task is scoped to one increment (extract one responsibility, cover one
-// flow) rather than "refactor the file": a several-thousand-line class is not
-// one task, but it can feed many of them.
+// hotspotFindings reports source files changed in at least MinCommits commits.
 func hotspotFindings(churn map[string]*fileChurn, tracked map[string]bool, lines map[string]int, o Options) []Finding {
 	var out []Finding
 	for file, fc := range churn {
@@ -118,32 +105,25 @@ func hotspotFindings(churn map[string]*fileChurn, tracked map[string]bool, lines
 	return out
 }
 
-// ── Pending markers ──────────────────────────────────────────────────────────
-
-// markerPattern matches TODO/FIXME/HACK as whole words, in upper case only so
-// the Spanish "todo" in prose does not count. XXX is left out on purpose: it is
-// far more common as a placeholder in data ("CXXXXXX-ABC-XXX", a currency code)
-// than as a marker.
+// markerPattern matches upper-case TODO/FIXME/HACK only, so the Spanish "todo"
+// does not count. XXX is left out: it is common as a placeholder in data.
 const markerPattern = `(^|[^A-Za-z0-9_])(TODO|FIXME|HACK)([^A-Za-z0-9_]|$)`
 
 var markerRe = regexp.MustCompile(markerPattern)
 
-// markerGrepArgs searches tracked text files. --null separates the path with a
-// NUL so paths containing ':' parse correctly.
+// markerGrepArgs uses --null so paths containing ':' parse correctly.
 func markerGrepArgs() []string {
 	return []string{"grep", "-n", "-I", "--null", "-E", "-e", markerPattern}
 }
 
-// markerHit is one line holding a marker.
 type markerHit struct {
 	line   int
 	text   string
 	urgent bool // FIXME or HACK: a known defect or shortcut, not a plan
 }
 
-// parseMarkers groups `git grep` output (from markerGrepArgs) by file. With
-// --null git separates both the path and the line number with NUL
-// ("path\x00lineno\x00text"); older versions only the path ("path\x00lineno:text").
+// parseMarkers groups markerGrepArgs output by file. Older git separates the
+// line number with ':' instead of NUL ("path\x00lineno:text").
 func parseMarkers(out string) map[string][]markerHit {
 	hits := map[string][]markerHit{}
 
@@ -209,10 +189,7 @@ func markerFindings(hits map[string][]markerHit, o Options) []Finding {
 	return out
 }
 
-// ── Large files ──────────────────────────────────────────────────────────────
-
-// countLines counts the lines of a file's content, the last one included even
-// without a trailing newline.
+// countLines counts the last line even without a trailing newline.
 func countLines(data []byte) int {
 	if len(data) == 0 {
 		return 0
@@ -224,11 +201,8 @@ func countLines(data []byte) int {
 	return n
 }
 
-// largeFileFinding reports a source file over MaxLines, or nil if it is not.
-// It is meant for files that are not hotspots: a big file nobody changes
-// costs little, so it ranks low unless it is huge. Like a hotspot, the task
-// is one increment (extract one module), so its size does not depend on the
-// file's.
+// largeFileFinding reports a source file over MaxLines, or nil. It is meant for
+// files that are not hotspots, so it ranks low unless the file is huge.
 func largeFileFinding(file string, lines int, o Options) *Finding {
 	if lines <= o.MaxLines {
 		return nil
@@ -249,22 +223,17 @@ func largeFileFinding(file string, lines int, o Options) *Finding {
 	}
 }
 
-// ── Untested classes ─────────────────────────────────────────────────────────
-
 var identifierRe = regexp.MustCompile(`[A-Za-z_][A-Za-z0-9_]*`)
 
-// collectIdentifiers adds every identifier in src to set. Indexing the tests
-// once makes each class lookup O(1) instead of a scan over all test files.
+// collectIdentifiers adds every identifier in src to set.
 func collectIdentifiers(src []byte, set map[string]bool) {
 	for _, id := range identifierRe.FindAll(src, -1) {
 		set[string(id)] = true
 	}
 }
 
-// className returns the class a file is expected to declare. A PascalCase
-// base name is the class itself (PSR-4, Java, C#: PagoService.php); a name
-// split by '.', '-' or '_' is joined in PascalCase, which covers Angular
-// (pago-detalle.service.ts → PagoDetalleService) and Python (pago_service.py).
+// className returns the class a file should declare: the base name, or its
+// parts joined in PascalCase (pago-detalle.service.ts → PagoDetalleService).
 func className(file string) string {
 	base := path.Base(file)
 	name := strings.TrimSuffix(base, path.Ext(base))
@@ -280,8 +249,7 @@ func className(file string) string {
 	return b.String()
 }
 
-// untestedFindings reports the files selected by ClassGlobs whose class name
-// never appears in the tests.
+// untestedFindings reports ClassGlobs files whose class never appears in the tests.
 func untestedFindings(tracked []string, testIdentifiers map[string]bool, o Options) []Finding {
 	var out []Finding
 	for _, file := range tracked {
@@ -304,8 +272,6 @@ func untestedFindings(tracked []string, testIdentifiers map[string]bool, o Optio
 	return out
 }
 
-// ── Vulnerable dependencies ──────────────────────────────────────────────────
-
 // composerAdvisory is the part of `composer audit --format=json` we use.
 type composerAdvisory struct {
 	Title            string `json:"title"`
@@ -313,8 +279,7 @@ type composerAdvisory struct {
 	AffectedVersions string `json:"affectedVersions"`
 }
 
-// parseComposerAudit returns the advisories per package. Composer prints
-// "advisories": [] (an empty array, not an object) when there are none.
+// parseComposerAudit returns advisories per package; with none, composer prints [], not {}.
 func parseComposerAudit(out []byte) (map[string][]composerAdvisory, error) {
 	var raw struct {
 		Advisories json.RawMessage `json:"advisories"`

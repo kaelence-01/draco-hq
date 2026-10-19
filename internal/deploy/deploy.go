@@ -1,10 +1,6 @@
-// Package deploy is the deploy-document workflow with no terminal I/O in it.
-//
-// The steps run in order — FetchIssue, FindExisting, ReadCommits, then a draft
-// (DraftCreate or DraftUpdate), Locations for a new page, and Publish — and
-// every decision between them belongs to the caller: the CLI asks with text
-// prompts, the TUI with lists and forms, both over these same steps. Nothing
-// here prints, reads stdin or exits.
+// Package deploy is the deploy-document workflow, with no terminal I/O.
+// Steps: FetchIssue, FindExisting, ReadCommits, DraftCreate or DraftUpdate,
+// Locations (new page only) and Publish; the caller decides between them.
 package deploy
 
 import (
@@ -21,7 +17,6 @@ import (
 )
 
 // Atlassian is the part of the Jira and Confluence client the workflow uses.
-// *atlassian.Client satisfies it; tests use a fake.
 type Atlassian interface {
 	GetIssue(issueKey string) (*atlassian.Issue, error)
 	FindPageByTitle(title, spaceKey string) (*atlassian.Page, error)
@@ -37,18 +32,15 @@ type Atlassian interface {
 
 var _ Atlassian = (*atlassian.Client)(nil)
 
-// ChangedFilesFunc lists the files touched by the given commits, reading the
-// repo at workDir (empty: the current directory). git.GetChangedFilesMulti
-// satisfies it.
+// ChangedFilesFunc lists the files touched by the commits in the repo at
+// workDir; empty means the current directory.
 type ChangedFilesFunc func(hashes []string, workDir string) ([]string, error)
 
 var (
-	// ErrNoSpace means no Confluence space key came from the request, the
-	// project or the global config. Callers explain how to set one.
+	// ErrNoSpace means no space key came from the request, project or global config.
 	ErrNoSpace = errors.New("Confluence space key no configurado")
 
-	// ErrNoLocations means there is no previous deploy document to place a new
-	// one next to. Callers suggest creating the first one by hand.
+	// ErrNoLocations means no previous deploy document exists to sit next to.
 	ErrNoLocations = errors.New("no se encontraron documentos de despliegue previos. Crea uno manualmente primero como referencia")
 )
 
@@ -66,7 +58,7 @@ type Request struct {
 
 // Repo is one side (backend or frontend) of a deploy.
 type Repo struct {
-	Name    string   // as shown in the document and used in VCS links
+	Name    string
 	WorkDir string   // where git runs; empty is the current directory
 	Hashes  []string // commits of this side; none means the side is not deployed
 }
@@ -82,13 +74,11 @@ type Target struct {
 	Frontend    Repo
 	Checklist   []string
 
-	// Warnings are degraded-but-workable situations the user should hear
-	// about: a repo name guessed from its directory, links without VCS info.
+	// Warnings are degraded but workable situations to show the user.
 	Warnings []string
 }
 
-// Resolve applies config to the request. Precedence is request > project >
-// global config for the space and the VCS host/org.
+// Resolve applies config to the request: request > project > global config.
 func Resolve(cfg *config.Config, req Request) (*Target, error) {
 	if strings.TrimSpace(req.Issue) == "" {
 		return nil, fmt.Errorf("falta la clave del issue de Jira")
@@ -143,9 +133,7 @@ func Resolve(cfg *config.Config, req Request) (*Target, error) {
 	return t, nil
 }
 
-// resolveSide fills the repo name of a deployed side when the project does not
-// provide one, guessing it from the clone directory so the document never
-// carries a repo name compiled into the binary (P-001, P-008).
+// resolveSide guesses a missing repo name from the clone directory (P-008).
 func (t *Target) resolveSide(r *Repo, side string, hasProject bool) {
 	if len(r.Hashes) == 0 {
 		return
@@ -169,8 +157,7 @@ type Commits struct {
 	Err    error               // set when this side could not be read
 }
 
-// Session carries one run of the workflow. Its exported fields are filled by
-// the steps and are what a caller shows to the user between them.
+// Session is one run of the workflow; the steps fill its exported fields.
 type Session struct {
 	api   Atlassian
 	files ChangedFilesFunc
@@ -178,9 +165,9 @@ type Session struct {
 	Target *Target
 
 	Issue    *atlassian.Issue
-	Title    string          // deterministic from the issue; Confluence's uniqueness key
-	Existing *atlassian.Page // a deploy document already published for the issue
-	Backend  *Commits        // nil when the side is not deployed
+	Title    string // deterministic from the issue; Confluence's uniqueness key
+	Existing *atlassian.Page
+	Backend  *Commits // nil when the side is not deployed
 	Frontend *Commits
 }
 
@@ -200,13 +187,8 @@ func (s *Session) FetchIssue() error {
 	return nil
 }
 
-// FindExisting looks for a deploy document already published for the issue.
-//
-// The exact-title lookup goes first: it reads the database directly, with no
-// index lag, and it is the very condition that makes a create fail with 400,
-// so it catches a document created seconds ago. The search by issue key is a
-// best-effort fallback for a document whose title changed with the summary;
-// it is subject to index lag, so its failure is not an error.
+// FindExisting looks for a deploy document already published for the issue:
+// by exact title (no index lag), then best effort by issue key for a renamed one.
 func (s *Session) FindExisting() error {
 	page, err := s.api.FindPageByTitle(s.Title, s.Target.SpaceKey)
 	if err != nil {
@@ -221,9 +203,8 @@ func (s *Session) FindExisting() error {
 	return nil
 }
 
-// ReadCommits lists the files of every deployed side. A side that fails keeps
-// its error in Commits.Err and the run goes on with the other; only when every
-// requested side fails is there nothing to document, and that is an error.
+// ReadCommits lists the files of every deployed side. A failed side keeps its
+// error in Commits.Err; it is an error only when every side fails.
 func (s *Session) ReadCommits() error {
 	s.Backend = s.readSide(s.Target.Backend)
 	s.Frontend = s.readSide(s.Target.Frontend)
@@ -263,9 +244,8 @@ type Draft struct {
 	// Replaces is the page an update overwrites; nil for a new document.
 	Replaces *atlassian.PageADF
 
-	// Preserved is true when the hand-edited "A considerar" section was read
-	// back from the page being replaced. An update with Preserved false would
-	// reset that section to the template: the caller must ask before going on.
+	// Preserved reports that "A considerar" was read back; when false on an
+	// update the section resets to the template, so the caller must ask.
 	Preserved bool
 
 	Warnings []string
@@ -276,12 +256,8 @@ func (s *Session) DraftCreate() *Draft {
 	return &Draft{Title: s.Title, ADF: s.build(nil)}
 }
 
-// DraftUpdate builds the replacement for s.Existing.
-//
-// Confluence replaces the whole body on update, so the "A considerar" section —
-// written by the deployment team, not by draco — is read back and emitted
-// again. When the current page cannot be read this returns an error instead of
-// a draft: a silent overwrite there is exactly the loss nobody notices.
+// DraftUpdate builds the replacement for s.Existing, carrying "A considerar"
+// over. It fails if the current page cannot be read, rather than overwrite it.
 func (s *Session) DraftUpdate() (*Draft, error) {
 	if s.Existing == nil {
 		return nil, fmt.Errorf("no hay un documento existente que actualizar")
@@ -326,14 +302,11 @@ func (s *Session) build(preserved []any) map[string]any {
 	return document.Build(doc)
 }
 
-// Locations are the candidate siblings for a new document: it is created under
-// the same parent as the one the user picks.
+// Locations are candidate siblings: a new document goes under the picked one's parent.
 type Locations struct {
 	Pages []atlassian.Page
 
-	// TeamWide is true when the list is not limited to the user's own
-	// documents: they have none in the space, or their account could not be
-	// identified (OwnerUnknown).
+	// TeamWide means the list is not limited to the user's own documents.
 	TeamWide     bool
 	OwnerUnknown bool
 }
@@ -365,10 +338,8 @@ type Result struct {
 	Page    *atlassian.Page
 	Updated bool
 
-	// LinkErr is set when the Jira remote link to the page could not be
-	// created. It is not fatal — the document exists — but the caller must
-	// report it: the QA report checks exactly that link, so a silent failure
-	// here resurfaces weeks later as a task flagged without documentation.
+	// LinkErr is a failed Jira remote link: not fatal, but the caller must
+	// report it, since the QA report checks that link.
 	LinkErr error
 }
 
@@ -412,9 +383,7 @@ func SplitHashes(raw string) []string {
 	return out
 }
 
-// repoNameFromDir guesses a repository name from the directory the commits are
-// read from: the basename of a clone normally matches the repo name. An empty
-// workDir means the current directory, which is where git runs in that case.
+// repoNameFromDir guesses the repo name from the clone directory (empty: the current one).
 func repoNameFromDir(workDir string) string {
 	dir := workDir
 	if dir == "" {
