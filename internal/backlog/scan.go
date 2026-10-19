@@ -7,8 +7,7 @@ import (
 	"time"
 )
 
-// ReportVersion is bumped whenever the JSON shape of Report changes, so the
-// tools that consume `draco backlog scan --json` can detect it.
+// ReportVersion changes whenever the JSON shape of Report does.
 const ReportVersion = 1
 
 // Report is the result of a scan.
@@ -21,15 +20,13 @@ type Report struct {
 	Total    int       `json:"total"`
 	Findings []Finding `json:"hallazgos"`
 	Skipped  []Skipped `json:"omitidos,omitempty"`
-	// Modules summarizes every finding of the scan per module, also when
-	// FilterModules later keeps only some of them.
+	// Modules summarizes the whole scan per module, even after FilterModules.
 	Modules []ModuleCount `json:"modulos,omitempty"`
-	// ModuleFilter lists the modules requested with FilterModules, if any.
+	// ModuleFilter lists the modules requested with FilterModules.
 	ModuleFilter []string `json:"filtro_modulos,omitempty"`
 }
 
-// Skipped records a detector that did not run or failed, so a short report is
-// never mistaken for a clean repository.
+// Skipped is a detector that did not run, so a short report never looks clean.
 type Skipped struct {
 	Detector string `json:"detector"`
 	Reason   string `json:"motivo"`
@@ -38,14 +35,12 @@ type Skipped struct {
 // ScanOptions selects what a scan does on top of the detector Options.
 type ScanOptions struct {
 	Options
-	// Dependencies runs `composer audit`, which queries the Packagist
-	// advisories API. It is opt-in so a default scan stays offline.
+	// Dependencies runs `composer audit`, which uses the network; off by default.
 	Dependencies bool
 }
 
-// Scan runs every detector over the repository at dir and returns the ranked
-// findings. Only failing to open the repository is fatal; a detector that
-// fails is reported in Report.Skipped and the others still run.
+// Scan runs every detector over the repo at dir and ranks the findings. Only
+// failing to open the repo is fatal; a failing detector goes to Report.Skipped.
 func Scan(dir string, so ScanOptions) (*Report, error) {
 	o := so.Options.WithDefaults()
 
@@ -129,7 +124,7 @@ func scanHotspots(r *repo, tracked map[string]bool, sizes map[string]int, o Opti
 
 func scanMarkers(r *repo, o Options) ([]Finding, error) {
 	out, err := r.git(markerGrepArgs()...)
-	// git grep exits 1 when nothing matches: that is a clean result, not an error.
+	// git grep exits 1 when nothing matches.
 	var ee *exec.ExitError
 	if errors.As(err, &ee) && ee.ExitCode() == 1 && len(out) == 0 {
 		return nil, nil
@@ -149,7 +144,7 @@ func measureSources(r *repo, tracked []string, o Options) map[string]int {
 		}
 		data, err := r.readFile(file)
 		if err != nil {
-			// Tracked but deleted or unreadable in the work tree: nothing to measure.
+			// Deleted or unreadable in the work tree.
 			continue
 		}
 		sizes[file] = countLines(data)
@@ -157,8 +152,7 @@ func measureSources(r *repo, tracked []string, o Options) map[string]int {
 	return sizes
 }
 
-// largeFileFindings reports the oversized files that are not hotspots; a
-// hotspot already carries its size in its own finding.
+// largeFileFindings skips hotspots, whose finding already carries the size.
 func largeFileFindings(sizes map[string]int, hotspots map[string]int, o Options) []Finding {
 	var out []Finding
 	for file, lines := range sizes {
@@ -185,8 +179,7 @@ func scanUntested(r *repo, tracked []string, o Options) []Finding {
 	return untestedFindings(tracked, identifiers, o)
 }
 
-// prioritizeUntestedHotspots raises an untested class that is also a hotspot:
-// code that keeps breaking with no test to catch it is the riskiest of all.
+// prioritizeUntestedHotspots raises an untested class that is also a hotspot.
 func prioritizeUntestedHotspots(untested []Finding, hotspots map[string]int) []Finding {
 	for i := range untested {
 		commits, ok := hotspots[untested[i].Files[0]]
@@ -213,8 +206,7 @@ func scanDependencies(r *repo, tracked map[string]bool) ([]Finding, error) {
 
 	cmd := exec.Command(composer, "audit", "--locked", "--format=json", "--no-interaction")
 	cmd.Dir = r.dir
-	// composer audit exits non-zero when it finds advisories; the JSON on
-	// stdout is still the result, so the exit code alone is not a failure.
+	// composer audit exits non-zero when it finds advisories; the JSON is still the result.
 	out, runErr := cmd.Output()
 	advisories, err := parseComposerAudit(out)
 	if err != nil {

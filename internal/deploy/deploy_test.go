@@ -11,7 +11,6 @@ import (
 	"github.com/kaelence-01/draco-hq/internal/document"
 )
 
-// fakeAPI records what the workflow asks Atlassian and answers from its fields.
 type fakeAPI struct {
 	issue        *atlassian.Issue
 	byTitle      *atlassian.Page
@@ -90,8 +89,6 @@ func readySession(api *fakeAPI) *Session {
 func newAPI() *fakeAPI {
 	return &fakeAPI{issue: &atlassian.Issue{Key: "OPS-7", Summary: "Filtro de pagos", URL: "https://example.test/browse/OPS-7"}}
 }
-
-// --- Resolve ---
 
 func TestResolveSpacePrecedence(t *testing.T) {
 	cfg := &config.Config{
@@ -179,8 +176,6 @@ func TestResolveRequestOverridesVCS(t *testing.T) {
 	}
 }
 
-// --- Steps ---
-
 func TestFindExistingFallsBackToIssueSearch(t *testing.T) {
 	api := newAPI()
 	api.byIssue = &atlassian.Page{ID: "42"}
@@ -232,8 +227,6 @@ func TestReadCommitsFailsWhenEverySideFails(t *testing.T) {
 		t.Error("sin ningún commit legible debe fallar")
 	}
 }
-
-// --- Drafts ---
 
 func considerDoc(text string) map[string]any {
 	return map[string]any{"type": "doc", "content": []any{
@@ -287,8 +280,6 @@ func TestDraftUpdateWarnsOnNonADFPage(t *testing.T) {
 		t.Errorf("esperaba Preserved=false y un aviso, obtuve %v / %v", d.Preserved, d.Warnings)
 	}
 }
-
-// --- Locations and publish ---
 
 func TestLocationsFallsBackToTeamWhenUserUnknown(t *testing.T) {
 	api := newAPI()

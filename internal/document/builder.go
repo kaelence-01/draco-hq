@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// DeployDoc holds all the data needed to build the ADF document.
+// DeployDoc is the data of the deploy document.
 type DeployDoc struct {
 	IssueKey       string
 	IssueSummary   string
@@ -20,42 +20,32 @@ type DeployDoc struct {
 	FrontendCommit string
 	FrontendFiles  map[string][]string // dir -> []filename
 
-	// PreservedConsider holds the "A considerar" nodes read back from the page
-	// being updated. When non-empty they are emitted verbatim instead of the
-	// default checklist, so content edited by hand in Confluence is not lost.
-	// Empty on creation, where the template is what we want.
+	// PreservedConsider, when set, replaces the checklist verbatim on update.
 	PreservedConsider []any
 
-	// Checklist are the steps of the "A considerar" section for a new document,
-	// from config. Empty falls back to defaultChecklist.
+	// Checklist comes from config; empty means defaultChecklist.
 	Checklist []string
 }
 
-// Build constructs the ADF document as a map ready to be sent to Confluence.
+// Build builds the ADF of the deploy document.
 func Build(doc DeployDoc) map[string]any {
 	content := []any{}
 
-	// Header table: Épica + Tarea
 	content = append(content, headerTable(doc.IssueKey, doc.IssueURL))
 
-	// Section: Arquitecturas e interfaces
 	content = append(content, heading(2, "Arquitecturas e interfaces"))
 
-	// Frontend table (only if there are frontend files)
 	if len(doc.FrontendFiles) > 0 {
 		content = append(content, heading(3, "Proyectos y formularios - Frontend:"))
 		content = append(content, filesTable(doc.FrontendRepo, doc.FrontendCommit, doc.FrontendFiles, doc.VCSHost, doc.VCSOrg))
 	}
 
-	// Backend table (only if there are backend files)
 	if len(doc.BackendFiles) > 0 {
 		content = append(content, heading(3, "Proyectos y formularios - Backend:"))
 		content = append(content, filesTable(doc.BackendRepo, doc.BackendCommit, doc.BackendFiles, doc.VCSHost, doc.VCSOrg))
 	}
 
-	// A considerar section. The heading is always ours (it is the anchor used
-	// to find the section again on the next update); only the body below it is
-	// carried over from the existing page when there is one.
+	// The heading is always ours: it is the anchor ExtractSection looks for.
 	content = append(content, heading(2, ConsiderHeading+":"))
 	if len(doc.PreservedConsider) > 0 {
 		content = append(content, doc.PreservedConsider...)
@@ -70,8 +60,7 @@ func Build(doc DeployDoc) map[string]any {
 	}
 }
 
-// BuildTitle constructs the page title from the issue key and summary.
-// Special characters that Confluence does not allow in page titles are replaced.
+// BuildTitle builds the page title, replacing characters Confluence rejects.
 func BuildTitle(issueKey, summary string) string {
 	replacer := strings.NewReplacer(
 		"/", "-",
@@ -84,7 +73,6 @@ func BuildTitle(issueKey, summary string) string {
 	return fmt.Sprintf("Documento de Despliegue - %s - %s", issueKey, sanitized)
 }
 
-// headerTable builds the Épica + Tarea(s) table.
 func headerTable(issueKey, issueURL string) map[string]any {
 	return table("default", 1800, []any{
 		tableRow([]any{
@@ -98,10 +86,8 @@ func headerTable(issueKey, issueURL string) map[string]any {
 	})
 }
 
-// filesTable builds the files table for frontend or backend.
 func filesTable(repoName, commitHash string, files map[string][]string, vcsHost, vcsOrg string) map[string]any {
 	rows := []any{
-		// Header row
 		tableRow([]any{
 			tableCell(69, textNode("Servidor")),
 			tableCell(175, textNode("Aplicación web")),
@@ -111,7 +97,6 @@ func filesTable(repoName, commitHash string, files map[string][]string, vcsHost,
 		}),
 	}
 
-	// Sort directories for consistent output
 	dirs := make([]string, 0, len(files))
 	for dir := range files {
 		dirs = append(dirs, dir)
@@ -133,7 +118,6 @@ func filesTable(repoName, commitHash string, files map[string][]string, vcsHost,
 			serverCell = tableCell(69, textNode(repoName))
 		}
 
-		// Build file bullet list and link bullet list
 		fileItems := []any{}
 		linkItems := []any{}
 		for _, fname := range fileNames {
@@ -161,19 +145,9 @@ func filesTable(repoName, commitHash string, files map[string][]string, vcsHost,
 	return table("default", 1800, rows)
 }
 
-// commitFileURL builds a link to a changed file inside a commit. The shape is
-// host-specific, so the host is matched explicitly instead of assuming one:
-//
-//	Bitbucket  /commits/<hash>#chg-<path>   — per-file anchor
-//	GitHub     /commit/<hash>               — singular path; its per-file anchor
-//	                                          is a digest of the path we cannot
-//	                                          reproduce here, so it is omitted
-//	GitLab     /-/commit/<hash>
-//
-// An unrecognized host returns "" and the caller renders no link. That is
-// deliberate: emitting a Bitbucket-shaped URL for every host — as this used to
-// — put dead links in the document, which is worse than none, because a reader
-// cannot tell a dead link from a wrong one.
+// commitFileURL links a file inside a commit, or "" for an unknown host (no
+// link beats a dead one). GitHub's per-file anchor is a path digest, so it is
+// omitted.
 func commitFileURL(vcsHost, repoURL, commitHash, filePath string) string {
 	if repoURL == "" || commitHash == "" {
 		return ""
@@ -191,18 +165,13 @@ func commitFileURL(vcsHost, repoURL, commitHash, filePath string) string {
 	}
 }
 
-// defaultChecklist is used when no deploy_checklist is configured. The steps
-// are deliberately generic: "php artisan migrate" — what this used to emit —
-// assumes a Laravel backend, and a step tied to one stack does not belong in a
-// binary other teams run. Configure the real steps with deploy_checklist.
+// defaultChecklist is stack-agnostic on purpose; real steps go in deploy_checklist.
 var defaultChecklist = []string{
 	"Pasar backend al servidor",
 	"Ejecutar migraciones",
 	"Pasar frontend",
 }
 
-// considerTable builds the "A considerar" task list table from the configured
-// checklist, falling back to defaultChecklist when none is set.
 func considerTable(checklist []string) map[string]any {
 	if len(checklist) == 0 {
 		checklist = defaultChecklist
@@ -231,8 +200,6 @@ func considerTable(checklist []string) map[string]any {
 		}),
 	})
 }
-
-// ─── ADF helpers ─────────────────────────────────────────────────────────────
 
 func heading(level int, text string) map[string]any {
 	return map[string]any{
@@ -340,10 +307,7 @@ func bulletItem(content map[string]any) map[string]any {
 	}
 }
 
-// taskItem builds one checkbox. localId is positional rather than derived from
-// the text: the text now comes from config and can contain anything, and the id
-// only has to be unique within the list. Existing documents are unaffected —
-// their section is preserved verbatim, never rebuilt.
+// taskItem uses a positional localId: the text comes from config and can be anything.
 func taskItem(text string, idx int) map[string]any {
 	return map[string]any{
 		"type": "taskItem",

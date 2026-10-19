@@ -2,22 +2,13 @@ package document
 
 import "strings"
 
-// ConsiderHeading is the heading that opens the user-owned section of the deploy
-// document. Everything below it is written by whoever runs the deployment —
-// checked boxes, extra steps, notes — not by draco, so it must survive a
-// regeneration. See issue #4.
+// ConsiderHeading opens the deploy document section edited by hand; it must
+// survive a regeneration.
 const ConsiderHeading = "A considerar"
 
-// ExtractSection returns the top-level ADF nodes that live under the given
-// heading, up to the next heading of the same or higher rank (a deeper heading
-// is treated as part of the section) or the end of the document.
-//
-// Nodes are returned as-is: their subtrees are never inspected or rewritten, so
-// task states and hand-added content are carried over exactly as stored. That
-// is deliberate — the issue asks for the section to stay "independiente" of the
-// regenerated content, so the safe operation is a copy, not a merge.
-//
-// Returns nil when the heading is absent or has no content under it.
+// ExtractSection returns the top-level nodes under heading, up to the next
+// heading of the same or higher rank, copied as-is (never merged) so task
+// states survive. Nil when the heading is absent or empty.
 func ExtractSection(adf map[string]any, heading string) []any {
 	content, ok := adf["content"].([]any)
 	if !ok {
@@ -42,8 +33,6 @@ func ExtractSection(adf map[string]any, heading string) []any {
 			continue
 		}
 
-		// Past the target heading: the section ends at the next heading of the
-		// same or higher rank. A deeper one (h3 under an h2) belongs to it.
 		if headingLevel(node) <= level {
 			return copyNodes(content[start:i])
 		}
@@ -55,9 +44,7 @@ func ExtractSection(adf map[string]any, heading string) []any {
 	return copyNodes(content[start:])
 }
 
-// copyNodes returns a shallow copy of the slice. Shallow is enough because the
-// nodes are never mutated — copying only guards against later changes to the
-// source document's own slice.
+// copyNodes is shallow: the nodes are never mutated.
 func copyNodes(nodes []any) []any {
 	if len(nodes) == 0 {
 		return nil
@@ -67,16 +54,13 @@ func copyNodes(nodes []any) []any {
 	return out
 }
 
-// normalizeHeading makes heading comparison tolerant of what a human editor
-// introduces: case, surrounding space, and the trailing colon draco itself emits
-// ("A considerar:" must match "A Considerar").
+// normalizeHeading ignores case, surrounding space and a trailing colon.
 func normalizeHeading(s string) string {
 	s = strings.ToLower(strings.TrimSpace(s))
 	s = strings.TrimSuffix(s, ":")
 	return strings.TrimSpace(s)
 }
 
-// nodeText concatenates the plain text of a node and its descendants.
 func nodeText(node map[string]any) string {
 	if t, ok := node["text"].(string); ok {
 		return t
@@ -92,9 +76,7 @@ func nodeText(node map[string]any) string {
 	return sb.String()
 }
 
-// headingLevel reads attrs.level. Both numeric types are handled: a document
-// that came back from Confluence has been through encoding/json (float64),
-// while one just built in memory still holds an int.
+// headingLevel reads attrs.level: float64 after JSON, int when built in memory.
 func headingLevel(node map[string]any) int {
 	attrs, ok := node["attrs"].(map[string]any)
 	if !ok {

@@ -24,13 +24,10 @@ type ProjectConfig struct {
 	VCSOrg             string `yaml:"vcs_org,omitempty"`
 	ConfluenceSpaceKey string `yaml:"confluence_space_key,omitempty"`
 
-	// DeployChecklist overrides the global one for this project. The steps are
-	// stack-specific (a Laravel backend and a Node one need different
-	// commands), which is why the per-project layer exists.
+	// DeployChecklist overrides the global one: deploy steps depend on the stack.
 	DeployChecklist []string `yaml:"deploy_checklist,omitempty"`
 
-	// Backlog tunes `draco backlog scan` per repo of the project. Where the
-	// classes and tests live is a convention of each stack, so it is config.
+	// Backlog tunes `draco backlog scan` per repo of the project.
 	Backlog *BacklogConfig `yaml:"backlog,omitempty"`
 }
 
@@ -40,8 +37,7 @@ type BacklogConfig struct {
 	Frontend *BacklogRepoConfig `yaml:"frontend,omitempty"`
 }
 
-// BacklogRepoConfig overrides the scan defaults for one repo. Empty fields
-// keep the generic default of internal/backlog.
+// BacklogRepoConfig overrides the scan defaults for one repo; empty fields keep them.
 type BacklogRepoConfig struct {
 	Since       string   `yaml:"since,omitempty"`
 	Extensions  []string `yaml:"extensions,omitempty"`
@@ -55,8 +51,7 @@ type BacklogRepoConfig struct {
 	Modules     []string `yaml:"modules,omitempty"`
 }
 
-// BacklogFor returns the backlog settings of the given repo ("backend" or
-// "frontend"), or nil when the project does not configure it.
+// BacklogFor returns the settings of repo ("backend" or "frontend"), or nil.
 func (p *ProjectConfig) BacklogFor(repo string) *BacklogRepoConfig {
 	if p == nil || p.Backlog == nil {
 		return nil
@@ -67,34 +62,26 @@ func (p *ProjectConfig) BacklogFor(repo string) *BacklogRepoConfig {
 	return p.Backlog.Backend
 }
 
-// QAReportConfig holds the names printed in the header of the QA consolidated
-// report. They are organization data, not code: a change of personnel must not
-// require a new release, and the names must not be embedded in a binary that
-// gets distributed. See docs/security/patrones-seguros.md (P-008).
+// QAReportConfig holds the names in the QA report header. Organization data,
+// never compiled in (P-008).
 type QAReportConfig struct {
 	LiderTecnico string `yaml:"lider_tecnico,omitempty"`
 	PMO          string `yaml:"pmo,omitempty"`
 	QA           string `yaml:"qa,omitempty"`
 }
 
-// QAJiraConfig identifies, in the user's Jira, which tasks the QA consolidated
-// report covers and which fields it reads. Every value belongs to one Jira
-// instance — project key, workflow statuses, custom field ids — so none of
-// them is compiled in. See docs/security/patrones-seguros.md (P-008).
+// QAJiraConfig maps the QA report onto the user's Jira instance. Instance
+// data, never compiled in (P-008).
 type QAJiraConfig struct {
 	Project string `yaml:"project,omitempty"`
 
-	// Statuses are the workflow statuses (ids or names) of a task that has
-	// reached QA or gone past it: testing, in review, done, released.
+	// Statuses (ids or names) of a task that reached QA or went past it.
 	Statuses []string `yaml:"statuses,omitempty"`
 
-	// TestingStatus is the status whose transition opens the Kanban window.
-	// Empty means DefaultTestingStatus.
+	// TestingStatus opens the Kanban window; empty means DefaultTestingStatus.
 	TestingStatus string `yaml:"testing_status,omitempty"`
 
-	// SprintName is how a module's sprint is named in Jira, with {module} and
-	// {sprint} as placeholders. It is a team convention, not a Jira rule.
-	// Empty means DefaultSprintName.
+	// SprintName is a template with {module} and {sprint}; empty means DefaultSprintName.
 	SprintName string `yaml:"sprint_name,omitempty"`
 
 	Fields QAJiraFields `yaml:"fields,omitempty"`
@@ -124,8 +111,7 @@ func (q *QAJiraConfig) SprintNameFor(module string, sprint int) string {
 
 var customFieldRe = regexp.MustCompile(`^customfield_\d+$`)
 
-// Validate reports every missing or malformed value at once, so a user fixing
-// config.yaml does not have to discover them one run at a time.
+// Validate reports every missing or malformed value at once.
 func (q *QAJiraConfig) Validate() error {
 	if q == nil {
 		return fmt.Errorf("falta la sección 'qa_jira' en %s", configPathHint)
@@ -157,8 +143,7 @@ func (q *QAJiraConfig) Validate() error {
 	return fmt.Errorf("configuración de QA incompleta en %s:\n  - %s", configPathHint, strings.Join(problems, "\n  - "))
 }
 
-// Config holds all configuration needed by the CLI.
-// Priority: env vars > ~/.config/draco/config.yaml
+// Config holds all configuration. Env vars win over the config file.
 type Config struct {
 	AtlassianEmail     string                    `yaml:"atlassian_email"`
 	AtlassianToken     string                    `yaml:"atlassian_token"`
@@ -170,17 +155,12 @@ type Config struct {
 	DefaultProject     string                    `yaml:"default_project,omitempty"`
 	Projects           map[string]*ProjectConfig `yaml:"projects,omitempty"`
 
-	// DeployChecklist are the steps of the "A considerar" section of a new
-	// deploy document. A project's own list wins over this one; when both are
-	// empty a generic built-in default is used. Steps tied to one stack
-	// ("php artisan migrate") belong here, not compiled into the binary that
-	// other teams run. See docs/security/patrones-seguros.md (P-008).
+	// DeployChecklist are the "A considerar" steps of a new deploy document.
+	// Stack-specific, so config, never compiled in (P-008).
 	DeployChecklist []string `yaml:"deploy_checklist,omitempty"`
 }
 
-// ResolveDeployChecklist returns the checklist for the given project, applying
-// the layering: project list > global list > nil (the document builder then
-// falls back to its generic default).
+// ResolveDeployChecklist returns project > global > nil (the builder's default).
 func (c *Config) ResolveDeployChecklist(proj *ProjectConfig) []string {
 	if proj != nil && len(proj.DeployChecklist) > 0 {
 		return proj.DeployChecklist
@@ -188,9 +168,7 @@ func (c *Config) ResolveDeployChecklist(proj *ProjectConfig) []string {
 	return c.DeployChecklist
 }
 
-// Load loads config following priority: env vars > config file, and requires
-// the Atlassian credentials. Commands that never call Atlassian (they only read
-// local repos) use LoadLocal instead, so they work before `draco init`.
+// Load is LoadLocal plus the Atlassian credentials, which it requires.
 func Load() (*Config, error) {
 	cfg, err := LoadLocal()
 	if err != nil {
@@ -204,11 +182,8 @@ func Load() (*Config, error) {
 	return cfg, nil
 }
 
-// LoadLocal loads config with the same priority as Load (env vars > config
-// file) without requiring the Atlassian credentials. A missing config file is
-// not an error: env vars and each command's defaults still apply. A file that
-// exists but cannot be read or parsed is, so a typo in config.yaml is reported
-// instead of being silently ignored.
+// LoadLocal loads env vars over the config file without requiring credentials.
+// A missing file is not an error; an unreadable or invalid one is.
 func LoadLocal() (*Config, error) {
 	cfg := configFromEnv()
 
@@ -228,7 +203,6 @@ func (c *Config) HasAtlassianCredentials() bool {
 	return c.AtlassianEmail != "" && c.AtlassianToken != "" && c.BaseURL != ""
 }
 
-// configFromEnv builds the env var layer of the config.
 func configFromEnv() *Config {
 	return &Config{
 		AtlassianEmail:     os.Getenv("ATLASSIAN_EMAIL"),
@@ -238,8 +212,7 @@ func configFromEnv() *Config {
 	}
 }
 
-// mergeMissing fills every field still empty in cfg with the value from the
-// file. Fields already set (by env vars) win.
+// mergeMissing fills the fields still empty in cfg from the file.
 func mergeMissing(cfg, fileCfg *Config) {
 	if cfg.AtlassianEmail == "" {
 		cfg.AtlassianEmail = fileCfg.AtlassianEmail
@@ -273,8 +246,7 @@ func mergeMissing(cfg, fileCfg *Config) {
 	}
 }
 
-// GetProject resolves which project to use.
-// Priority: explicit name > default_project > nil (no project configured).
+// GetProject resolves name > default_project > nil. An unknown name is an error.
 func (c *Config) GetProject(name string) (*ProjectConfig, string, error) {
 	if name != "" {
 		proj, ok := c.Projects[name]
@@ -292,8 +264,7 @@ func (c *Config) GetProject(name string) (*ProjectConfig, string, error) {
 	return nil, "", nil
 }
 
-// configPathHint is how messages refer to the config file. The real path
-// comes from ConfigPath; this is only for humans.
+// configPathHint is the config path as shown in messages; see ConfigPath.
 const configPathHint = "~/.config/draco/config.yaml"
 
 // ConfigPath returns the path to the config file.
@@ -305,8 +276,7 @@ func ConfigPath() (string, error) {
 	return filepath.Join(home, ".config", "draco", "config.yaml"), nil
 }
 
-// loadFromFile reads and unmarshals the config file. It returns (nil, nil) when
-// there is no file to read (no home directory, or the file does not exist yet).
+// loadFromFile returns (nil, nil) when there is no file to read.
 func loadFromFile() (*Config, error) {
 	path, err := ConfigPath()
 	if err != nil {
@@ -344,6 +314,6 @@ func Save(cfg *Config) error {
 		return err
 	}
 
-	// 0600 = solo el usuario puede leer/escribir
+	// 0600: the file holds the API token.
 	return os.WriteFile(path, data, 0600)
 }

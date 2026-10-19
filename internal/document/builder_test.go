@@ -31,8 +31,7 @@ func TestBuildTitleSanitizesCharactersConfluenceRejects(t *testing.T) {
 }
 
 func TestBuildTitleUsesThePrefixSearchesRelyOn(t *testing.T) {
-	// FindLastDeployDoc filters by this prefix client-side; if BuildTitle stops
-	// producing it, the location picker silently returns nothing.
+	// FindLastDeployDoc filters by this prefix; without it the location picker is empty.
 	if got := BuildTitle("APP-1", "x"); !strings.HasPrefix(got, "Documento de Despliegue") {
 		t.Errorf("el título perdió el prefijo esperado: %q", got)
 	}
@@ -90,7 +89,6 @@ func TestCommitFileURLNeedsRepoAndCommit(t *testing.T) {
 }
 
 func TestBuildOmitsEmptySides(t *testing.T) {
-	// Only a backend commit: the frontend table must not appear at all.
 	adf := Build(DeployDoc{
 		IssueKey:     "APP-1999",
 		BackendRepo:  "pagos-api",
@@ -118,8 +116,6 @@ func TestBuildOmitsEmptySides(t *testing.T) {
 	}
 }
 
-// checklistTexts pulls the task labels out of a built document's "A considerar"
-// section, so the tests assert on what a reader sees, not on ADF shape.
 func checklistTexts(t *testing.T, adf map[string]any) []string {
 	t.Helper()
 	nodes := ExtractSection(adf, ConsiderHeading)
@@ -168,7 +164,7 @@ func TestChecklistFallsBackToGenericDefault(t *testing.T) {
 	if !reflect.DeepEqual(got, defaultChecklist) {
 		t.Errorf("checklist = %#v, esperaba el default %#v", got, defaultChecklist)
 	}
-	// The old default hardcoded a Laravel command; it must not come back.
+	// No step tied to one stack (Laravel here) in the default.
 	for _, step := range got {
 		if strings.Contains(step, "artisan") {
 			t.Errorf("el default no debe asumir un stack: %q", step)
@@ -189,7 +185,6 @@ func TestChecklistSkipsBlankSteps(t *testing.T) {
 }
 
 func TestTaskItemLocalIdsAreUnique(t *testing.T) {
-	// Text comes from config now, so ids cannot be derived from it.
 	adf := Build(DeployDoc{
 		IssueKey:  "APP-1999",
 		Checklist: []string{"Mismo paso", "Mismo paso", "Mismo paso"},
