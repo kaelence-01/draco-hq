@@ -64,32 +64,37 @@ de Windows (`cmd`) se ve más limitado.
   terminal, con 21 tests sobre un doble de Atlassian.
 - `docs/security/patrones-seguros.md` reescrito con ejemplos genéricos.
 - Datos de prueba heredados de gtt reemplazados por ejemplos genéricos.
+- **Flujo de QA** en `internal/qa`, sin E/S de terminal: `Resolve` valida
+  `qa_jira` y lo convierte a `QASchema`; la `Session` va por `CheckAccount`
+  (`ErrNotQAAccount`), `Collect` (Sprint o Kanban), `EvaluateTask` (una
+  llamada por tarea, para mostrar progreso; una consulta fallida queda como
+  **desconocida**), `FindExisting`, `DraftCreate`/`DraftUpdate`, `Locations`
+  (`ErrNoLocations`) y `Publish`.
+  - El nombre del sprint sale de `qa_jira.sprint_name` (por defecto
+    `"{module}_Sprint {sprint}"`, la convención de gtt).
+  - **Mejora frente a gtt:** al actualizar un consolidado se preserva lo que QA
+    escribió a mano (la celda «Observación» del Resumen y «Consideraciones»,
+    `document.ExtractQAPreserved`). Si la página no se puede leer no se
+    sobrescribe; lo que no se pudo leer viaja en `Draft.NotPreserved` para que
+    la UI pregunte.
+  - `KanbanWindow(now)` recibe la fecha; se quitaron `FindQAPage` y
+    `FindQAKanbanPage`, que repetían el formato del título (el flujo usa
+    `FindPageByTitle` con `document.BuildQA*Title`).
 
 ### Fase 2 — siguiente
 
-1. **Flujo de QA** (`internal/qa`), a partir de `cmd/qa.go` de gtt:
-   - protección `qa_email` (cuenta autenticada vs. config);
-   - recolección en modo Sprint (sprint + módulo) o Kanban (últimos 10 días
-     hábiles, `atlassian.KanbanWindow`);
-   - evaluación por tarea: enlace al documento de despliegue y observaciones
-     («Novedad::»), con estado **desconocido** si una consulta falla;
-   - construcción del reporte (`document.BuildQA`), página existente,
-     ubicación y publicación;
-   - validar `qa_jira` antes de consultar y convertirlo a `atlassian.QASchema`.
-   - El nombre del sprint en gtt es `"<módulo>_Sprint <n>"`: es una convención
-     de un equipo, debe ir a config con ese valor por defecto.
-2. **Flujo de exportar** (`internal/fetch`), a partir de `cmd/fetch.go`: buscar
+1. **Flujo de exportar** (`internal/fetch`), a partir de `cmd/fetch.go`: buscar
    páginas que mencionen el issue (`FindPagesByText`), elegir una, convertirla
    (`GetPageWithContent` + `BuildIssueTxt`) y proponer el nombre de archivo
    (`sanitizeFilename`). El diálogo nativo para guardar es de la UI, no del flujo.
-3. **Proyectos y configuración** como funciones puras: agregar, quitar, cambiar
+2. **Proyectos y configuración** como funciones puras: agregar, quitar, cambiar
    el default y guardar (`config.Save`), para que los usen el asistente de texto
    y los formularios de la TUI.
-4. **Convenciones de texto configurables**, con sus valores actuales por
+3. **Convenciones de texto configurables**, con sus valores actuales por
    defecto: prefijo del título del documento («Documento de Despliegue»), prefijo
    de las tareas de revisión QA («Revisión de Tarea»), marcador de observaciones
    («Novedad::»), título del consolidado QA.
-5. **`internal/git`: listar commits recientes** de un repo, para el selector de
+4. **`internal/git`: listar commits recientes** de un repo, para el selector de
    commits de la TUI.
 
 ### Fase 3 — modo comando

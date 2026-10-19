@@ -385,16 +385,6 @@ func (c *Client) UpdatePage(pageID, title string, currentVersion int, adfBody ma
 	}, nil
 }
 
-// FindQAPage searches for an existing QA consolidated page for the given module and sprint.
-// Uses the v2 pages API (direct DB lookup) instead of CQL search to avoid indexing delays.
-// spaceKey restricts the search to a specific space; empty string searches all spaces.
-func (c *Client) FindQAPage(module string, sprint int, spaceKey string) (*Page, error) {
-	return c.findPageByExactTitle(
-		fmt.Sprintf("Consolidado de Pruebas QA - %s - Sprint %d", module, sprint),
-		spaceKey,
-	)
-}
-
 // FindQAPagesForModule returns recent QA consolidated pages for the given module.
 // If module is empty, returns any recent QA consolidated pages (used for Kanban mode).
 // spaceKey restricts the search to a specific space; empty string searches all spaces.
@@ -430,14 +420,6 @@ func (c *Client) FindQAPagesForModule(module, spaceKey string) ([]Page, error) {
 		})
 	}
 	return pages, nil
-}
-
-// FindQAKanbanPage searches for an existing QA Kanban consolidated page by period label.
-func (c *Client) FindQAKanbanPage(period, spaceKey string) (*Page, error) {
-	return c.findPageByExactTitle(
-		fmt.Sprintf("Consolidado de Pruebas QA - %s", period),
-		spaceKey,
-	)
 }
 
 // marshalADF serializes the ADF document to a JSON string.

@@ -51,12 +51,13 @@ internal/
   git/         git show, agrupación por carpeta, errores accionables
   backlog/     Detectores de deuda técnica (sin red)
   deploy/      Flujo del documento de despliegue, sin E/S de terminal
+  qa/          Flujo del consolidado de QA, sin E/S de terminal
 docs/
   roadmap.md                 Visión, fases, estado y decisiones
   security/patrones-seguros.md   Patrones P-001..P-008 (autoridad en seguridad)
 ```
 
-Planeado (ver roadmap): `internal/qa`, `internal/fetch` (flujos), `cmd/` (modo
+Planeado (ver roadmap): `internal/fetch` (flujo), `cmd/` (modo
 comando), `internal/tui/` (modo visual), `internal/installer`,
 `internal/updater`, `main.go`, `Makefile`.
 
@@ -75,10 +76,11 @@ Cada flujo vive en su propio paquete (`internal/deploy` es la referencia) y
   `var _ Atlassian = (*atlassian.Client)(nil)` para que no se desincronice. Los
   tests usan un doble (`fakeAPI`).
 - Las situaciones degradadas pero viables se devuelven como `Warnings` o como
-  campos (`Draft.Preserved`, `Result.LinkErr`, `Locations.TeamWide`), nunca se
+  campos (`Draft.Preserved`, `Draft.NotPreserved`, `Result.LinkErr`,
+  `Locations.TeamWide`), nunca se
   imprimen desde el flujo.
 - Los errores que el llamador debe explicar con su propia UI son centinelas
-  (`ErrNoSpace`, `ErrNoLocations`).
+  (`ErrNoSpace`, `ErrNoLocations`, `ErrNotQAAccount`).
 
 ## Reglas que no se negocian
 
@@ -98,8 +100,9 @@ Cada flujo vive en su propio paquete (`internal/deploy` es la referencia) y
   `body.value` (string JSON) con `representation: atlas_doc_format`.
 - **Actualizar una página reemplaza todo su cuerpo.** Lo que el usuario edita a
   mano (la sección «A considerar») se lee y se vuelve a emitir
-  (`document.ExtractSection`). Si la página actual no se puede leer, no se
-  sobrescribe: `DraftUpdate` devuelve error.
+  (`document.ExtractSection`); en el consolidado QA, la «Observación» del
+  Resumen y «Consideraciones» (`document.ExtractQAPreserved`). Si la página
+  actual no se puede leer, no se sobrescribe: `DraftUpdate` devuelve error.
 - **Una consulta fallida nunca se publica como un control fallido** en el
   reporte de QA: es evidencia. Se usa el estado desconocido
   (`QAIssue.DeployDocUnknown`).

@@ -279,9 +279,9 @@ func businessDaysAgo(n int, from time.Time) time.Time {
 	return d
 }
 
-// KanbanWindow returns the start date (10 business days ago) and a display label like "08/05 al 22/05/2026".
-func KanbanWindow() (since time.Time, period string) {
-	now := time.Now()
+// KanbanWindow returns the start date (10 business days before now) and a
+// display label like "08/05 al 22/05/2026".
+func KanbanWindow(now time.Time) (since time.Time, period string) {
 	since = businessDaysAgo(10, now)
 	period = fmt.Sprintf("%s al %s", since.Format("02/01"), now.Format("02/01/2006"))
 	return
