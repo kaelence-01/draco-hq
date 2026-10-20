@@ -47,8 +47,8 @@ de Windows (`cmd`) se ve más limitado.
 | Fase | Contenido | Estado |
 |---|---|---|
 | 1 | Nombre, identidad y repositorio | ✅ |
-| 2 | Core: portar la lógica de gtt, separar los flujos y desacoplar los proveedores | 🟡 en curso |
-| 3 | Modo comando (`cmd/`, `main.go`), instalador, updater, releases | ⬜ |
+| 2 | Core: portar la lógica de gtt, separar los flujos y desacoplar los proveedores | ✅ |
+| 3 | Modo comando (`cmd/`, `main.go`), instalador, updater, releases | ⬜ siguiente |
 | 4 | Modo visual mínimo: pantalla principal, proyectos, generar documento | ⬜ |
 | 5 | Resto de pantallas: backlog, QA, exportar | ⬜ |
 | 6 | Barra de comandos con autocompletado, temas, ayuda | ⬜ |
@@ -88,7 +88,7 @@ de Windows (`cmd`) se ve más limitado.
   y `Export` (texto con `BuildIssueTxt`, nombre de archivo propuesto,
   `Export.Save`). El nombre translitera tildes y eñes en vez de borrarlas.
 
-### Fase 2 — siguiente: proveedores y plantillas
+### Fase 2 — proveedores y plantillas (cerrada)
 
 draco deja de estar atado a Atlassian: modelo propio, puertos y un adaptador por
 plataforma; la estructura del documento pasa a plantillas. Diseño completo en
@@ -105,7 +105,7 @@ se cierra con un criterio verificable.
 | 4b | ✅ El builder genera Markdown; preservación de secciones dentro del adaptador (`Sections`); «Observación» del consolidado como sección | `feature/markdown` | Goldens regenerados a **contenido equivalente**; solo las diferencias aceptadas en el diseño (§5) |
 | 5 | ✅ Plantillas (`text/template`, manifiesto, resolución por fuentes, plantilla incluida) | `feature/plantillas` | La plantilla incluida reproduce el documento; otra plantilla lo cambia sin recompilar. Absorbe las convenciones de texto («Documento de Despliegue», «Revisión de Tarea», «Novedad::», título del consolidado) |
 | 6 | ✅ Destino Markdown local (`internal/provider/markdown`) | `feature/salida-markdown` | Un documento de despliegue completo publicado sin Confluence |
-| 7 | Config con perfiles y migración del `config.yaml` actual | `feature/perfiles` | Un `config.yaml` de hoy se migra solo; absorbe «proyectos y configuración» como funciones puras |
+| 7 | ✅ Config con perfiles y migración del `config.yaml` actual | `feature/perfiles` | Un `config.yaml` de hoy se migra solo; absorbe «proyectos y configuración» como funciones puras |
 
 Listar commits recientes para el selector de la TUI entra en el puerto de
 cambios (`ChangeSource.RecentCommits`) en la actividad 3b.
@@ -123,6 +123,10 @@ y plantillas remotas, en ese orden según demanda (diseño, §9).
   `backlog scan`, `update`, `version`, `help`. Mismos flags que gtt.
 - `draco` sin argumentos: en una terminal interactiva abrirá la TUI (fase 4);
   sin TTY muestra la ayuda.
+- Cada comando arma sus adaptadores con `profile.Open` (flag `--profile`,
+  `--space`); `draco init` crea o edita perfiles y proyectos con las funciones
+  puras de `config` y guarda con `config.Save`. Una config sin perfiles sigue
+  funcionando como el perfil `atlassian`.
 - `fetch`: portar de gtt los diálogos nativos para guardar (zenity,
   PowerShell también desde WSL, osascript), con la carpeta actual como respaldo.
 - Portar y adaptar de gtt: `installer` (auto-instalación al primer uso, PATH en

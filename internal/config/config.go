@@ -186,6 +186,11 @@ type Config struct {
 	DefaultProject     string                    `yaml:"default_project,omitempty"`
 	Projects           map[string]*ProjectConfig `yaml:"projects,omitempty"`
 
+	// Profiles pick the platforms draco talks to; a config without them reads
+	// as one Jira + Confluence profile (see Profile).
+	DefaultProfile string              `yaml:"default_profile,omitempty"`
+	Profiles       map[string]*Profile `yaml:"profiles,omitempty"`
+
 	// DeployChecklist are the "A considerar" steps of a new deploy document.
 	// Stack-specific, so config, never compiled in (P-008).
 	DeployChecklist []string `yaml:"deploy_checklist,omitempty"`
@@ -274,6 +279,12 @@ func mergeMissing(cfg, fileCfg *Config) {
 	}
 	if cfg.Projects == nil {
 		cfg.Projects = fileCfg.Projects
+	}
+	if cfg.DefaultProfile == "" {
+		cfg.DefaultProfile = fileCfg.DefaultProfile
+	}
+	if cfg.Profiles == nil {
+		cfg.Profiles = fileCfg.Profiles
 	}
 }
 
