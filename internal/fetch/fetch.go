@@ -25,7 +25,7 @@ type Request struct {
 // Target is a Request resolved against config.
 type Target struct {
 	Issue    string
-	SpaceKey string // scope of the DocStore; empty searches every space
+	SpaceKey string // destination scope from the request; empty: the profile's, or everything
 }
 
 // Resolve applies config to the request.
@@ -34,11 +34,7 @@ func Resolve(cfg *config.Config, req Request) (*Target, error) {
 	if issue == "" {
 		return nil, fmt.Errorf("falta la clave del issue de Jira")
 	}
-	space := req.Space
-	if space == "" {
-		space = cfg.ConfluenceSpaceKey
-	}
-	return &Target{Issue: issue, SpaceKey: space}, nil
+	return &Target{Issue: issue, SpaceKey: req.Space}, nil
 }
 
 // Session is one run of the workflow; the steps fill its exported fields.

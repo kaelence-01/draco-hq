@@ -183,10 +183,8 @@ func TestResolveSpace(t *testing.T) {
 	if err != nil || tg.SpaceKey != "FLAG" {
 		t.Errorf("el flag debe ganar: %q %v", tg.SpaceKey, err)
 	}
-	cfg := validConfig()
-	cfg.ConfluenceSpaceKey = ""
-	if _, err := Resolve(cfg, Request{}, monday); !errors.Is(err, ErrNoSpace) {
-		t.Errorf("esperaba ErrNoSpace, obtuve %v", err)
+	if tg, _ := Resolve(validConfig(), Request{}, monday); tg.SpaceKey != "" {
+		t.Errorf("sin flag queda vacío: lo completa el perfil, obtuve %q", tg.SpaceKey)
 	}
 }
 

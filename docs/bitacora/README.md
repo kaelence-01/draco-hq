@@ -35,6 +35,7 @@ Sin entradas: se hizo antes de que existiera la bitácora.
 | [013](./fase-2/013-bitacora-fases.md) | Bitácora por fases | `docs/bitacora-fases` | 2026-10-19 | Entradas en `fase-N/`; `check.sh` exige que carpeta y fase coincidan |
 | [014](./fase-2/014-salida-markdown.md) | Destino Markdown local | `feature/salida-markdown` | 2026-10-19 | `markdown.Store` como `DocStore`; el flujo `deploy` publica sin Confluence y conserva lo editado a mano |
 | [015](./fase-2/015-plantillas.md) | Plantillas del documento | `feature/plantillas` | 2026-10-19 | Plantillas incluidas idénticas al documento anterior, personalizables por bloques; convenciones de QA a la config |
+| [016](./fase-2/016-perfiles.md) | Perfiles y cierre de la fase 2 | `feature/perfiles` | 2026-10-19 | `profiles` con migración en memoria, `profile.Open` arma los adaptadores; el space pasa del flujo al perfil |
 
 ## Formato de cada entrada
 

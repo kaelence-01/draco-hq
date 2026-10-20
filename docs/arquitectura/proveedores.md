@@ -205,24 +205,40 @@ Implementado en la actividad 5 (`internal/document`):
 
 ## 8. Configuración con perfiles
 
+Implementado en la actividad 7 (`config.Profile`, `internal/profile`):
+
 ```yaml
-version: 2
 default_profile: equipo
 
 profiles:
   equipo:
-    tracker: { provider: jira, url: https://empresa.atlassian.net }
+    tracker: { provider: jira }
     docs:    { provider: confluence, space: DEV }
-    template: deploy-estandar
   externo:
-    tracker: { provider: github, repo: mi-org/pagos-api }
+    tracker: { provider: jira }
     docs:    { provider: markdown, path: ./docs/despliegues }
+    template: ./plantillas/deploy
 ```
 
-- El `config.yaml` actual se migra solo a un perfil equivalente.
-- Credenciales: variables de entorno o el archivo con permisos 0600, como hoy.
-  Llevarlas al gestor de secretos del sistema necesita una dependencia y se
-  decide en la actividad de perfiles.
+- **Migración en memoria:** una config sin `profiles` se lee como el perfil
+  `atlassian` (Jira + Confluence con `confluence_space_key`); el archivo no se
+  reescribe. Con un solo perfil no hace falta `default_profile`.
+- `profile.Open(cfg, Options{Name, Scope, AnyScope})` arma los adaptadores
+  (Jira, Confluence o Markdown local, y git local). Jira y Confluence usan
+  `base_url` y las credenciales globales (variables de entorno o el archivo
+  0600, como antes).
+- **El space es del perfil, no del flujo:** los flujos solo resuelven lo que
+  pidió el usuario (flag o proyecto) en `Target.SpaceKey`; `Open` completa con
+  el del perfil y devuelve `ErrNoSpace` solo si el destino es Confluence y no
+  hay ninguno (`AnyScope`, para exportar, busca en todos). Así un perfil
+  Markdown no exige un space.
+- **QA como capacidad:** `Bundle.QA()` devuelve el `QATracker`, el error de
+  `qa_jira` si está incompleto o `ErrNoQA` si el tracker no lo soporta.
+- Proyectos y perfiles se editan con funciones puras (`SetProject`,
+  `RemoveProject`, `SetDefaultProject` y las de perfiles) y se guardan con
+  `config.Save`: las usarán `draco init` y los formularios de la TUI.
+- Pendiente: URL y credenciales por perfil (hoy son globales), y el gestor de
+  secretos del sistema.
 
 ## 9. Prioridad de plataformas
 

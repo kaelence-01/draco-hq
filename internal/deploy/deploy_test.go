@@ -133,7 +133,7 @@ func TestResolveSpacePrecedence(t *testing.T) {
 	}{
 		{"flag gana", "FLAG", cfg, "FLAG"},
 		{"luego el proyecto", "", cfg, "PROJ"},
-		{"luego el global", "", &config.Config{ConfluenceSpaceKey: "GLOBAL", Projects: map[string]*config.ProjectConfig{"app": {BackendRepo: "api"}}}, "GLOBAL"},
+		{"sin flag ni proyecto queda vacío: lo completa el perfil", "", &config.Config{ConfluenceSpaceKey: "GLOBAL", Projects: map[string]*config.ProjectConfig{"app": {BackendRepo: "api"}}}, ""},
 	}
 	for _, c := range cases {
 		r := req
@@ -145,13 +145,6 @@ func TestResolveSpacePrecedence(t *testing.T) {
 		if got.SpaceKey != c.want {
 			t.Errorf("%s: space = %q, esperaba %q", c.name, got.SpaceKey, c.want)
 		}
-	}
-}
-
-func TestResolveWithoutSpaceIsErrNoSpace(t *testing.T) {
-	_, err := Resolve(&config.Config{}, Request{Issue: "OPS-1", BackendHashes: []string{"a"}})
-	if !errors.Is(err, ErrNoSpace) {
-		t.Errorf("esperaba ErrNoSpace, obtuve %v", err)
 	}
 }
 

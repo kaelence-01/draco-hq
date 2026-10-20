@@ -44,8 +44,8 @@ func TestResolve(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if tg.Issue != "OPS-7" || tg.SpaceKey != "GLOBAL" {
-		t.Errorf("esperaba OPS-7 en GLOBAL, obtuve %+v", tg)
+	if tg.Issue != "OPS-7" || tg.SpaceKey != "" {
+		t.Errorf("esperaba OPS-7 sin space (lo completa el perfil), obtuve %+v", tg)
 	}
 
 	if tg, _ := Resolve(cfg, Request{Issue: "OPS-7", Space: "FLAG"}); tg.SpaceKey != "FLAG" {
