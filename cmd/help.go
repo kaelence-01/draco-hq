@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/kaelence-01/draco-hq/internal/build"
+	"github.com/kaelence-01/draco-hq/internal/updater"
 )
 
 func init() {
@@ -27,7 +28,7 @@ func (a *App) usage() {
 	a.printf("\n")
 
 	a.printf("Configuración en %s.\n", a.style(cyan, configPathHint()))
-	a.printf("Estado y próximos comandos: docs/roadmap.md (fase 3).\n")
+	a.printf("Documentación y versiones: %s\n", a.style(cyan, "https://github.com/"+updater.Repo))
 }
 
 // commandLines lists each command once, with its aliases, sorted by name.

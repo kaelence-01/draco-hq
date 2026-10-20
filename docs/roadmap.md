@@ -48,7 +48,7 @@ de Windows (`cmd`) se ve más limitado.
 |---|---|---|
 | 1 | Nombre, identidad y repositorio | ✅ |
 | 2 | Core: portar la lógica de gtt, separar los flujos y desacoplar los proveedores | ✅ |
-| 3 | Modo comando (`cmd/`, `main.go`), instalador, updater, releases | 🟡 en curso |
+| 3 | Modo comando (`cmd/`, `main.go`), instalador, updater, releases | ✅ `v0.1.0` |
 | 4 | Modo visual mínimo: pantalla principal, proyectos, generar documento | ⬜ |
 | 5 | Resto de pantallas: backlog, QA, exportar | ⬜ |
 | 6 | Barra de comandos con autocompletado, temas, ayuda | ⬜ |
@@ -114,7 +114,7 @@ Después de la fase 3 (modo comando): segundo tracker (GitHub Issues o Linear),
 segundo destino remoto (Notion o SharePoint), PRs de Bitbucket, notificaciones
 y plantillas remotas, en ese orden según demanda (diseño, §9).
 
-### Fase 3 — modo comando
+### Fase 3 — modo comando (cerrada)
 
 draco se vuelve ejecutable. Cada comando arma sus adaptadores con
 `profile.Open` y recorre los pasos de su flujo preguntando por texto; todo lo
@@ -159,6 +159,12 @@ Detalle:
   desde `main` actualizado y con el árbol limpio.
 - Pendiente de decidir: si se porta la skill `backlog-tareas` para Claude Code
   que gtt trae embebida.
+
+**Cierre (bitácora 027):** `v0.1.0` publicado (5 binarios y `checksums.txt`)
+e instalado desde el release: el binario descargado se instaló en el PATH y
+`draco version` responde `v0.1.0`. La actualización se verifica publicando
+esta actividad como `v0.1.1` (`draco update`). Quedan para el autor las
+pruebas manuales de `g`, `qa` y `f` contra su instancia.
 
 ### Fases 4 a 6 — modo visual
 
