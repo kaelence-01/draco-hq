@@ -1,6 +1,7 @@
 package qa
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"reflect"
@@ -8,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kaelence-01/draco-hq/internal/atlassian"
 	"github.com/kaelence-01/draco-hq/internal/config"
 	"github.com/kaelence-01/draco-hq/internal/document"
+	"github.com/kaelence-01/draco-hq/internal/provider/atlassian"
 )
 
 type fakeAPI struct {
@@ -43,53 +44,63 @@ type fakeAPI struct {
 	}
 }
 
-func (f *fakeAPI) Whoami() (*atlassian.JiraUser, error) { return f.me, f.meErr }
+func (f *fakeAPI) Whoami(context.Context) (*atlassian.JiraUser, error) { return f.me, f.meErr }
 
-func (f *fakeAPI) GetQATasksForReview(s atlassian.QASchema, sprintName, module string) ([]atlassian.QAIssue, error) {
+func (f *fakeAPI) GetQATasksForReview(_ context.Context, s atlassian.QASchema, sprintName, module string) ([]atlassian.QAIssue, error) {
 	f.gotSchema, f.gotSprintName, f.gotModule = s, sprintName, module
 	return f.review, f.reviewErr
 }
 
-func (f *fakeAPI) GetQATasksAsAssignee(_ atlassian.QASchema, sprintName, qaEmail string) ([]atlassian.QAIssue, error) {
+func (f *fakeAPI) GetQATasksAsAssignee(_ context.Context, _ atlassian.QASchema, sprintName, qaEmail string) ([]atlassian.QAIssue, error) {
 	f.gotQAEmail = qaEmail
 	return f.assigned, nil
 }
 
-func (f *fakeAPI) GetQATasksForReviewKanban(s atlassian.QASchema, since string) ([]atlassian.QAIssue, error) {
+func (f *fakeAPI) GetQATasksForReviewKanban(_ context.Context, s atlassian.QASchema, since string) ([]atlassian.QAIssue, error) {
 	f.gotSchema, f.gotSince = s, since
 	return f.review, f.reviewErr
 }
 
-func (f *fakeAPI) GetQATasksAsAssigneeKanban(_ atlassian.QASchema, _, qaEmail string) ([]atlassian.QAIssue, error) {
+func (f *fakeAPI) GetQATasksAsAssigneeKanban(_ context.Context, _ atlassian.QASchema, _, qaEmail string) ([]atlassian.QAIssue, error) {
 	f.gotQAEmail = qaEmail
 	return f.assigned, nil
 }
 
-func (f *fakeAPI) HasDeployDocLink(key string) (bool, error) { return f.docLinks[key], f.docErr[key] }
+func (f *fakeAPI) HasDeployDocLink(_ context.Context, key string) (bool, error) {
+	return f.docLinks[key], f.docErr[key]
+}
 
-func (f *fakeAPI) GetNovedadComment(key string) (string, error) {
+func (f *fakeAPI) GetNovedadComment(_ context.Context, key string) (string, error) {
 	f.commentsRead = append(f.commentsRead, key)
 	return f.novedad[key], f.novedadErr
 }
 
-func (f *fakeAPI) FindPageByTitle(string, string) (*atlassian.Page, error) { return f.byTitle, nil }
-func (f *fakeAPI) GetPageADF(string) (*atlassian.PageADF, error)           { return f.current, f.currentErr }
-func (f *fakeAPI) GetPage(id string) (*atlassian.Page, error)              { return f.pages[id], nil }
+func (f *fakeAPI) FindPageByTitle(context.Context, string, string) (*atlassian.Page, error) {
+	return f.byTitle, nil
+}
+func (f *fakeAPI) GetPageADF(context.Context, string) (*atlassian.PageADF, error) {
+	return f.current, f.currentErr
+}
+func (f *fakeAPI) GetPage(_ context.Context, id string) (*atlassian.Page, error) {
+	return f.pages[id], nil
+}
 
-func (f *fakeAPI) FindQAPagesForModule(module, _ string) ([]atlassian.Page, error) {
+func (f *fakeAPI) FindQAPagesForModule(_ context.Context, module, _ string) ([]atlassian.Page, error) {
 	f.gotPagesFor = &module
 	return f.qaPages, nil
 }
 
-func (f *fakeAPI) CreatePage(spaceID, parentID, title string, _ map[string]any) (*atlassian.Page, error) {
+func (f *fakeAPI) CreatePage(_ context.Context, spaceID, parentID, title string, _ map[string]any) (*atlassian.Page, error) {
 	f.created.spaceID, f.created.parentID, f.created.title = spaceID, parentID, title
 	return &atlassian.Page{ID: "new", WebURL: "https://example.test/new"}, nil
 }
 
-func (f *fakeAPI) UpdatePage(id, _ string, version int, _ map[string]any) (*atlassian.Page, error) {
+func (f *fakeAPI) UpdatePage(_ context.Context, id, _ string, version int, _ map[string]any) (*atlassian.Page, error) {
 	f.updated.id, f.updated.version = id, version
 	return &atlassian.Page{ID: id, WebURL: "https://example.test/" + id}, nil
 }
+
+var ctx = context.Background()
 
 // monday is 2026-09-21; ten business days earlier is 2026-09-07.
 var monday = time.Date(2026, 9, 21, 12, 0, 0, 0, time.UTC)
@@ -223,7 +234,7 @@ func TestCheckAccount(t *testing.T) {
 		tg := sprintTarget(t)
 		tg.QAEmail = c.qaEmail
 		s := NewSession(&fakeAPI{me: &atlassian.JiraUser{EmailAddress: c.authed}}, tg)
-		err := s.CheckAccount()
+		err := s.CheckAccount(ctx)
 		if c.wantErr != errors.Is(err, ErrNotQAAccount) {
 			t.Errorf("%s: error = %v", c.name, err)
 		}
@@ -235,7 +246,7 @@ func TestCheckAccount(t *testing.T) {
 
 func TestCheckAccountPropagatesAuthError(t *testing.T) {
 	s := NewSession(&fakeAPI{meErr: errors.New("401")}, sprintTarget(t))
-	if err := s.CheckAccount(); err == nil || errors.Is(err, ErrNotQAAccount) {
+	if err := s.CheckAccount(ctx); err == nil || errors.Is(err, ErrNotQAAccount) {
 		t.Errorf("un fallo de autenticación no es ErrNotQAAccount: %v", err)
 	}
 }
@@ -248,7 +259,7 @@ func TestCollectSprintLinksReviewTasks(t *testing.T) {
 		},
 	}
 	s := NewSession(api, sprintTarget(t))
-	if err := s.Collect(); err != nil {
+	if err := s.Collect(ctx); err != nil {
 		t.Fatal(err)
 	}
 	if api.gotSprintName != "Pagos_Sprint 12" || api.gotModule != "Pagos" || api.gotQAEmail != "qa@example.test" {
@@ -268,7 +279,7 @@ func TestCollectSprintLinksReviewTasks(t *testing.T) {
 func TestCollectKanbanUsesWindow(t *testing.T) {
 	tg, _ := Resolve(validConfig(), Request{}, monday)
 	api := &fakeAPI{}
-	if err := NewSession(api, tg).Collect(); err != nil {
+	if err := NewSession(api, tg).Collect(ctx); err != nil {
 		t.Fatal(err)
 	}
 	if api.gotSince != "2026-09-07" {
@@ -278,7 +289,7 @@ func TestCollectKanbanUsesWindow(t *testing.T) {
 
 func TestCollectPropagatesErrors(t *testing.T) {
 	s := NewSession(&fakeAPI{reviewErr: errors.New("timeout")}, sprintTarget(t))
-	if err := s.Collect(); err == nil {
+	if err := s.Collect(ctx); err == nil {
 		t.Error("si la búsqueda falla no hay reporte que armar")
 	}
 }
@@ -288,7 +299,7 @@ func TestEvaluateTaskFailedLookupIsUnknown(t *testing.T) {
 	s := NewSession(api, sprintTarget(t))
 	s.Tasks = []atlassian.QAIssue{{Key: "OPS-7"}}
 
-	warnings := s.EvaluateTask(0)
+	warnings := s.EvaluateTask(ctx, 0)
 	if !s.Tasks[0].DeployDocUnknown || s.Tasks[0].HasDeployDoc {
 		t.Errorf("una consulta fallida es desconocida, no un control fallido: %+v", s.Tasks[0])
 	}
@@ -298,7 +309,7 @@ func TestEvaluateTaskFailedLookupIsUnknown(t *testing.T) {
 
 	api.docErr = nil
 	api.docLinks = map[string]bool{"OPS-7": true}
-	if w := s.EvaluateTask(0); len(w) != 0 || s.Tasks[0].DeployDocUnknown || !s.Tasks[0].HasDeployDoc {
+	if w := s.EvaluateTask(ctx, 0); len(w) != 0 || s.Tasks[0].DeployDocUnknown || !s.Tasks[0].HasDeployDoc {
 		t.Errorf("reevaluar debe limpiar el estado: %+v %v", s.Tasks[0], w)
 	}
 }
@@ -308,8 +319,8 @@ func TestEvaluateTaskObservations(t *testing.T) {
 	s := NewSession(api, sprintTarget(t))
 	s.Tasks = []atlassian.QAIssue{{Key: "OPS-7", HasCodingErrors: true}, {Key: "OPS-8"}}
 
-	s.EvaluateTask(0)
-	s.EvaluateTask(1)
+	s.EvaluateTask(ctx, 0)
+	s.EvaluateTask(ctx, 1)
 	if s.Tasks[0].Observations != "falta validar el monto" {
 		t.Errorf("observaciones = %q", s.Tasks[0].Observations)
 	}
@@ -318,7 +329,7 @@ func TestEvaluateTaskObservations(t *testing.T) {
 	}
 
 	api.novedadErr = errors.New("500")
-	if w := s.EvaluateTask(0); len(w) != 1 || !strings.Contains(s.Tasks[0].Observations, "no se pudieron leer") {
+	if w := s.EvaluateTask(ctx, 0); len(w) != 1 || !strings.Contains(s.Tasks[0].Observations, "no se pudieron leer") {
 		t.Errorf("un fallo debe decirse en la celda y en un aviso: %q %v", s.Tasks[0].Observations, w)
 	}
 }
@@ -352,7 +363,7 @@ func TestDraftUpdatePreservesHandWrittenParts(t *testing.T) {
 	s := NewSession(api, sprintTarget(t))
 	s.Existing = &atlassian.Page{ID: "p1"}
 
-	d, err := s.DraftUpdate()
+	d, err := s.DraftUpdate(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -368,7 +379,7 @@ func TestDraftUpdatePreservesHandWrittenParts(t *testing.T) {
 func TestDraftUpdateRefusesWhenPageUnreadable(t *testing.T) {
 	s := NewSession(&fakeAPI{currentErr: errors.New("timeout")}, sprintTarget(t))
 	s.Existing = &atlassian.Page{ID: "p1"}
-	if d, err := s.DraftUpdate(); err == nil || d != nil {
+	if d, err := s.DraftUpdate(ctx); err == nil || d != nil {
 		t.Error("sin leer la página actual no se arma un reemplazo")
 	}
 }
@@ -378,7 +389,7 @@ func TestDraftUpdateReportsLostParts(t *testing.T) {
 	s := NewSession(api, sprintTarget(t))
 	s.Existing = &atlassian.Page{ID: "p1"}
 
-	d, err := s.DraftUpdate()
+	d, err := s.DraftUpdate(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -393,7 +404,7 @@ func TestDraftUpdateReportsLostParts(t *testing.T) {
 func TestLocations(t *testing.T) {
 	api := &fakeAPI{}
 	tg, _ := Resolve(validConfig(), Request{}, monday)
-	if _, err := NewSession(api, tg).Locations(); !errors.Is(err, ErrNoLocations) {
+	if _, err := NewSession(api, tg).Locations(ctx); !errors.Is(err, ErrNoLocations) {
 		t.Errorf("sin consolidados previos esperaba ErrNoLocations, obtuve %v", err)
 	}
 	if api.gotPagesFor == nil || *api.gotPagesFor != "" {
@@ -401,7 +412,7 @@ func TestLocations(t *testing.T) {
 	}
 
 	api.qaPages = []atlassian.Page{{ID: "q1"}}
-	if _, err := NewSession(api, sprintTarget(t)).Locations(); err != nil || *api.gotPagesFor != "Pagos" {
+	if _, err := NewSession(api, sprintTarget(t)).Locations(ctx); err != nil || *api.gotPagesFor != "Pagos" {
 		t.Errorf("en Sprint se buscan los del módulo: %q %v", *api.gotPagesFor, err)
 	}
 }
@@ -409,7 +420,7 @@ func TestLocations(t *testing.T) {
 func TestPublishUpdateUsesCurrentVersion(t *testing.T) {
 	api := &fakeAPI{}
 	s := NewSession(api, sprintTarget(t))
-	res, err := s.Publish(&Draft{Title: "T", Replaces: &atlassian.PageADF{Page: atlassian.Page{ID: "p1", Version: 4}}}, nil)
+	res, err := s.Publish(ctx, &Draft{Title: "T", Replaces: &atlassian.PageADF{Page: atlassian.Page{ID: "p1", Version: 4}}}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -423,10 +434,10 @@ func TestPublishCreateNextToSibling(t *testing.T) {
 	s := NewSession(api, sprintTarget(t))
 	d := s.DraftCreate()
 
-	if _, err := s.Publish(d, nil); err == nil {
+	if _, err := s.Publish(ctx, d, nil); err == nil {
 		t.Error("crear sin ubicación debe fallar")
 	}
-	res, err := s.Publish(d, &atlassian.Page{ID: "q1"})
+	res, err := s.Publish(ctx, d, &atlassian.Page{ID: "q1"})
 	if err != nil {
 		t.Fatal(err)
 	}

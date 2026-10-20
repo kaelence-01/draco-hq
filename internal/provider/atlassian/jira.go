@@ -1,6 +1,7 @@
 package atlassian
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -29,8 +30,8 @@ type JiraUser struct {
 
 // Whoami returns the authenticated user. Basic Auth with a wrong email returns
 // empty results instead of failing, so callers verify the account early.
-func (c *Client) Whoami() (*JiraUser, error) {
-	body, err := c.Get("/rest/api/3/myself")
+func (c *Client) Whoami(ctx context.Context) (*JiraUser, error) {
+	body, err := c.Get(ctx, "/rest/api/3/myself")
 	if err != nil {
 		return nil, fmt.Errorf("no se pudo verificar credenciales: %w", err)
 	}
@@ -43,8 +44,8 @@ func (c *Client) Whoami() (*JiraUser, error) {
 
 // VerifyCredentialsMatch calls Whoami and reports through warn when the
 // authenticated email differs from configuredEmail; it errors only if the call fails.
-func (c *Client) VerifyCredentialsMatch(configuredEmail string, warn func(string)) (*JiraUser, error) {
-	u, err := c.Whoami()
+func (c *Client) VerifyCredentialsMatch(ctx context.Context, configuredEmail string, warn func(string)) (*JiraUser, error) {
+	u, err := c.Whoami(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +63,7 @@ func (c *Client) VerifyCredentialsMatch(configuredEmail string, warn func(string
 
 // CreateJiraRemoteLink links the issue to a Confluence page. The globalId makes
 // it idempotent: a rerun updates the link instead of duplicating it.
-func (c *Client) CreateJiraRemoteLink(issueKey, pageID, pageURL, pageTitle string) error {
+func (c *Client) CreateJiraRemoteLink(ctx context.Context, issueKey, pageID, pageURL, pageTitle string) error {
 	payload := map[string]any{
 		"globalId":     "confluence-page:" + pageID,
 		"relationship": "mentioned in",
@@ -71,15 +72,15 @@ func (c *Client) CreateJiraRemoteLink(issueKey, pageID, pageURL, pageTitle strin
 			"title": pageTitle,
 		},
 	}
-	_, err := c.Post(fmt.Sprintf("/rest/api/3/issue/%s/remotelink", issueKey), payload)
+	_, err := c.Post(ctx, fmt.Sprintf("/rest/api/3/issue/%s/remotelink", issueKey), payload)
 	return err
 }
 
 // GetIssue returns a Jira issue by key.
-func (c *Client) GetIssue(issueKey string) (*Issue, error) {
+func (c *Client) GetIssue(ctx context.Context, issueKey string) (*Issue, error) {
 	path := fmt.Sprintf("/rest/api/3/issue/%s?fields=summary", issueKey)
 
-	body, err := c.Get(path)
+	body, err := c.Get(ctx, path)
 	if err != nil {
 		return nil, fmt.Errorf("error obteniendo issue %s: %w", issueKey, err)
 	}

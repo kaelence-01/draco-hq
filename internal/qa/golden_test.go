@@ -4,8 +4,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/kaelence-01/draco-hq/internal/atlassian"
 	"github.com/kaelence-01/draco-hq/internal/golden"
+	"github.com/kaelence-01/draco-hq/internal/provider/atlassian"
 )
 
 func TestGoldenDraftCreateSprint(t *testing.T) {
@@ -23,11 +23,11 @@ func TestGoldenDraftCreateSprint(t *testing.T) {
 		novedad:  map[string]string{"OPS-8": "falta validar el monto"},
 	}
 	s := NewSession(api, sprintTarget(t))
-	if err := s.Collect(); err != nil {
+	if err := s.Collect(ctx); err != nil {
 		t.Fatal(err)
 	}
 	for i := range s.Tasks {
-		s.EvaluateTask(i)
+		s.EvaluateTask(ctx, i)
 	}
 
 	d := s.DraftCreate()

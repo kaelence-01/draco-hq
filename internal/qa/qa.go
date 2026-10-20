@@ -4,31 +4,32 @@
 package qa
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
 	"time"
 
-	"github.com/kaelence-01/draco-hq/internal/atlassian"
 	"github.com/kaelence-01/draco-hq/internal/config"
 	"github.com/kaelence-01/draco-hq/internal/document"
+	"github.com/kaelence-01/draco-hq/internal/provider/atlassian"
 )
 
 // Atlassian is the part of the Jira and Confluence client the workflow uses.
 type Atlassian interface {
-	Whoami() (*atlassian.JiraUser, error)
-	GetQATasksForReview(s atlassian.QASchema, sprintName, module string) ([]atlassian.QAIssue, error)
-	GetQATasksAsAssignee(s atlassian.QASchema, sprintName, qaEmail string) ([]atlassian.QAIssue, error)
-	GetQATasksForReviewKanban(s atlassian.QASchema, sinceDate string) ([]atlassian.QAIssue, error)
-	GetQATasksAsAssigneeKanban(s atlassian.QASchema, sinceDate, qaEmail string) ([]atlassian.QAIssue, error)
-	HasDeployDocLink(issueKey string) (bool, error)
-	GetNovedadComment(issueKey string) (string, error)
-	FindPageByTitle(title, spaceKey string) (*atlassian.Page, error)
-	GetPageADF(pageID string) (*atlassian.PageADF, error)
-	FindQAPagesForModule(module, spaceKey string) ([]atlassian.Page, error)
-	GetPage(pageID string) (*atlassian.Page, error)
-	CreatePage(spaceID, parentID, title string, adfBody map[string]any) (*atlassian.Page, error)
-	UpdatePage(pageID, title string, currentVersion int, adfBody map[string]any) (*atlassian.Page, error)
+	Whoami(ctx context.Context) (*atlassian.JiraUser, error)
+	GetQATasksForReview(ctx context.Context, s atlassian.QASchema, sprintName, module string) ([]atlassian.QAIssue, error)
+	GetQATasksAsAssignee(ctx context.Context, s atlassian.QASchema, sprintName, qaEmail string) ([]atlassian.QAIssue, error)
+	GetQATasksForReviewKanban(ctx context.Context, s atlassian.QASchema, sinceDate string) ([]atlassian.QAIssue, error)
+	GetQATasksAsAssigneeKanban(ctx context.Context, s atlassian.QASchema, sinceDate, qaEmail string) ([]atlassian.QAIssue, error)
+	HasDeployDocLink(ctx context.Context, issueKey string) (bool, error)
+	GetNovedadComment(ctx context.Context, issueKey string) (string, error)
+	FindPageByTitle(ctx context.Context, title, spaceKey string) (*atlassian.Page, error)
+	GetPageADF(ctx context.Context, pageID string) (*atlassian.PageADF, error)
+	FindQAPagesForModule(ctx context.Context, module, spaceKey string) ([]atlassian.Page, error)
+	GetPage(ctx context.Context, pageID string) (*atlassian.Page, error)
+	CreatePage(ctx context.Context, spaceID, parentID, title string, adfBody map[string]any) (*atlassian.Page, error)
+	UpdatePage(ctx context.Context, pageID, title string, currentVersion int, adfBody map[string]any) (*atlassian.Page, error)
 }
 
 var _ Atlassian = (*atlassian.Client)(nil)
@@ -159,8 +160,8 @@ func NewSession(api Atlassian, t *Target) *Session {
 
 // CheckAccount verifies that the authenticated account is qa_email. It guards
 // against accidents, not access: authorization is Atlassian's permissions.
-func (s *Session) CheckAccount() error {
-	me, err := s.api.Whoami()
+func (s *Session) CheckAccount(ctx context.Context) error {
+	me, err := s.api.Whoami(ctx)
 	if err != nil {
 		return err
 	}
@@ -173,19 +174,19 @@ func (s *Session) CheckAccount() error {
 
 // Collect reads the tasks under review and the QA account's own tasks, and
 // links each task to its review task.
-func (s *Session) Collect() error {
+func (s *Session) Collect(ctx context.Context) error {
 	t := s.Target
 	var err error
 	if t.Kanban {
-		if s.Tasks, err = s.api.GetQATasksForReviewKanban(t.Schema, t.Since); err != nil {
+		if s.Tasks, err = s.api.GetQATasksForReviewKanban(ctx, t.Schema, t.Since); err != nil {
 			return err
 		}
-		s.QATasks, err = s.api.GetQATasksAsAssigneeKanban(t.Schema, t.Since, t.QAEmail)
+		s.QATasks, err = s.api.GetQATasksAsAssigneeKanban(ctx, t.Schema, t.Since, t.QAEmail)
 	} else {
-		if s.Tasks, err = s.api.GetQATasksForReview(t.Schema, t.SprintName, t.Module); err != nil {
+		if s.Tasks, err = s.api.GetQATasksForReview(ctx, t.Schema, t.SprintName, t.Module); err != nil {
 			return err
 		}
-		s.QATasks, err = s.api.GetQATasksAsAssignee(t.Schema, t.SprintName, t.QAEmail)
+		s.QATasks, err = s.api.GetQATasksAsAssignee(ctx, t.Schema, t.SprintName, t.QAEmail)
 	}
 	if err != nil {
 		return err
@@ -203,11 +204,11 @@ func (s *Session) Collect() error {
 
 // EvaluateTask checks the deploy-document link and observations of s.Tasks[i].
 // A failed lookup marks the task unknown, never failed, and returns a warning.
-func (s *Session) EvaluateTask(i int) []string {
+func (s *Session) EvaluateTask(ctx context.Context, i int) []string {
 	t := &s.Tasks[i]
 	var warnings []string
 
-	hasDoc, err := s.api.HasDeployDocLink(t.Key)
+	hasDoc, err := s.api.HasDeployDocLink(ctx, t.Key)
 	t.HasDeployDoc = err == nil && hasDoc
 	t.DeployDocUnknown = err != nil
 	if err != nil {
@@ -215,7 +216,7 @@ func (s *Session) EvaluateTask(i int) []string {
 	}
 
 	if t.HasCodingErrors {
-		obs, err := s.api.GetNovedadComment(t.Key)
+		obs, err := s.api.GetNovedadComment(ctx, t.Key)
 		if err != nil {
 			obs = "(no se pudieron leer las observaciones)"
 			warnings = append(warnings, fmt.Sprintf("%s: %v", t.Key, err))
@@ -226,8 +227,8 @@ func (s *Session) EvaluateTask(i int) []string {
 }
 
 // FindExisting looks for a report already published with this exact title.
-func (s *Session) FindExisting() error {
-	page, err := s.api.FindPageByTitle(s.Target.Title, s.Target.SpaceKey)
+func (s *Session) FindExisting(ctx context.Context) error {
+	page, err := s.api.FindPageByTitle(ctx, s.Target.Title, s.Target.SpaceKey)
 	if err != nil {
 		return err
 	}
@@ -263,11 +264,11 @@ func (s *Session) DraftCreate() *Draft {
 
 // DraftUpdate builds the replacement for s.Existing, carrying over what QA wrote
 // by hand. It fails if the current page cannot be read, rather than overwrite it.
-func (s *Session) DraftUpdate() (*Draft, error) {
+func (s *Session) DraftUpdate(ctx context.Context) (*Draft, error) {
 	if s.Existing == nil {
 		return nil, fmt.Errorf("no hay un consolidado existente que actualizar")
 	}
-	current, err := s.api.GetPageADF(s.Existing.ID)
+	current, err := s.api.GetPageADF(ctx, s.Existing.ID)
 	if err != nil {
 		return nil, fmt.Errorf("no se pudo leer el consolidado actual; se cancela la actualización para no sobrescribir lo escrito a mano: %w", err)
 	}
@@ -310,8 +311,8 @@ func (s *Session) build(kept document.QAPreserved) map[string]any {
 
 // Locations lists recent consolidated reports as candidate siblings for a new
 // one: the module's in Sprint mode, any in Kanban mode.
-func (s *Session) Locations() ([]atlassian.Page, error) {
-	pages, err := s.api.FindQAPagesForModule(s.Target.Module, s.Target.SpaceKey)
+func (s *Session) Locations(ctx context.Context) ([]atlassian.Page, error) {
+	pages, err := s.api.FindQAPagesForModule(ctx, s.Target.Module, s.Target.SpaceKey)
 	if err != nil {
 		return nil, err
 	}
@@ -329,9 +330,9 @@ type Result struct {
 
 // Publish creates or updates the page. sibling is the page picked from
 // Locations; it is ignored for an update.
-func (s *Session) Publish(d *Draft, sibling *atlassian.Page) (*Result, error) {
+func (s *Session) Publish(ctx context.Context, d *Draft, sibling *atlassian.Page) (*Result, error) {
 	if d.Replaces != nil {
-		page, err := s.api.UpdatePage(d.Replaces.ID, d.Title, d.Replaces.Version, d.ADF)
+		page, err := s.api.UpdatePage(ctx, d.Replaces.ID, d.Title, d.Replaces.Version, d.ADF)
 		if err != nil {
 			return nil, err
 		}
@@ -341,11 +342,11 @@ func (s *Session) Publish(d *Draft, sibling *atlassian.Page) (*Result, error) {
 	if sibling == nil {
 		return nil, fmt.Errorf("falta elegir la ubicación del consolidado nuevo")
 	}
-	ref, err := s.api.GetPage(sibling.ID)
+	ref, err := s.api.GetPage(ctx, sibling.ID)
 	if err != nil {
 		return nil, err
 	}
-	page, err := s.api.CreatePage(ref.SpaceID, ref.ParentID, d.Title, d.ADF)
+	page, err := s.api.CreatePage(ctx, ref.SpaceID, ref.ParentID, d.Title, d.ADF)
 	if err != nil {
 		return nil, err
 	}

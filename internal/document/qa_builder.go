@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kaelence-01/draco-hq/internal/atlassian"
+	"github.com/kaelence-01/draco-hq/internal/provider/atlassian"
 )
 
 // QADoc is the data of the QA report. Sprint 0 with Period set is Kanban mode.

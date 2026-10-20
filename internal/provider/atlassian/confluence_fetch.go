@@ -1,6 +1,7 @@
 package atlassian
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -54,10 +55,10 @@ type confluenceV1PageResp struct {
 }
 
 // GetPageWithContent fetches a Confluence page including its full body and metadata.
-func (c *Client) GetPageWithContent(pageID string) (*PageContent, error) {
+func (c *Client) GetPageWithContent(ctx context.Context, pageID string) (*PageContent, error) {
 	path := fmt.Sprintf("/wiki/rest/api/content/%s?expand=body.storage,version,space,history", pageID)
 
-	body, err := c.Get(path)
+	body, err := c.Get(ctx, path)
 	if err != nil {
 		return nil, fmt.Errorf("error obteniendo contenido de página %s: %w", pageID, err)
 	}
@@ -97,7 +98,7 @@ func (c *Client) GetPageWithContent(pageID string) (*PageContent, error) {
 
 // FindPagesByText searches Confluence for pages whose content mentions the query.
 // spaceKey restricts the search to a specific space; empty string searches all spaces.
-func (c *Client) FindPagesByText(query, spaceKey string) ([]Page, error) {
+func (c *Client) FindPagesByText(ctx context.Context, query, spaceKey string) ([]Page, error) {
 	cql := fmt.Sprintf(`text ~ %s`, quoteLiteral(query))
 	if spaceKey != "" {
 		cql += fmt.Sprintf(` AND space = %s`, quoteLiteral(spaceKey))
@@ -108,7 +109,7 @@ func (c *Client) FindPagesByText(query, spaceKey string) ([]Page, error) {
 	encCQL := strings.ReplaceAll(url.QueryEscape(cql), "+", "%20")
 	path := fmt.Sprintf("/wiki/rest/api/search?cql=%s&limit=10", encCQL)
 
-	body, err := c.Get(path)
+	body, err := c.Get(ctx, path)
 	if err != nil {
 		return nil, fmt.Errorf("error buscando páginas: %w", err)
 	}
@@ -127,42 +128,4 @@ func (c *Client) FindPagesByText(query, spaceKey string) ([]Page, error) {
 		})
 	}
 	return pages, nil
-}
-
-// BuildIssueTxt formats a PageContent as a structured plain-text document.
-func BuildIssueTxt(issueKey string, page *PageContent) string {
-	var sb strings.Builder
-
-	frame := strings.Repeat("=", 80)
-	separator := strings.Repeat("-", 80)
-
-	writeLine(&sb, frame)
-	writeLine(&sb, issueKey, " - ", page.Title)
-	writeLine(&sb, frame)
-	writeLine(&sb, "Fuente: Confluence - ", page.SpaceName)
-	writeLine(&sb, "URL: ", page.WebURL)
-	if page.CreatedDate != "" {
-		sb.WriteString("Creado: ")
-		sb.WriteString(page.CreatedDate)
-		if page.Version > 0 {
-			fmt.Fprintf(&sb, " | Versión: %d", page.Version)
-		}
-		sb.WriteByte('\n')
-	}
-	if page.UpdatedBy != "" {
-		writeLine(&sb, "Última edición: ", page.UpdatedBy)
-	}
-	writeLine(&sb, separator)
-
-	if page.StorageBody != "" {
-		sb.WriteByte('\n')
-		sb.WriteString(StorageToText(page.StorageBody))
-	}
-
-	sb.WriteByte('\n')
-	writeLine(&sb, frame)
-	writeLine(&sb, "FIN DEL DOCUMENTO")
-	writeLine(&sb, frame)
-
-	return sb.String()
 }
