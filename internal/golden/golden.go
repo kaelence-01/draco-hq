@@ -22,8 +22,19 @@ func Assert(t *testing.T, name string, got any) {
 	if err != nil {
 		t.Fatalf("serializando %s: %v", name, err)
 	}
-	data = append(data, '\n')
-	path := filepath.Join("testdata", name+".golden.json")
+	compare(t, name+".golden.json", append(data, '\n'))
+}
+
+// AssertText compares got with testdata/<file>, for output that reads better
+// as plain text (Markdown).
+func AssertText(t *testing.T, file, got string) {
+	t.Helper()
+	compare(t, file, []byte(got))
+}
+
+func compare(t *testing.T, file string, data []byte) {
+	t.Helper()
+	path := filepath.Join("testdata", file)
 
 	if os.Getenv(UpdateEnv) == "1" {
 		if err := os.MkdirAll("testdata", 0755); err != nil {

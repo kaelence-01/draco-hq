@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -202,75 +203,60 @@ func (s *Session) FindExisting(ctx context.Context) error {
 
 // Draft is a report ready to publish, for the user to review first.
 type Draft struct {
-	Title string
-	ADF   map[string]any
+	Title    string
+	Markdown string
 
-	// Replaces is the page an update overwrites; nil for a new report.
-	Replaces *provider.Doc
+	// Replaces is the document an update overwrites; nil for a new report.
+	Replaces *provider.DocRef
 
-	// NotPreserved names hand-written parts that were not read back and go out
-	// empty; when set, the caller must ask before going on.
+	// NotPreserved names hand-written sections the current report lacks: they
+	// go out empty, so when set the caller must ask before going on.
 	NotPreserved []string
-
-	Warnings []string
 }
 
-// Names of the hand-written parts, as Draft.NotPreserved reports them.
-const (
-	PartObservation    = "Observación del Resumen"
-	PartConsiderations = "Consideraciones"
-)
+// handWritten are the sections QA writes by hand; the destination keeps them.
+var handWritten = []string{document.QAObservationHeading, document.QAConsiderationsHeading}
 
 // DraftCreate builds a new report.
 func (s *Session) DraftCreate() *Draft {
-	return &Draft{Title: s.Target.Title, ADF: s.build(document.QAPreserved{})}
+	return &Draft{Title: s.Target.Title, Markdown: s.build()}
 }
 
-// DraftUpdate builds the replacement for s.Existing, carrying over what QA wrote
-// by hand. It fails if the current page cannot be read, rather than overwrite it.
+// DraftUpdate builds the replacement for s.Existing; the destination carries
+// what QA wrote by hand over when publishing. It fails if the current report
+// cannot be read, rather than overwrite it.
 func (s *Session) DraftUpdate(ctx context.Context) (*Draft, error) {
 	if s.Existing == nil {
 		return nil, fmt.Errorf("no hay un consolidado existente que actualizar")
 	}
-	current, err := s.docs.Read(ctx, *s.Existing)
+	found, err := s.docs.Sections(ctx, *s.Existing, handWritten)
 	if err != nil {
 		return nil, fmt.Errorf("no se pudo leer el consolidado actual; se cancela la actualización para no sobrescribir lo escrito a mano: %w", err)
 	}
-
-	d := &Draft{Title: s.Target.Title, Replaces: current}
-	var kept document.QAPreserved
-	if current.Body == nil {
-		d.Warnings = append(d.Warnings, "el consolidado actual no está en formato ADF; no se pudo leer lo escrito a mano.")
-	} else {
-		kept = document.ExtractQAPreserved(current.Body)
+	d := &Draft{Title: s.Target.Title, Markdown: s.build(), Replaces: s.Existing}
+	for _, name := range handWritten {
+		if !slices.Contains(found, name) {
+			d.NotPreserved = append(d.NotPreserved, name)
+		}
 	}
-	if kept.Observation == nil {
-		d.NotPreserved = append(d.NotPreserved, PartObservation)
-	}
-	if kept.Considerations == nil {
-		d.NotPreserved = append(d.NotPreserved, PartConsiderations)
-	}
-	d.ADF = s.build(kept)
 	return d, nil
 }
 
-func (s *Session) build(kept document.QAPreserved) map[string]any {
+func (s *Session) build() string {
 	t := s.Target
 	doc := document.QADoc{
 		Date:         t.Date,
 		Tasks:        s.Tasks,
-		QATasks:      s.QATasks,
 		LiderTecnico: t.Report.LiderTecnico,
 		PMO:          t.Report.PMO,
 		QA:           t.Report.QA,
-		Preserved:    kept,
 	}
 	if t.Kanban {
 		doc.Period = t.Period
 	} else {
 		doc.Sprint, doc.Module = t.Sprint, t.Module
 	}
-	return document.BuildQA(doc)
+	return document.QAMarkdown(doc)
 }
 
 // Locations lists recent consolidated reports as candidate siblings for a new
@@ -299,8 +285,9 @@ type Result struct {
 // Publish creates or updates the report. sibling is the document picked from
 // Locations; it is ignored for an update.
 func (s *Session) Publish(ctx context.Context, d *Draft, sibling *provider.DocRef) (*Result, error) {
+	doc := provider.Document{Title: d.Title, Markdown: d.Markdown, Preserve: handWritten}
 	if d.Replaces != nil {
-		page, err := s.docs.Update(ctx, d.Replaces.DocRef, d.Title, d.ADF)
+		page, err := s.docs.Update(ctx, *d.Replaces, doc)
 		if err != nil {
 			return nil, err
 		}
@@ -310,7 +297,7 @@ func (s *Session) Publish(ctx context.Context, d *Draft, sibling *provider.DocRe
 	if sibling == nil {
 		return nil, fmt.Errorf("falta elegir la ubicación del consolidado nuevo")
 	}
-	page, err := s.docs.Create(ctx, *sibling, d.Title, d.ADF)
+	page, err := s.docs.Create(ctx, *sibling, doc)
 	if err != nil {
 		return nil, err
 	}

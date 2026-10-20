@@ -2,6 +2,7 @@ package atlassian
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/kaelence-01/draco-hq/internal/config"
@@ -103,14 +104,22 @@ func (d *DocStore) FindByTitleKey(ctx context.Context, prefix, key string) (*pro
 	return ref(d.c.FindPageByTitleKey(ctx, prefix, key, d.space))
 }
 
-func (d *DocStore) Read(ctx context.Context, r provider.DocRef) (*provider.Doc, error) {
+func (d *DocStore) Sections(ctx context.Context, r provider.DocRef, names []string) ([]string, error) {
 	p, err := d.c.GetPageADF(ctx, r.ID)
 	if err != nil {
 		return nil, err
 	}
-	return &provider.Doc{DocRef: docRef(p.Page), Body: p.ADF}, nil
+	var found []string
+	if p.ADF == nil {
+		return found, nil
+	}
+	for _, name := range names {
+		if _, ok := preservedSection(p.ADF, name); ok {
+			found = append(found, name)
+		}
+	}
+	return found, nil
 }
-
 func (d *DocStore) Locations(ctx context.Context, q provider.LocationQuery) (*provider.Locations, error) {
 	pages, fellBack, err := d.c.FindRecentPages(ctx, d.space, q.TitlePrefix, q.AuthorID)
 	if err != nil {
@@ -119,16 +128,30 @@ func (d *DocStore) Locations(ctx context.Context, q provider.LocationQuery) (*pr
 	return &provider.Locations{Docs: refs(pages), TeamWide: fellBack}, nil
 }
 
-func (d *DocStore) Create(ctx context.Context, near provider.DocRef, title string, body map[string]any) (*provider.DocRef, error) {
+func (d *DocStore) Create(ctx context.Context, near provider.DocRef, doc provider.Document) (*provider.DocRef, error) {
 	sibling, err := d.c.GetPage(ctx, near.ID)
 	if err != nil {
 		return nil, err
 	}
-	return ref(d.c.CreatePage(ctx, sibling.SpaceID, sibling.ParentID, title, body))
+	return ref(d.c.CreatePage(ctx, sibling.SpaceID, sibling.ParentID, doc.Title, MarkdownToADF(doc.Markdown)))
 }
 
-func (d *DocStore) Update(ctx context.Context, r provider.DocRef, title string, body map[string]any) (*provider.DocRef, error) {
-	return ref(d.c.UpdatePage(ctx, r.ID, title, r.Version, body))
+// Update reads the current page to carry doc.Preserve over in ADF and to
+// update on top of the version it read.
+func (d *DocStore) Update(ctx context.Context, r provider.DocRef, doc provider.Document) (*provider.DocRef, error) {
+	current, err := d.c.GetPageADF(ctx, r.ID)
+	if err != nil {
+		return nil, fmt.Errorf("no se pudo leer el documento actual; no se sobrescribe: %w", err)
+	}
+	body := MarkdownToADF(doc.Markdown)
+	if current.ADF != nil {
+		for _, name := range doc.Preserve {
+			if nodes, ok := preservedSection(current.ADF, name); ok {
+				replaceSection(body, name, nodes)
+			}
+		}
+	}
+	return ref(d.c.UpdatePage(ctx, current.ID, doc.Title, current.Version, body))
 }
 
 func (d *DocStore) Search(ctx context.Context, text string) ([]provider.DocRef, error) {

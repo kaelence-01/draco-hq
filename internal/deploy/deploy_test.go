@@ -19,8 +19,8 @@ type fakeAPI struct {
 	byTitle      *provider.DocRef
 	byIssue      *provider.DocRef
 	byIssueErr   error
-	current      *provider.Doc
-	currentErr   error
+	sections     []string
+	sectionsErr  error
 	me           *provider.User
 	meErr        error
 	lastDocs     []provider.DocRef
@@ -28,10 +28,11 @@ type fakeAPI struct {
 	linkErr      error
 
 	gotLocations provider.LocationQuery
+	gotSections  []string
 	created      struct{ near, title string }
 	updated      struct {
-		id      string
-		version int
+		id  string
+		doc provider.Document
 	}
 	linked provider.DocRef
 }
@@ -52,8 +53,9 @@ func (f *fakeAPI) FindByTitleKey(context.Context, string, string) (*provider.Doc
 	return f.byIssue, f.byIssueErr
 }
 
-func (f *fakeAPI) Read(context.Context, provider.DocRef) (*provider.Doc, error) {
-	return f.current, f.currentErr
+func (f *fakeAPI) Sections(_ context.Context, _ provider.DocRef, names []string) ([]string, error) {
+	f.gotSections = names
+	return f.sections, f.sectionsErr
 }
 
 func (f *fakeAPI) Locations(_ context.Context, q provider.LocationQuery) (*provider.Locations, error) {
@@ -61,13 +63,13 @@ func (f *fakeAPI) Locations(_ context.Context, q provider.LocationQuery) (*provi
 	return &provider.Locations{Docs: f.lastDocs, TeamWide: f.lastFellBack}, nil
 }
 
-func (f *fakeAPI) Create(_ context.Context, near provider.DocRef, title string, _ map[string]any) (*provider.DocRef, error) {
-	f.created.near, f.created.title = near.ID, title
+func (f *fakeAPI) Create(_ context.Context, near provider.DocRef, doc provider.Document) (*provider.DocRef, error) {
+	f.created.near, f.created.title = near.ID, doc.Title
 	return &provider.DocRef{ID: "new", URL: "https://example.test/new"}, nil
 }
 
-func (f *fakeAPI) Update(_ context.Context, r provider.DocRef, _ string, _ map[string]any) (*provider.DocRef, error) {
-	f.updated.id, f.updated.version = r.ID, r.Version
+func (f *fakeAPI) Update(_ context.Context, r provider.DocRef, doc provider.Document) (*provider.DocRef, error) {
+	f.updated.id, f.updated.doc = r.ID, doc
 	return &provider.DocRef{ID: r.ID, URL: "https://example.test/" + r.ID}, nil
 }
 
@@ -253,18 +255,9 @@ func TestReadCommitsFailsWhenEverySideFails(t *testing.T) {
 	}
 }
 
-func considerDoc(text string) map[string]any {
-	return map[string]any{"type": "doc", "content": []any{
-		map[string]any{"type": "heading", "attrs": map[string]any{"level": 2}, "content": []any{
-			map[string]any{"type": "text", "text": document.ConsiderHeading},
-		}},
-		map[string]any{"type": "paragraph", "content": []any{map[string]any{"type": "text", "text": text}}},
-	}}
-}
-
-func TestDraftUpdatePreservesConsiderSection(t *testing.T) {
+func TestDraftUpdateAsksTheDestinationForConsider(t *testing.T) {
 	api := newAPI()
-	api.current = &provider.Doc{DocRef: provider.DocRef{ID: "42", Version: 5}, Body: considerDoc("Reiniciar colas a mano")}
+	api.sections = []string{document.ConsiderHeading}
 	s := readySession(api)
 	s.Existing = &provider.DocRef{ID: "42"}
 
@@ -272,19 +265,20 @@ func TestDraftUpdatePreservesConsiderSection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !d.Preserved {
-		t.Error("esperaba Preserved = true")
+	if !d.Preserved || d.Replaces.ID != "42" {
+		t.Errorf("borrador = %+v", d)
 	}
-	got := document.ExtractSection(d.ADF, document.ConsiderHeading)
-	want := document.ExtractSection(api.current.Body, document.ConsiderHeading)
-	if !reflect.DeepEqual(got, want) {
-		t.Errorf("la sección no se preservó:\n obtuve %v\n esperaba %v", got, want)
+	if !reflect.DeepEqual(api.gotSections, []string{document.ConsiderHeading}) {
+		t.Errorf("secciones consultadas = %v", api.gotSections)
+	}
+	if !strings.Contains(d.Markdown, "## A considerar:") {
+		t.Errorf("el borrador lleva la sección de la plantilla; el destino la reemplaza al publicar:\n%s", d.Markdown)
 	}
 }
 
 func TestDraftUpdateRefusesWhenCurrentPageUnreadable(t *testing.T) {
 	api := newAPI()
-	api.currentErr = errors.New("timeout")
+	api.sectionsErr = errors.New("timeout")
 	s := readySession(api)
 	s.Existing = &provider.DocRef{ID: "42"}
 	if d, err := s.DraftUpdate(ctx); err == nil || d != nil {
@@ -292,17 +286,16 @@ func TestDraftUpdateRefusesWhenCurrentPageUnreadable(t *testing.T) {
 	}
 }
 
-func TestDraftUpdateWarnsOnNonADFPage(t *testing.T) {
+func TestDraftUpdateReportsMissingConsider(t *testing.T) {
 	api := newAPI()
-	api.current = &provider.Doc{DocRef: provider.DocRef{ID: "42"}}
 	s := readySession(api)
 	s.Existing = &provider.DocRef{ID: "42"}
 	d, err := s.DraftUpdate(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if d.Preserved || len(d.Warnings) != 1 {
-		t.Errorf("esperaba Preserved=false y un aviso, obtuve %v / %v", d.Preserved, d.Warnings)
+	if d.Preserved {
+		t.Error("sin la sección en el documento actual, Preserved debe ser false para que la UI pregunte")
 	}
 }
 
@@ -347,9 +340,9 @@ func TestPublishCreatesNextToSiblingAndReportsLinkError(t *testing.T) {
 	}
 }
 
-func TestPublishUpdateUsesCurrentVersion(t *testing.T) {
+func TestPublishUpdateKeepsConsider(t *testing.T) {
 	api := newAPI()
-	api.current = &provider.Doc{DocRef: provider.DocRef{ID: "42", Version: 5}, Body: considerDoc("x")}
+	api.sections = []string{document.ConsiderHeading}
 	s := readySession(api)
 	s.Existing = &provider.DocRef{ID: "42"}
 	d, err := s.DraftUpdate(ctx)
@@ -360,8 +353,11 @@ func TestPublishUpdateUsesCurrentVersion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !res.Updated || api.updated.id != "42" || api.updated.version != 5 {
-		t.Errorf("actualización = %+v, esperaba página 42 sobre la versión 5", api.updated)
+	if !res.Updated || api.updated.id != "42" || api.updated.doc.Markdown != d.Markdown {
+		t.Errorf("actualización = %+v", api.updated)
+	}
+	if !reflect.DeepEqual(api.updated.doc.Preserve, []string{document.ConsiderHeading}) {
+		t.Errorf("el destino debe conservar «A considerar»: %v", api.updated.doc.Preserve)
 	}
 }
 
