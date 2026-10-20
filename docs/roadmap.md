@@ -104,7 +104,7 @@ se cierra con un criterio verificable.
 | 4a | ✅ Conversor Markdown → ADF en el adaptador de Confluence (`goldmark`) con las convenciones del diseño (§5) | `feature/markdown-adf` | Tests por construcción y convención, golden del conversor, fuzzing sin pánicos; nada publicado cambia |
 | 4b | ✅ El builder genera Markdown; preservación de secciones dentro del adaptador (`Sections`); «Observación» del consolidado como sección | `feature/markdown` | Goldens regenerados a **contenido equivalente**; solo las diferencias aceptadas en el diseño (§5) |
 | 5 | Plantillas (`text/template`, manifiesto, resolución por fuentes, plantilla incluida) | `feature/plantillas` | La plantilla incluida reproduce el documento; otra plantilla lo cambia sin recompilar. Absorbe las convenciones de texto («Documento de Despliegue», «Revisión de Tarea», «Novedad::», título del consolidado) |
-| 6 | Destino Markdown local (`internal/provider/markdown`) | `feature/salida-markdown` | Un documento de despliegue completo publicado sin Confluence |
+| 6 | ✅ Destino Markdown local (`internal/provider/markdown`) | `feature/salida-markdown` | Un documento de despliegue completo publicado sin Confluence |
 | 7 | Config con perfiles y migración del `config.yaml` actual | `feature/perfiles` | Un `config.yaml` de hoy se migra solo; absorbe «proyectos y configuración» como funciones puras |
 
 Listar commits recientes para el selector de la TUI entra en el puerto de

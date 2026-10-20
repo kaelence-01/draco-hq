@@ -5,6 +5,7 @@ package provider
 
 import (
 	"context"
+	"strings"
 	"time"
 )
 
@@ -156,4 +157,12 @@ type ChangeSource interface {
 	// first appearance.
 	ChangedFiles(ctx context.Context, workDir string, hashes []string) ([]string, error)
 	RecentCommits(ctx context.Context, workDir string, n int) ([]Commit, error)
+}
+
+// NormalizeHeading is how every destination compares section titles: case,
+// surrounding space and a trailing colon (draco emits "A considerar:") are
+// ignored.
+func NormalizeHeading(s string) string {
+	s = strings.ToLower(strings.TrimSpace(s))
+	return strings.TrimSpace(strings.TrimSuffix(s, ":"))
 }

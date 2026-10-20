@@ -1,6 +1,10 @@
 package atlassian
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/kaelence-01/draco-hq/internal/provider"
+)
 
 // Hand-edited sections are carried over in ADF, never through Markdown, so
 // task states and formatting survive an update.
@@ -11,7 +15,7 @@ func preservedSection(adf map[string]any, name string) ([]any, bool) {
 	if nodes, ok := extractSection(adf, name); ok {
 		return nodes, true
 	}
-	if normalizeHeading(name) == "observación" {
+	if provider.NormalizeHeading(name) == "observación" {
 		return legacyObservation(adf)
 	}
 	return nil, false
@@ -76,7 +80,7 @@ func replaceSection(adf map[string]any, heading string, nodes []any) bool {
 // sectionBounds returns the range of nodes after the heading, or -1 when the
 // heading is absent.
 func sectionBounds(content []any, heading string) (start, end int) {
-	want := normalizeHeading(heading)
+	want := provider.NormalizeHeading(heading)
 	start, level := -1, 0
 	for i, raw := range content {
 		node, ok := raw.(map[string]any)
@@ -84,7 +88,7 @@ func sectionBounds(content []any, heading string) (start, end int) {
 			continue
 		}
 		if start < 0 {
-			if normalizeHeading(nodeText(node)) == want {
+			if provider.NormalizeHeading(nodeText(node)) == want {
 				start, level = i+1, headingLevel(node)
 			}
 			continue
@@ -106,13 +110,6 @@ func copyNodes(nodes []any) []any {
 	out := make([]any, len(nodes))
 	copy(out, nodes)
 	return out
-}
-
-// normalizeHeading ignores case, surrounding space and a trailing colon, which
-// draco itself emits ("A considerar:").
-func normalizeHeading(s string) string {
-	s = strings.ToLower(strings.TrimSpace(s))
-	return strings.TrimSpace(strings.TrimSuffix(s, ":"))
 }
 
 func nodeText(node map[string]any) string {
