@@ -234,6 +234,20 @@ func LoadLocal() (*Config, error) {
 	return cfg, nil
 }
 
+// LoadFile reads only the config file, never the environment: what a command
+// saves must not carry a token that came from ATLASSIAN_TOKEN. A missing file
+// is an empty config.
+func LoadFile() (*Config, error) {
+	cfg, err := loadFromFile()
+	if err != nil {
+		return nil, err
+	}
+	if cfg == nil {
+		cfg = &Config{}
+	}
+	return cfg, nil
+}
+
 // HasAtlassianCredentials reports whether email, token and base URL are all set.
 func (c *Config) HasAtlassianCredentials() bool {
 	return c.AtlassianEmail != "" && c.AtlassianToken != "" && c.BaseURL != ""

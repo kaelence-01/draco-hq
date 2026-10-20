@@ -12,6 +12,8 @@ import (
 	"os/signal"
 	"runtime"
 	"strings"
+
+	"golang.org/x/term"
 )
 
 // Exit codes.
@@ -26,12 +28,19 @@ type App struct {
 	In       *bufio.Reader
 	Out, Err io.Writer
 	color    bool
+	// secretFd is the terminal behind In, read without echo for tokens; -1
+	// when In is not a terminal.
+	secretFd int
 }
 
 // New returns an App; color is on only when out is a terminal and NO_COLOR is
 // unset, so pipes, files and CI logs never get escape codes.
 func New(in io.Reader, out, err io.Writer) *App {
-	return &App{In: bufio.NewReader(in), Out: out, Err: err, color: isTerminal(out) && os.Getenv("NO_COLOR") == ""}
+	a := &App{In: bufio.NewReader(in), Out: out, Err: err, color: isTerminal(out) && os.Getenv("NO_COLOR") == "", secretFd: -1}
+	if f, ok := in.(*os.File); ok && term.IsTerminal(int(f.Fd())) {
+		a.secretFd = int(f.Fd())
+	}
+	return a
 }
 
 // context is canceled by Ctrl+C, so a slow request stops instead of hanging.
@@ -60,6 +69,57 @@ func (a *App) confirm(question string, def bool) bool {
 		return true
 	}
 	return false
+}
+
+// errEndOfInput stops a wizard whose input ended before a required answer.
+var errEndOfInput = errors.New("la entrada terminó antes de completar las preguntas")
+
+func (a *App) askLine(prompt string) (string, error) {
+	a.printf("%s", prompt)
+	line, err := a.In.ReadString('\n')
+	if err != nil && line == "" {
+		return "", errEndOfInput
+	}
+	return strings.TrimSpace(line), nil
+}
+
+// askValue asks for a value: Enter takes def; a required value with no def is
+// asked again.
+func (a *App) askValue(label, def string, required bool) (string, error) {
+	prompt := "  " + label + ": "
+	switch {
+	case def != "":
+		prompt = fmt.Sprintf("  %s [%s]: ", label, def)
+	case !required:
+		prompt = "  " + label + " (Enter para omitir): "
+	}
+	for {
+		v, err := a.askLine(prompt)
+		if err != nil {
+			return "", err
+		}
+		if v == "" {
+			v = def
+		}
+		if v != "" || !required {
+			return v, nil
+		}
+		a.warn("este dato es obligatorio")
+	}
+}
+
+// askSecret reads without echo on a terminal, and a plain line elsewhere.
+func (a *App) askSecret(prompt string) (string, error) {
+	if a.secretFd < 0 {
+		return a.askLine(prompt)
+	}
+	a.printf("%s", prompt)
+	b, err := term.ReadPassword(a.secretFd)
+	a.printf("\n")
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(b)), nil
 }
 
 // command is one entry of the router.

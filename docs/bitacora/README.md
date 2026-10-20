@@ -46,6 +46,7 @@ Sin entradas: se hizo antes de que existiera la bitácora.
 | [019](./fase-3/019-cli-generate.md) | `draco g` desde el comando | `feature/cli-generate` | 2026-10-19 | Despliegue de punta a punta sobre el flujo y el perfil, `--dry-run` en Markdown, preguntas como gtt |
 | [020](./fase-3/020-cli-qa-fetch.md) | `draco qa` y `draco f` | `feature/cli-qa-fetch` | 2026-10-19 | Consolidado y exportar desde el comando, diálogo nativo de guardar; el primer consolidado ya se crea en una carpeta Markdown |
 | [021](./fase-3/021-cli-backlog.md) | `draco backlog scan` | `feature/cli-backlog` | 2026-10-19 | Mismo informe y flags que gtt, sin perfil ni credenciales; flags con valor opcional (`-o`) |
+| [022](./fase-3/022-cli-init.md) | `draco init`, `project` y `profile` (6a) | `feature/cli-init` | 2026-10-19 | La config se crea sin editar YAML; token oculto con `x/term`; lo guardado nunca trae variables de entorno |
 
 ## Formato de cada entrada
 
