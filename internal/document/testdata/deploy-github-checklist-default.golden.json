@@ -1,0 +1,465 @@
+{
+  "title": "Documento de Despliegue - OPS-8 - Ajuste de facturación",
+  "adf": {
+    "content": [
+      {
+        "attrs": {
+          "layout": "default",
+          "width": 1800
+        },
+        "content": [
+          {
+            "content": [
+              {
+                "attrs": {
+                  "colwidth": [
+                    63
+                  ]
+                },
+                "content": [
+                  {
+                    "content": [
+                      {
+                        "text": "Épica",
+                        "type": "text"
+                      }
+                    ],
+                    "type": "paragraph"
+                  }
+                ],
+                "type": "tableHeader"
+              },
+              {
+                "attrs": {
+                  "colwidth": [
+                    697
+                  ]
+                },
+                "content": [
+                  {
+                    "content": [
+                      {
+                        "marks": [
+                          {
+                            "type": "em"
+                          },
+                          {
+                            "attrs": {
+                              "color": "#97a0af"
+                            },
+                            "type": "textColor"
+                          }
+                        ],
+                        "text": "Enlace a épica o función de Jira relacionada",
+                        "type": "text"
+                      }
+                    ],
+                    "type": "paragraph"
+                  }
+                ],
+                "type": "tableCell"
+              }
+            ],
+            "type": "tableRow"
+          },
+          {
+            "content": [
+              {
+                "attrs": {
+                  "colwidth": [
+                    63
+                  ]
+                },
+                "content": [
+                  {
+                    "content": [
+                      {
+                        "text": "Tarea(s)",
+                        "type": "text"
+                      }
+                    ],
+                    "type": "paragraph"
+                  }
+                ],
+                "type": "tableHeader"
+              },
+              {
+                "attrs": {
+                  "colwidth": [
+                    697
+                  ]
+                },
+                "content": [
+                  {
+                    "content": [
+                      {
+                        "attrs": {
+                          "url": "https://example.test/browse/OPS-8"
+                        },
+                        "type": "inlineCard"
+                      }
+                    ],
+                    "type": "paragraph"
+                  }
+                ],
+                "type": "tableCell"
+              }
+            ],
+            "type": "tableRow"
+          }
+        ],
+        "type": "table"
+      },
+      {
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "text": "Arquitecturas e interfaces",
+            "type": "text"
+          }
+        ],
+        "type": "heading"
+      },
+      {
+        "attrs": {
+          "level": 3
+        },
+        "content": [
+          {
+            "text": "Proyectos y formularios - Frontend:",
+            "type": "text"
+          }
+        ],
+        "type": "heading"
+      },
+      {
+        "attrs": {
+          "layout": "default",
+          "width": 1800
+        },
+        "content": [
+          {
+            "content": [
+              {
+                "attrs": {
+                  "colwidth": [
+                    69
+                  ]
+                },
+                "content": [
+                  {
+                    "content": [
+                      {
+                        "text": "Servidor",
+                        "type": "text"
+                      }
+                    ],
+                    "type": "paragraph"
+                  }
+                ],
+                "type": "tableCell"
+              },
+              {
+                "attrs": {
+                  "colwidth": [
+                    175
+                  ]
+                },
+                "content": [
+                  {
+                    "content": [
+                      {
+                        "text": "Aplicación web",
+                        "type": "text"
+                      }
+                    ],
+                    "type": "paragraph"
+                  }
+                ],
+                "type": "tableCell"
+              },
+              {
+                "attrs": {
+                  "colwidth": [
+                    176
+                  ]
+                },
+                "content": [
+                  {
+                    "content": [
+                      {
+                        "text": "Ubicación",
+                        "type": "text"
+                      }
+                    ],
+                    "type": "paragraph"
+                  }
+                ],
+                "type": "tableCell"
+              },
+              {
+                "attrs": {
+                  "colwidth": [
+                    188
+                  ]
+                },
+                "content": [
+                  {
+                    "content": [
+                      {
+                        "text": "Nombre del archivo",
+                        "type": "text"
+                      }
+                    ],
+                    "type": "paragraph"
+                  }
+                ],
+                "type": "tableCell"
+              },
+              {
+                "attrs": {
+                  "colwidth": [
+                    152
+                  ]
+                },
+                "content": [
+                  {
+                    "content": [
+                      {
+                        "text": "Observación",
+                        "type": "text"
+                      }
+                    ],
+                    "type": "paragraph"
+                  }
+                ],
+                "type": "tableCell"
+              }
+            ],
+            "type": "tableRow"
+          },
+          {
+            "content": [
+              {
+                "attrs": {
+                  "colwidth": [
+                    69
+                  ]
+                },
+                "content": [
+                  {
+                    "content": [
+                      {
+                        "marks": [
+                          {
+                            "attrs": {
+                              "href": "https://github.com/mi-org/facturacion-web"
+                            },
+                            "type": "link"
+                          }
+                        ],
+                        "text": "facturacion-web",
+                        "type": "text"
+                      }
+                    ],
+                    "type": "paragraph"
+                  }
+                ],
+                "type": "tableCell"
+              },
+              {
+                "attrs": {
+                  "colwidth": [
+                    175
+                  ]
+                },
+                "content": [
+                  {
+                    "content": [
+                      {
+                        "text": "facturacion-web",
+                        "type": "text"
+                      }
+                    ],
+                    "type": "paragraph"
+                  }
+                ],
+                "type": "tableCell"
+              },
+              {
+                "attrs": {
+                  "colwidth": [
+                    176
+                  ]
+                },
+                "content": [
+                  {
+                    "content": [
+                      {
+                        "text": "src",
+                        "type": "text"
+                      }
+                    ],
+                    "type": "paragraph"
+                  }
+                ],
+                "type": "tableCell"
+              },
+              {
+                "attrs": {
+                  "colwidth": [
+                    188
+                  ]
+                },
+                "content": [
+                  {
+                    "content": [
+                      {
+                        "content": [
+                          {
+                            "content": [
+                              {
+                                "text": "main.ts",
+                                "type": "text"
+                              }
+                            ],
+                            "type": "paragraph"
+                          }
+                        ],
+                        "type": "listItem"
+                      }
+                    ],
+                    "type": "bulletList"
+                  }
+                ],
+                "type": "tableCell"
+              },
+              {
+                "attrs": {
+                  "colwidth": [
+                    152
+                  ]
+                },
+                "content": [
+                  {
+                    "content": [
+                      {
+                        "content": [
+                          {
+                            "content": [
+                              {
+                                "marks": [
+                                  {
+                                    "attrs": {
+                                      "href": "https://github.com/mi-org/facturacion-web/commit/0f1e2d3"
+                                    },
+                                    "type": "link"
+                                  }
+                                ],
+                                "text": "link",
+                                "type": "text"
+                              }
+                            ],
+                            "type": "paragraph"
+                          }
+                        ],
+                        "type": "listItem"
+                      }
+                    ],
+                    "type": "bulletList"
+                  }
+                ],
+                "type": "tableCell"
+              }
+            ],
+            "type": "tableRow"
+          }
+        ],
+        "type": "table"
+      },
+      {
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "text": "A considerar:",
+            "type": "text"
+          }
+        ],
+        "type": "heading"
+      },
+      {
+        "attrs": {
+          "layout": "default",
+          "width": 1800
+        },
+        "content": [
+          {
+            "content": [
+              {
+                "attrs": {},
+                "content": [
+                  {
+                    "attrs": {
+                      "localId": "tasklist-1"
+                    },
+                    "content": [
+                      {
+                        "attrs": {
+                          "localId": "task-1",
+                          "state": "TODO"
+                        },
+                        "content": [
+                          {
+                            "text": "Pasar backend al servidor",
+                            "type": "text"
+                          }
+                        ],
+                        "type": "taskItem"
+                      },
+                      {
+                        "attrs": {
+                          "localId": "task-2",
+                          "state": "TODO"
+                        },
+                        "content": [
+                          {
+                            "text": "Ejecutar migraciones",
+                            "type": "text"
+                          }
+                        ],
+                        "type": "taskItem"
+                      },
+                      {
+                        "attrs": {
+                          "localId": "task-3",
+                          "state": "TODO"
+                        },
+                        "content": [
+                          {
+                            "text": "Pasar frontend",
+                            "type": "text"
+                          }
+                        ],
+                        "type": "taskItem"
+                      }
+                    ],
+                    "type": "taskList"
+                  }
+                ],
+                "type": "tableCell"
+              }
+            ],
+            "type": "tableRow"
+          }
+        ],
+        "type": "table"
+      }
+    ],
+    "type": "doc",
+    "version": 1
+  }
+}
