@@ -20,12 +20,13 @@ main ── develop ── feature/<tema>   (PR → develop)
 2. **Árbol limpio.** `git status --porcelain` debe salir vacío. Si hay cambios,
    no los muevas ni los descartes: pregunta al usuario qué hacer con ellos.
 
-3. **`develop` al día.** `git fetch origin`. Si falla por la llave SSH (la
-   sesión no tiene su passphrase), pide al usuario que ejecute
-   `! git fetch origin` y espera. Luego compara `develop` con `origin/develop`:
-   - igual → seguir;
-   - local atrás → `git switch develop && git merge --ff-only origin/develop`;
-   - local adelante o divergente → detenerse y preguntar.
+3. **`develop` al día y rama creada:** `make start name=<tema> [type=feature|fix|docs]`.
+   Valida el nombre y el tipo, exige el árbol limpio, actualiza `develop` solo
+   con *fast-forward* (`make sync`), crea `<type>/<tema>` desde `develop` y le
+   quita el upstream. Si el `fetch` falla por la llave SSH (la sesión no tiene
+   su passphrase), pide al usuario `! make sync` y luego crea la rama tú con
+   `git switch -c <type>/<tema> develop` y `git branch --unset-upstream`.
+   Si `make sync` falla porque `develop` local se desvió: detenerse y preguntar.
 
 4. **Nombre de la rama:** `feature/<tema>`, tema corto en minúsculas y con
    guiones, igual al que llevará la entrada de bitácora (`feature/fetch` →
@@ -34,15 +35,8 @@ main ── develop ── feature/<tema>   (PR → develop)
    Git no admite una rama `feature` junto a `feature/<tema>`: la integración es
    `develop`.
 
-5. **Crear la rama sin upstream:**
-
-   ```bash
-   git switch -c feature/<tema> develop
-   git branch --unset-upstream 2>/dev/null || true
-   ```
-
-   El upstream lo fija el usuario con su primer `git push -u origin feature/<tema>`.
-   Nunca dejes la rama siguiendo a `develop` o `main`: un `git push` iría ahí.
+5. **Nunca dejes la rama siguiendo a `develop` o `main`:** un `git push` iría
+   ahí. El upstream lo fija el usuario con su primer `make push`.
 
 6. **Identidad de git:** `git config user.name` y `user.email` deben estar
    configurados con la identidad que el autor usa en este repo público. Si

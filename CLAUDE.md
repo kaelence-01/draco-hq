@@ -30,14 +30,24 @@ de empezar una tarea.
 
 ## Comandos
 
-Todavía no hay Makefile ni `main.go`: solo existe el core en `internal/`.
+Todavía no hay `main.go`: solo existe el core en `internal/`. Los comandos de
+todos los días están en el **Makefile** (`make` lista todo; las opciones van
+como variables):
 
 ```bash
-go build ./...           # compilar
-go vet ./...             # análisis estático
-gofmt -l internal        # debe salir vacío
-go test ./...            # tests (todos puros, sin red)
+make start name=<tema> [type=feature|fix|docs]   # nueva actividad desde develop al día
+make test [pkg=./internal/qa] [run=Golden] [v=1]  # tests (todos puros, sin red)
+make lint                 # gofmt sin diferencias + go vet
+make golden [pkg=...]     # regenerar goldens tras un cambio intencional
+make check                # verificaciones de cerrar-actividad
+make push [force=1]       # sube la rama actual (lo corre el autor: SSH)
+make pr [web=1]           # PR de la rama actual hacia develop
+make finish               # tras fusionar: develop al día y ramas fusionadas borradas
 ```
+
+`make sync` actualiza `develop` solo con *fast-forward*: si `develop` local se
+desvió de `origin/develop`, falla en vez de mezclar. Nunca hay objetivos que
+publiquen en `main`.
 
 Go: `go.mod` declara `go 1.26.1`. No cambiarlo sin verificar qué versión tienen
 instalada los colaboradores y el CI.
