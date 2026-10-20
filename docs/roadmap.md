@@ -175,7 +175,7 @@ terminales no lo soporta): necesita el nombre en letras grandes con caracteres.
 | Estructura del documento en plantillas `text/template` → Markdown → formato del destino | Cada equipo ajusta su documento sin recompilar; una plantilla sirve para cualquier destino |
 | `goldmark` para leer Markdown | Go puro, MIT, mantenido; soporta tablas y tareas GFM |
 | Ramas `main` → `develop` → `feature/<tema>`, un commit por actividad, PR a `develop` | Historial corto y legible; `main` solo recibe lo integrado |
-| Bitácora por actividad (`docs/bitacora/`) y comentarios mínimos en el código | La historia de cada decisión en un solo lugar, el código limpio |
+| Bitácora por actividad, agrupada por fase (`docs/bitacora/fase-N/`), y comentarios mínimos en el código | La historia de cada decisión en un solo lugar, el código limpio |
 
 ## Decisiones pendientes
 
