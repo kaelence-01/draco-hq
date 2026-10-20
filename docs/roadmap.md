@@ -49,7 +49,7 @@ de Windows (`cmd`) se ve más limitado.
 | 1 | Nombre, identidad y repositorio | ✅ |
 | 2 | Core: portar la lógica de gtt, separar los flujos y desacoplar los proveedores | ✅ |
 | 3 | Modo comando (`cmd/`, `main.go`), instalador, updater, releases | ✅ `v0.1.0` |
-| 4 | Modo visual mínimo: pantalla principal, proyectos, generar documento | ⬜ |
+| 4 | Modo visual mínimo: pantalla principal, proyectos, generar documento | 🔄 |
 | 5 | Resto de pantallas: backlog, QA, exportar | ⬜ |
 | 6 | Barra de comandos con autocompletado, temas, ayuda | ⬜ |
 | v1.0 | Instaladores, checksums, migración desde gtt, README completo | ⬜ |
@@ -168,18 +168,36 @@ pruebas manuales de `g`, `qa` y `f` contra su instancia.
 
 ### Fases 4 a 6 — modo visual
 
-Bubble Tea + Bubbles + Lip Gloss + Huh. Cada pantalla usa el mismo flujo que el
-comando equivalente; los pasos de la `Session` se ejecutan como comandos de
-Bubble Tea para no bloquear la interfaz.
+Bubble Tea + Bubbles + Lip Gloss + Huh, en su línea v2 (`charm.land/…`). Cada
+pantalla usa el mismo flujo que el comando equivalente; los pasos de la
+`Session` se ejecutan como comandos de Bubble Tea para no bloquear la
+interfaz. Diseño completo en **`docs/arquitectura/tui.md`**.
 
 - **4:** pantalla principal, proyectos, generar documento con selector de
   commits, vista previa, selector de ubicación y confirmación.
 - **5:** backlog (tabla filtrable), QA (progreso en vivo), exportar.
 - **6:** barra de comandos con los mismos comandos del modo comando y
-  autocompletado, configuración en formularios, temas, ayuda.
+  autocompletado, configuración en formularios, temas, ayuda, aviso de
+  versión nueva.
 
 La pantalla de inicio no puede mostrar el logo como imagen (la mayoría de las
 terminales no lo soporta): necesita el nombre en letras grandes con caracteres.
+
+### Fase 4 — modo visual mínimo (en curso)
+
+`draco` sin argumentos, en una terminal interactiva, abre la TUI; sin TTY
+sigue mostrando la ayuda. Lo que no tiene pantalla todavía aparece atenuado en
+el menú con su comando. Cada actividad se prueba sin terminal ni red (`Update`
+y `View` con dobles) y a mano en Windows Terminal y en Linux o WSL.
+
+| # | Actividad | Rama | Criterio de cierre |
+|---|---|---|---|
+| 1 | ✅ Diseño de la TUI y plan de la fase | `docs/plan-fase-4` | `docs/arquitectura/tui.md` y actividades con criterio de cierre |
+| 2 | Base: `internal/tui` (Bubble Tea, Bubbles, Lip Gloss), entrada desde `draco` sin argumentos, pantalla principal (DRACO en letras grandes, menú, cabecera con perfil y proyecto, pie de teclas), pila de pantallas, salida limpia | `feature/tui-base` | `draco` abre y cierra limpio; `draco \| cat` muestra la ayuda; tests del modelo sin terminal |
+| 3 | Proyectos: lista con filtro, proyecto activo de la sesión, por defecto, crear, editar y borrar con formulario (Huh) | `feature/tui-proyectos` | Un proyecto se crea y edita sin tocar el YAML; lo guardado nunca trae variables `ATLASSIAN_*` |
+| 4a | Generar (1): tarea y proyecto, repos del proyecto como función pura de `deploy`, selector de commits (multi-selección, hash a mano), pasos con progreso y cancelación con `esc` | `feature/tui-generar` | De la tarea a los archivos leídos, con dobles; `esc` cancela un paso en curso |
+| 4b | Generar (2): vista previa (archivos y Markdown), documento existente, secciones no conservadas, ubicación con búsqueda, confirmación y resultado (`LinkErr`) | `feature/tui-publicar` | Un documento publicado de punta a punta en una carpeta Markdown (test y a mano); prueba manual contra Confluence |
+| 5 | Cierre de la fase 4 y release `v0.2.0` | `docs/cierre-fase-4` | `v0.2.0` instalado con `draco update` y la TUI abierta desde el binario instalado |
 
 ### v1.0
 
