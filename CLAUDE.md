@@ -62,6 +62,7 @@ internal/
                v1/v2, escapado JQL/CQL (query.go), conversión storage → texto,
                Markdown → ADF (markdown.go)
     git/       Adaptador: clon local (archivos de un commit, commits recientes)
+    markdown/  Adaptador: carpeta local de archivos .md como destino
   config/      Config YAML + variables de entorno (env > archivo)
   document/    Documento de despliegue y consolidado QA en Markdown
   backlog/     Detectores de deuda técnica (sin red)

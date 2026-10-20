@@ -100,8 +100,18 @@ type ChangeSource interface {
 - **`Document` y `Sections`** (actividad 4b): el flujo publica Markdown y
   declara en `Preserve` las secciones escritas a mano; `Sections` le dice antes
   cuáles tiene el documento actual (§6).
-- Tests: el adaptador se prueba con `httptest` (sin red). La batería común de
-  contrato llega con el segundo adaptador (actividad 6).
+- **Markdown local** (`markdown.Store`, actividad 6): cada documento es un
+  archivo `.md` cuya primera línea es `# <título>`; el ID es la ruta relativa
+  a la carpeta. `Locations` devuelve carpetas (las que tienen documentos con
+  el prefijo, más la raíz, para que una carpeta vacía reciba el primero) y
+  `Create` escribe en la carpeta elegida o en la del documento elegido. La
+  preservación corta el Markdown por títulos, sin contar los que están dentro
+  de bloques de código. Nada fuera de la carpeta se lee ni se escribe, y cada
+  escritura pasa por un archivo temporal.
+- Tests: cada adaptador con sus propias pruebas (Confluence con `httptest`,
+  Markdown con carpetas temporales) y el flujo `deploy` real de punta a punta
+  sobre Markdown. Una batería común de contrato necesitaría un Confluence
+  simulado completo; se decide cuando llegue un tercer destino.
 
 ## 5. Documento: plantilla → Markdown → formato del destino
 
@@ -203,7 +213,7 @@ profiles:
 | Plataforma | Rol | Prioridad |
 |---|---|---|
 | Jira, Confluence, git local | Tracker, destino, cambios | Actual |
-| Markdown local | Destino | Siguiente: valida el diseño sin red |
+| Markdown local | Destino | Hecho (actividad 6) |
 | GitHub Issues, Linear | Tracker | P1 |
 | Bitbucket (PRs) | Cambios | P1 |
 | GitLab Issues, Azure Boards | Tracker | P2 |
