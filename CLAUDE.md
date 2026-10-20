@@ -30,12 +30,14 @@ de empezar una tarea.
 
 ## Comandos
 
-Todavía no hay `main.go`: solo existe el core en `internal/`. Los comandos de
-todos los días están en el **Makefile** (`make` lista todo; las opciones van
-como variables):
+El modo comando está en construcción (fase 3): `main.go` y `cmd/` existen, con
+`help` y `version`; cada actividad suma un comando. Los comandos de todos los
+días están en el **Makefile** (`make` lista todo; las opciones van como
+variables):
 
 ```bash
 make start name=<tema> [type=feature|fix|docs]   # nueva actividad desde develop al día
+make run args="help"      # draco con go run, sin instalarlo
 make test [pkg=./internal/qa] [run=Golden] [v=1]  # tests (todos puros, sin red)
 make lint                 # gofmt sin diferencias + go vet
 make golden [pkg=...]     # regenerar goldens tras un cambio intencional
@@ -55,7 +57,11 @@ instalada los colaboradores y el CI.
 ## Arquitectura
 
 ```
+main.go        Entrada: cmd.New(os.Stdout, os.Stderr).Run(os.Args[1:])
+cmd/           Modo comando: router de mapa, flags por comando, ayuda en dos
+               niveles, códigos de salida (0 ok, 1 error, 2 uso)
 internal/
+  build/       Versión (ldflags)
   provider/    Modelo neutro y puertos (Tracker, QATracker, DocStore,
                ChangeSource)
     atlassian/ Adaptador: cliente HTTP (Basic Auth) + Jira v3 + Confluence
@@ -78,9 +84,8 @@ docs/
   security/patrones-seguros.md   Patrones P-001..P-008 (autoridad en seguridad)
 ```
 
-Planeado (ver roadmap): `cmd/` (modo
-comando), `internal/tui/` (modo visual), `internal/installer`,
-`internal/updater`, `main.go`, `Makefile`.
+Planeado (ver roadmap): el resto de los comandos en `cmd/`, `internal/tui/`
+(modo visual), `internal/installer` e `internal/updater`.
 
 ### El patrón de los flujos: preparar → revisar → publicar
 
@@ -148,6 +153,18 @@ Cada flujo vive en su propio paquete (`internal/deploy` es la referencia) y
   documentación semanas después: por eso viaja en `Result.LinkErr`.
 - `qa_email` es una protección de UX, no control de acceso: lo lee de la config
   del propio usuario. La autorización real son los permisos de Atlassian.
+
+### El modo comando (`cmd/`)
+
+- Un comando se registra con `register(&command{run, help, summary}, nombres…)`;
+  `TestEveryCommandHasHelpAndSummary` exige las tres cosas.
+- Los flags se declaran por comando (`[]flag`) y se leen con `parseFlags`: un
+  flag desconocido o sin valor es un error de uso (sale con 2), nunca se
+  ignora. `-h`/`--help` muestra la ayuda y **nunca ejecuta** el comando.
+- Todo se escribe en `App.Out`/`App.Err` (los tests usan buffers); el color
+  solo aparece en una terminal real y sin `NO_COLOR`.
+- Un comando recorre los pasos de su flujo y pregunta por texto donde el flujo
+  deja la decisión al usuario; nunca reimplementa lógica del flujo.
 
 ## Dependencias
 
