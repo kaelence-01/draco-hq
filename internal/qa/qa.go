@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -139,18 +138,11 @@ func (t *Target) deployPrefix() string {
 // way, without an explicit folder.
 func (t *Target) loadTemplates(explicit string) error {
 	user, _ := config.TemplatesDir()
-	dirs := func(kind string, first string) []string {
-		d := []string{first, filepath.Join(".draco", "templates", kind)}
-		if user != "" {
-			d = append(d, filepath.Join(user, kind))
-		}
-		return d
-	}
 	var err error
-	if t.Template, err = document.LoadTemplate("qa", dirs("qa", explicit)...); err != nil {
+	if t.Template, err = document.LoadTemplate("qa", document.Dirs("qa", explicit, "", user)...); err != nil {
 		return err
 	}
-	deploy, err := document.LoadTemplate("deploy", dirs("deploy", "")...)
+	deploy, err := document.LoadTemplate("deploy", document.Dirs("deploy", "", "", user)...)
 	if err != nil {
 		return err
 	}

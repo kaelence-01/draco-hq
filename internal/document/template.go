@@ -9,10 +9,13 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"text/template"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/kaelence-01/draco-hq/internal/provider"
 )
 
 //go:embed templates
@@ -150,4 +153,65 @@ func (t *Template) renderTitle(data any) (string, error) {
 		return "", fmt.Errorf("plantilla %q: el título %q no empieza con el prefijo %q", t.name(), title, t.Manifest.Prefix)
 	}
 	return title, nil
+}
+
+// Kinds are the built-in templates.
+var Kinds = []string{"deploy", "qa"}
+
+// Dirs lists the folders that may customize the template of kind, in the
+// order LoadTemplate tries them: explicit, the repo's .draco/templates/<kind>
+// (repoDir empty: the current directory), then userRoot/<kind>.
+func Dirs(kind, explicit, repoDir, userRoot string) []string {
+	d := []string{explicit, filepath.Join(repoDir, ".draco", "templates", kind)}
+	if userRoot != "" {
+		d = append(d, filepath.Join(userRoot, kind))
+	}
+	return d
+}
+
+// BuiltinFiles returns the files of the built-in template of kind by name, to
+// copy them as the start of a custom one.
+func BuiltinFiles(kind string) (map[string][]byte, error) {
+	entries, err := builtin.ReadDir(path.Join("templates", kind))
+	if err != nil {
+		return nil, fmt.Errorf("no existe la plantilla incluida %q", kind)
+	}
+	files := map[string][]byte{}
+	for _, e := range entries {
+		if files[e.Name()], err = builtin.ReadFile(path.Join("templates", kind, e.Name())); err != nil {
+			return nil, err
+		}
+	}
+	return files, nil
+}
+
+var headingRe = regexp.MustCompile(`^#{1,6}[ \t]+(.*?)[ \t#]*$`)
+
+// MissingPreserved returns the Manifest.Preserve sections md has no heading
+// for: what people write there by hand would be lost on every update.
+func (t *Template) MissingPreserved(md string) []string {
+	found := map[string]bool{}
+	fence := ""
+	for _, line := range strings.Split(md, "\n") {
+		trimmed := strings.TrimSpace(line)
+		switch {
+		case fence != "":
+			if strings.HasPrefix(trimmed, fence) {
+				fence = ""
+			}
+		case strings.HasPrefix(trimmed, "```") || strings.HasPrefix(trimmed, "~~~"):
+			fence = trimmed[:3]
+		default:
+			if m := headingRe.FindStringSubmatch(line); m != nil {
+				found[provider.NormalizeHeading(m[1])] = true
+			}
+		}
+	}
+	var missing []string
+	for _, name := range t.Manifest.Preserve {
+		if !found[provider.NormalizeHeading(name)] {
+			missing = append(missing, name)
+		}
+	}
+	return missing
 }

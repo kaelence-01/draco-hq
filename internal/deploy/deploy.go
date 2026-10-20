@@ -144,11 +144,8 @@ func (t *Target) template() *document.Template {
 // repo's .draco/templates/deploy (repoDir empty: the current directory), then
 // the user's; the built-in one is the base of all of them.
 func loadTemplate(explicit, repoDir string) (*document.Template, error) {
-	dirs := []string{explicit, filepath.Join(repoDir, ".draco", "templates", "deploy")}
-	if user, err := config.TemplatesDir(); err == nil {
-		dirs = append(dirs, filepath.Join(user, "deploy"))
-	}
-	return document.LoadTemplate("deploy", dirs...)
+	user, _ := config.TemplatesDir()
+	return document.LoadTemplate("deploy", document.Dirs("deploy", explicit, repoDir, user)...)
 }
 
 // Commits is the result of reading one side's commits.

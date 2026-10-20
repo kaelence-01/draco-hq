@@ -61,7 +61,7 @@ func runGenerate(a *App, args []string) error {
 	}
 	tmpl := f.get("--template")
 	if tmpl == "" {
-		tmpl = prof.Template
+		tmpl = prof.TemplateDir("deploy")
 	}
 	target, err := deploy.Resolve(cfg, deploy.Request{
 		Issue: f.get("--issue"), BackendHashes: backend, FrontendHashes: frontend,

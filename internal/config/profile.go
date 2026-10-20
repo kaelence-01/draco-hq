@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"path/filepath"
 	"sort"
 	"strings"
 )
@@ -11,7 +12,7 @@ import (
 type Profile struct {
 	Tracker  ProviderConfig `yaml:"tracker"`
 	Docs     ProviderConfig `yaml:"docs"`
-	Template string         `yaml:"template,omitempty"` // template folder; overrides the repo's and the user's
+	Template string         `yaml:"template,omitempty"` // templates folder, one subfolder per kind; see TemplateDir
 }
 
 // ProviderConfig names an adapter and its settings. Jira and Confluence take
@@ -20,6 +21,16 @@ type ProviderConfig struct {
 	Provider string `yaml:"provider"`        // jira | confluence | markdown
 	Space    string `yaml:"space,omitempty"` // confluence: space key
 	Path     string `yaml:"path,omitempty"`  // markdown: folder
+}
+
+// TemplateDir is the profile's folder for the template of kind (deploy, qa),
+// laid out like the user's templates folder; empty without one. It overrides
+// the repo's and the user's.
+func (p *Profile) TemplateDir(kind string) string {
+	if p.Template == "" {
+		return ""
+	}
+	return filepath.Join(p.Template, kind)
 }
 
 // LegacyProfile names the profile a config without profiles reads as.

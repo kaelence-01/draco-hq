@@ -199,9 +199,9 @@ Implementado en la actividad 5 (`internal/document`):
 - «Revisión de Tarea» y «Novedad::» no son del documento sino del proceso de
   QA en Jira: pasan a `qa_jira.review_prefixes` y `qa_jira.observation_marker`,
   con los valores anteriores por defecto.
-- Pendiente para la fase 3 o después: comandos `draco template
-  init/list/validate/preview`, plantilla elegida por perfil, y plantillas
-  remotas (Git con versión fija o URL con checksum SHA-256).
+- Comandos `draco template init/list/validate/preview` y plantilla por
+  perfil: fase 3, actividad 6b (bitácora 023). Pendiente: plantillas remotas (Git
+  con versión fija o URL con checksum SHA-256).
 
 ## 8. Configuración con perfiles
 
@@ -217,7 +217,7 @@ profiles:
   externo:
     tracker: { provider: jira }
     docs:    { provider: markdown, path: ./docs/despliegues }
-    template: ./plantillas/deploy
+    template: ./plantillas      # deploy/ y qa/ dentro, como ~/.config/draco/templates
 ```
 
 - **Migración en memoria:** una config sin `profiles` se lee como el perfil

@@ -110,7 +110,7 @@ func runProfileAdd(a *App, args []string) error {
 	if err := a.askProfile(p, cfg.ConfluenceSpaceKey); err != nil {
 		return err
 	}
-	if p.Template, err = a.askValue("Carpeta de plantillas del perfil", p.Template, false); err != nil {
+	if p.Template, err = a.askValue("Carpeta de plantillas del perfil (con deploy/ y qa/ dentro)", p.Template, false); err != nil {
 		return err
 	}
 	if err := cfg.SetProfile(name, p); err != nil {

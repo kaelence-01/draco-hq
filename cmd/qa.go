@@ -59,7 +59,7 @@ func runQA(a *App, args []string) error {
 	}
 	tmpl := f.get("--template")
 	if tmpl == "" {
-		tmpl = prof.Template
+		tmpl = prof.TemplateDir("qa")
 	}
 	target, err := qa.Resolve(cfg, qa.Request{Sprint: sprint, Module: module, Space: f.get("--space"), Template: tmpl}, now())
 	if err != nil {
