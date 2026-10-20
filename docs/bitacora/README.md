@@ -15,6 +15,7 @@ La historia y el porqué de cada decisión van aquí, no en comentarios del cód
 | [003](./003-bitacora.md) | Bitácora y reglas de trabajo | `feature/bitacora` | 2026-10-19 | 2 | Bitácora, flujo de ramas y skills obligatorias |
 | [004](./004-comentarios.md) | Comentarios al estándar mínimo | `feature/comentarios` | 2026-10-19 | 2 | 730 → 351 líneas de comentario, sin cambios de lógica; razones retiradas conservadas aquí |
 | [005](./005-fetch.md) | Flujo de exportar | `feature/fetch` | 2026-10-19 | 2 | `internal/fetch` sin E/S; nombres de archivo con tildes transliteradas |
+| [006](./006-arquitectura.md) | Diseño de proveedores y plantillas | `docs/arquitectura` | 2026-10-19 | 2 | Puertos y adaptadores, plantillas → Markdown, fase 2 reordenada en 7 actividades |
 
 ## Formato de cada entrada
 

@@ -35,6 +35,10 @@ Lo que el modo visual mejora frente a gtt:
 - **Proyectos y configuración en formularios**, sin editar el YAML a mano.
 - **QA con progreso en vivo** y resultado en tabla.
 
+No queda atado a Atlassian: Jira y Confluence son los primeros adaptadores, y
+la arquitectura admite GitHub, GitLab, Azure DevOps, Linear, Notion o Markdown
+local (`docs/arquitectura/proveedores.md`).
+
 Funciona en Windows Terminal, PowerShell, Linux y macOS. En la consola clásica
 de Windows (`cmd`) se ve más limitado.
 
@@ -43,7 +47,7 @@ de Windows (`cmd`) se ve más limitado.
 | Fase | Contenido | Estado |
 |---|---|---|
 | 1 | Nombre, identidad y repositorio | ✅ |
-| 2 | Core: portar la lógica de gtt y separar los flujos | 🟡 en curso |
+| 2 | Core: portar la lógica de gtt, separar los flujos y desacoplar los proveedores | 🟡 en curso |
 | 3 | Modo comando (`cmd/`, `main.go`), instalador, updater, Makefile, releases | ⬜ |
 | 4 | Modo visual mínimo: pantalla principal, proyectos, generar documento | ⬜ |
 | 5 | Resto de pantallas: backlog, QA, exportar | ⬜ |
@@ -84,17 +88,29 @@ de Windows (`cmd`) se ve más limitado.
   y `Export` (texto con `BuildIssueTxt`, nombre de archivo propuesto,
   `Export.Save`). El nombre translitera tildes y eñes en vez de borrarlas.
 
-### Fase 2 — siguiente
+### Fase 2 — siguiente: proveedores y plantillas
 
-1. **Proyectos y configuración** como funciones puras: agregar, quitar, cambiar
-   el default y guardar (`config.Save`), para que los usen el asistente de texto
-   y los formularios de la TUI.
-2. **Convenciones de texto configurables**, con sus valores actuales por
-   defecto: prefijo del título del documento («Documento de Despliegue»), prefijo
-   de las tareas de revisión QA («Revisión de Tarea»), marcador de observaciones
-   («Novedad::»), título del consolidado QA.
-3. **`internal/git`: listar commits recientes** de un repo, para el selector de
-   commits de la TUI.
+draco deja de estar atado a Atlassian: modelo propio, puertos y un adaptador por
+plataforma; la estructura del documento pasa a plantillas. Diseño completo en
+**`docs/arquitectura/proveedores.md`**. Cada actividad deja draco funcionando y
+se cierra con un criterio verificable.
+
+| # | Actividad | Rama | Criterio de cierre |
+|---|---|---|---|
+| 1 | Diseño de proveedores, roadmap y decisiones | `docs/arquitectura` | Diseño publicado en el repo |
+| 2 | Snapshot (golden) del ADF actual de deploy y QA | `feature/golden` | Tests que fijan el documento de hoy byte a byte |
+| 3 | Modelo neutro, puertos y Atlassian como adaptador (`internal/provider`) | `feature/puertos` | Los flujos no importan `atlassian`; golden en verde: documento idéntico |
+| 4 | Documento en Markdown (`goldmark`) y conversión a ADF en el adaptador, con la preservación de secciones dentro del adaptador | `feature/markdown` | Golden actualizado a **contenido equivalente**; solo las diferencias aceptadas en el diseño (§5) |
+| 5 | Plantillas (`text/template`, manifiesto, resolución por fuentes, plantilla incluida) | `feature/plantillas` | La plantilla incluida reproduce el documento; otra plantilla lo cambia sin recompilar. Absorbe las convenciones de texto («Documento de Despliegue», «Revisión de Tarea», «Novedad::», título del consolidado) |
+| 6 | Destino Markdown local (`internal/provider/markdown`) | `feature/salida-markdown` | Un documento de despliegue completo publicado sin Confluence |
+| 7 | Config con perfiles y migración del `config.yaml` actual | `feature/perfiles` | Un `config.yaml` de hoy se migra solo; absorbe «proyectos y configuración» como funciones puras |
+
+Listar commits recientes para el selector de la TUI entra en el puerto de
+cambios (`ChangeSource.RecentCommits`) en la actividad 3.
+
+Después de la fase 3 (modo comando): segundo tracker (GitHub Issues o Linear),
+segundo destino remoto (Notion o SharePoint), PRs de Bitbucket, notificaciones
+y plantillas remotas, en ese orden según demanda (diseño, §9).
 
 ### Fase 3 — modo comando
 
@@ -152,6 +168,9 @@ terminales no lo soporta): necesita el nombre en letras grandes con caracteres.
 | Flujos preparar → revisar → publicar sin E/S | Un solo núcleo para el modo comando y el visual, testeable sin red |
 | Datos de instancia de Jira del QA en config (`qa_jira`) | El proyecto es abierto: lo propio de una instancia no se compila |
 | Licencia MIT | La misma de gtt |
+| Multiplataforma por puertos y adaptadores, adaptadores compilados en el binario | Que draco sirva a equipos sin Jira ni Confluence; un solo ejecutable |
+| Estructura del documento en plantillas `text/template` → Markdown → formato del destino | Cada equipo ajusta su documento sin recompilar; una plantilla sirve para cualquier destino |
+| `goldmark` para leer Markdown | Go puro, MIT, mantenido; soporta tablas y tareas GFM |
 | Ramas `main` → `develop` → `feature/<tema>`, un commit por actividad, PR a `develop` | Historial corto y legible; `main` solo recibe lo integrado |
 | Bitácora por actividad (`docs/bitacora/`) y comentarios mínimos en el código | La historia de cada decisión en un solo lugar, el código limpio |
 
@@ -164,5 +183,7 @@ terminales no lo soporta): necesita el nombre en letras grandes con caracteres.
 - Solo español o español e inglés desde el inicio.
 - Leer el config de gtt para migrar.
 - Portar o no la skill `backlog-tareas`.
+- Proveedores: mapeo de estados entre trackers, gestor de secretos del sistema
+  para las credenciales, plantillas remotas (`docs/arquitectura/proveedores.md`).
 - Logo: confirmar origen y licencia de la imagen, quitar el ©, vectorizar,
   versión para fondo claro y versión para 16–32 px.
