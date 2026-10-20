@@ -165,6 +165,11 @@ Cada flujo vive en su propio paquete (`internal/deploy` es la referencia) y
   solo aparece en una terminal real y sin `NO_COLOR`.
 - Un comando recorre los pasos de su flujo y pregunta por texto donde el flujo
   deja la decisión al usuario; nunca reimplementa lógica del flujo.
+- Los tests de comandos no tocan la red ni el sistema: `loadConfig`,
+  `openProfile`, `saveDialog` y `now` son variables del paquete que los tests
+  reemplazan (config en memoria, tracker y git simulados, adaptador Markdown
+  real en una carpeta temporal). El diálogo nativo de guardar nunca se abre en
+  un test: en WSL abriría una ventana de Windows.
 
 ## Dependencias
 

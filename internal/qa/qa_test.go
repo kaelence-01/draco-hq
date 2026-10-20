@@ -30,13 +30,15 @@ type fakeAPI struct {
 	sectionsErr error
 	qaPages     []provider.DocRef
 
-	gotScope       provider.QAScope
-	gotQAEmail     string
-	gotLinkPrefix  string
-	gotTitleSearch *string
-	commentsRead   []string
-	created        struct{ near, title string }
-	updated        struct {
+	gotScope          provider.QAScope
+	gotQAEmail        string
+	gotLinkPrefix     string
+	gotTitleSearch    *string
+	locations         []provider.DocRef
+	gotLocationPrefix string
+	commentsRead      []string
+	created           struct{ near, title string }
+	updated           struct {
 		id  string
 		doc provider.Document
 	}
@@ -75,6 +77,11 @@ func (f *fakeAPI) Sections(context.Context, provider.DocRef, []string) ([]string
 func (f *fakeAPI) SearchTitle(_ context.Context, text string) ([]provider.DocRef, error) {
 	f.gotTitleSearch = &text
 	return f.qaPages, nil
+}
+
+func (f *fakeAPI) Locations(_ context.Context, q provider.LocationQuery) (*provider.Locations, error) {
+	f.gotLocationPrefix = q.TitlePrefix
+	return &provider.Locations{Docs: f.locations}, nil
 }
 
 func (f *fakeAPI) Create(_ context.Context, near provider.DocRef, doc provider.Document) (*provider.DocRef, error) {
@@ -364,9 +371,16 @@ func TestLocations(t *testing.T) {
 		t.Errorf("en Kanban se buscan consolidados de cualquier módulo: %v", api.gotTitleSearch)
 	}
 
+	api.locations = []provider.DocRef{{ID: "./"}}
+	got, err := newSession(api, tg).Locations(ctx)
+	if err != nil || len(got) != 1 || got[0].ID != "./" || api.gotLocationPrefix != "Consolidado de Pruebas QA" {
+		t.Errorf("sin consolidados se usan las ubicaciones del destino: %v %v (prefijo %q)", got, err, api.gotLocationPrefix)
+	}
+
 	api.qaPages = []provider.DocRef{{ID: "q1"}}
-	if _, err := newSession(api, sprintTarget(t)).Locations(ctx); err != nil || *api.gotTitleSearch != "Consolidado de Pruebas QA - Pagos" {
-		t.Errorf("en Sprint se buscan los del módulo: %q %v", *api.gotTitleSearch, err)
+	api.gotLocationPrefix = ""
+	if got, err := newSession(api, sprintTarget(t)).Locations(ctx); err != nil || got[0].ID != "q1" || *api.gotTitleSearch != "Consolidado de Pruebas QA - Pagos" || api.gotLocationPrefix != "" {
+		t.Errorf("en Sprint se buscan los del módulo, sin respaldo si los hay: %v %q %v", got, *api.gotTitleSearch, err)
 	}
 }
 

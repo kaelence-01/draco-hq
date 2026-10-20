@@ -46,21 +46,30 @@ func (fakeChanges) RecentCommits(context.Context, string, int) ([]provider.Commi
 // fakeEnv makes every command use an empty config, the fake tracker and a
 // Markdown folder; it returns the folder.
 func fakeEnv(t *testing.T, trk *fakeTracker) string {
+	return fakeEnvWith(t, &config.Config{}, trk)
+}
+
+// fakeEnvWith is fakeEnv with a given config and tracker.
+func fakeEnvWith(t *testing.T, cfg *config.Config, trk provider.Tracker) string {
 	t.Helper()
 	dir := filepath.Join(t.TempDir(), "despliegues")
 	docs, err := markdown.New(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	prevLoad, prevOpen := loadConfig, openProfile
-	t.Cleanup(func() { loadConfig, openProfile = prevLoad, prevOpen })
-	loadConfig = func() (*config.Config, error) { return &config.Config{}, nil }
+	prevLoad, prevOpen, prevDialog := loadConfig, openProfile, saveDialog
+	t.Cleanup(func() { loadConfig, openProfile, saveDialog = prevLoad, prevOpen, prevDialog })
+	loadConfig = func() (*config.Config, error) { return cfg, nil }
 	openProfile = func(*config.Config, profile.Options) (*profile.Bundle, error) {
 		return &profile.Bundle{
 			Name:    "prueba",
 			Profile: config.Profile{Tracker: config.ProviderConfig{Provider: "jira"}, Docs: config.ProviderConfig{Provider: "markdown", Path: dir}},
 			Tracker: trk, Docs: docs, Changes: fakeChanges{},
 		}, nil
+	}
+	saveDialog = func(string) string {
+		t.Error("el diálogo de guardar no se abre fuera de una terminal")
+		return ""
 	}
 	t.Chdir(t.TempDir()) // no .draco/templates of the developer's repo
 	return dir
