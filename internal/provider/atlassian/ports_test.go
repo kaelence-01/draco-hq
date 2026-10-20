@@ -6,8 +6,10 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 
+	"github.com/kaelence-01/draco-hq/internal/config"
 	"github.com/kaelence-01/draco-hq/internal/provider"
 )
 
@@ -107,5 +109,21 @@ func TestDocStoreExportConvertsStorage(t *testing.T) {
 	}
 	if e.Source != "Confluence" || e.Space != "Desarrollo" || e.Version != 3 || e.Text != "Hola\n" {
 		t.Errorf("exportado = %+v", e)
+	}
+}
+
+func TestNewQATrackerConvertsConfig(t *testing.T) {
+	q := &config.QAJiraConfig{
+		Project:  "OPS",
+		Statuses: []string{"10001"},
+		Fields:   config.QAJiraFields{CodingErrors: "customfield_1", DevReturns: "customfield_2", DevStatus: "customfield_3"},
+	}
+	got := NewQATracker(NewClient("https://example.test", "", ""), q).schema
+	want := QASchema{
+		Project: "OPS", Statuses: []string{"10001"}, TestingStatus: config.DefaultTestingStatus,
+		FieldCodingErrors: "customfield_1", FieldDevReturns: "customfield_2", FieldDevStatus: "customfield_3",
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("esquema = %+v, esperaba %+v", got, want)
 	}
 }

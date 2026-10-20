@@ -3,14 +3,14 @@ package document
 import (
 	"testing"
 
-	"github.com/kaelence-01/draco-hq/internal/provider/atlassian"
+	"github.com/kaelence-01/draco-hq/internal/provider"
 )
 
 func qaReport(preserved QAPreserved) map[string]any {
 	return BuildQA(QADoc{
 		Sprint:    12,
 		Module:    "Pagos",
-		Tasks:     []atlassian.QAIssue{{Key: "OPS-7", URL: "https://example.test/browse/OPS-7"}},
+		Tasks:     []provider.QAIssue{{Key: "OPS-7", URL: "https://example.test/browse/OPS-7"}},
 		Preserved: preserved,
 	})
 }

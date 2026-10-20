@@ -11,94 +11,85 @@ import (
 
 	"github.com/kaelence-01/draco-hq/internal/config"
 	"github.com/kaelence-01/draco-hq/internal/document"
-	"github.com/kaelence-01/draco-hq/internal/provider/atlassian"
+	"github.com/kaelence-01/draco-hq/internal/provider"
 )
 
 type fakeAPI struct {
-	me         *atlassian.JiraUser
+	provider.QATracker
+	provider.DocStore
+
+	me         *provider.User
 	meErr      error
-	review     []atlassian.QAIssue
+	review     []provider.QAIssue
 	reviewErr  error
-	assigned   []atlassian.QAIssue
+	assigned   []provider.QAIssue
 	docLinks   map[string]bool
 	docErr     map[string]error
 	novedad    map[string]string
 	novedadErr error
-	byTitle    *atlassian.Page
-	current    *atlassian.PageADF
+	byTitle    *provider.DocRef
+	current    *provider.Doc
 	currentErr error
-	qaPages    []atlassian.Page
-	pages      map[string]*atlassian.Page
+	qaPages    []provider.DocRef
 
-	gotSchema     atlassian.QASchema
-	gotSprintName string
-	gotModule     string
-	gotSince      string
-	gotQAEmail    string
-	gotPagesFor   *string
-	commentsRead  []string
-	created       struct{ spaceID, parentID, title string }
-	updated       struct {
+	gotScope       provider.QAScope
+	gotQAEmail     string
+	gotLinkPrefix  string
+	gotTitleSearch *string
+	commentsRead   []string
+	created        struct{ near, title string }
+	updated        struct {
 		id      string
 		version int
 	}
 }
 
-func (f *fakeAPI) Whoami(context.Context) (*atlassian.JiraUser, error) { return f.me, f.meErr }
+func (f *fakeAPI) Me(context.Context) (*provider.User, error) { return f.me, f.meErr }
 
-func (f *fakeAPI) GetQATasksForReview(_ context.Context, s atlassian.QASchema, sprintName, module string) ([]atlassian.QAIssue, error) {
-	f.gotSchema, f.gotSprintName, f.gotModule = s, sprintName, module
+func (f *fakeAPI) ReviewTasks(_ context.Context, sc provider.QAScope) ([]provider.QAIssue, error) {
+	f.gotScope = sc
 	return f.review, f.reviewErr
 }
 
-func (f *fakeAPI) GetQATasksAsAssignee(_ context.Context, _ atlassian.QASchema, sprintName, qaEmail string) ([]atlassian.QAIssue, error) {
-	f.gotQAEmail = qaEmail
+func (f *fakeAPI) AssignedTasks(_ context.Context, _ provider.QAScope, email string) ([]provider.QAIssue, error) {
+	f.gotQAEmail = email
 	return f.assigned, nil
 }
 
-func (f *fakeAPI) GetQATasksForReviewKanban(_ context.Context, s atlassian.QASchema, since string) ([]atlassian.QAIssue, error) {
-	f.gotSchema, f.gotSince = s, since
-	return f.review, f.reviewErr
-}
-
-func (f *fakeAPI) GetQATasksAsAssigneeKanban(_ context.Context, _ atlassian.QASchema, _, qaEmail string) ([]atlassian.QAIssue, error) {
-	f.gotQAEmail = qaEmail
-	return f.assigned, nil
-}
-
-func (f *fakeAPI) HasDeployDocLink(_ context.Context, key string) (bool, error) {
+func (f *fakeAPI) HasDocumentLink(_ context.Context, key, prefix string) (bool, error) {
+	f.gotLinkPrefix = prefix
 	return f.docLinks[key], f.docErr[key]
 }
 
-func (f *fakeAPI) GetNovedadComment(_ context.Context, key string) (string, error) {
+func (f *fakeAPI) Observations(_ context.Context, key string) (string, error) {
 	f.commentsRead = append(f.commentsRead, key)
 	return f.novedad[key], f.novedadErr
 }
 
-func (f *fakeAPI) FindPageByTitle(context.Context, string, string) (*atlassian.Page, error) {
+func (f *fakeAPI) FindByTitle(context.Context, string) (*provider.DocRef, error) {
 	return f.byTitle, nil
 }
-func (f *fakeAPI) GetPageADF(context.Context, string) (*atlassian.PageADF, error) {
+
+func (f *fakeAPI) Read(context.Context, provider.DocRef) (*provider.Doc, error) {
 	return f.current, f.currentErr
 }
-func (f *fakeAPI) GetPage(_ context.Context, id string) (*atlassian.Page, error) {
-	return f.pages[id], nil
-}
 
-func (f *fakeAPI) FindQAPagesForModule(_ context.Context, module, _ string) ([]atlassian.Page, error) {
-	f.gotPagesFor = &module
+func (f *fakeAPI) SearchTitle(_ context.Context, text string) ([]provider.DocRef, error) {
+	f.gotTitleSearch = &text
 	return f.qaPages, nil
 }
 
-func (f *fakeAPI) CreatePage(_ context.Context, spaceID, parentID, title string, _ map[string]any) (*atlassian.Page, error) {
-	f.created.spaceID, f.created.parentID, f.created.title = spaceID, parentID, title
-	return &atlassian.Page{ID: "new", WebURL: "https://example.test/new"}, nil
+func (f *fakeAPI) Create(_ context.Context, near provider.DocRef, title string, _ map[string]any) (*provider.DocRef, error) {
+	f.created.near, f.created.title = near.ID, title
+	return &provider.DocRef{ID: "new", URL: "https://example.test/new"}, nil
 }
 
-func (f *fakeAPI) UpdatePage(_ context.Context, id, _ string, version int, _ map[string]any) (*atlassian.Page, error) {
-	f.updated.id, f.updated.version = id, version
-	return &atlassian.Page{ID: id, WebURL: "https://example.test/" + id}, nil
+func (f *fakeAPI) Update(_ context.Context, r provider.DocRef, _ string, _ map[string]any) (*provider.DocRef, error) {
+	f.updated.id, f.updated.version = r.ID, r.Version
+	return &provider.DocRef{ID: r.ID, URL: "https://example.test/" + r.ID}, nil
 }
+
+func newSession(api *fakeAPI, t *Target) *Session { return NewSession(api, api, t) }
 
 var ctx = context.Background()
 
@@ -141,12 +132,6 @@ func TestResolveSprintMode(t *testing.T) {
 	}
 	if tg.Title != document.BuildQATitle("Pagos", 12) {
 		t.Errorf("Title = %q", tg.Title)
-	}
-	if tg.Schema.TestingStatus != config.DefaultTestingStatus {
-		t.Errorf("sin testing_status debe usarse el default, obtuve %q", tg.Schema.TestingStatus)
-	}
-	if tg.Schema.FieldDevStatus != "customfield_3" || tg.Schema.Project != "OPS" {
-		t.Errorf("schema mal convertido: %+v", tg.Schema)
 	}
 	if len(tg.Warnings) != 0 {
 		t.Errorf("no esperaba warnings: %v", tg.Warnings)
@@ -233,19 +218,19 @@ func TestCheckAccount(t *testing.T) {
 	for _, c := range cases {
 		tg := sprintTarget(t)
 		tg.QAEmail = c.qaEmail
-		s := NewSession(&fakeAPI{me: &atlassian.JiraUser{EmailAddress: c.authed}}, tg)
+		s := newSession(&fakeAPI{me: &provider.User{Email: c.authed}}, tg)
 		err := s.CheckAccount(ctx)
 		if c.wantErr != errors.Is(err, ErrNotQAAccount) {
 			t.Errorf("%s: error = %v", c.name, err)
 		}
-		if s.Account == nil || s.Account.EmailAddress != c.authed {
+		if s.Account == nil || s.Account.Email != c.authed {
 			t.Errorf("%s: Account debe quedar para mostrarla", c.name)
 		}
 	}
 }
 
 func TestCheckAccountPropagatesAuthError(t *testing.T) {
-	s := NewSession(&fakeAPI{meErr: errors.New("401")}, sprintTarget(t))
+	s := newSession(&fakeAPI{meErr: errors.New("401")}, sprintTarget(t))
 	if err := s.CheckAccount(ctx); err == nil || errors.Is(err, ErrNotQAAccount) {
 		t.Errorf("un fallo de autenticación no es ErrNotQAAccount: %v", err)
 	}
@@ -253,20 +238,20 @@ func TestCheckAccountPropagatesAuthError(t *testing.T) {
 
 func TestCollectSprintLinksReviewTasks(t *testing.T) {
 	api := &fakeAPI{
-		review: []atlassian.QAIssue{{Key: "OPS-7"}, {Key: "OPS-8"}},
-		assigned: []atlassian.QAIssue{
+		review: []provider.QAIssue{{Key: "OPS-7"}, {Key: "OPS-8"}, {Key: "OPS-21", Summary: "Revisión de Tarea - OPS-8"}},
+		assigned: []provider.QAIssue{
 			{Key: "OPS-20", URL: "https://example.test/browse/OPS-20", Summary: "Revisión de Tarea - OPS-7"},
 		},
 	}
-	s := NewSession(api, sprintTarget(t))
+	s := newSession(api, sprintTarget(t))
 	if err := s.Collect(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if api.gotSprintName != "Pagos_Sprint 12" || api.gotModule != "Pagos" || api.gotQAEmail != "qa@example.test" {
-		t.Errorf("consulta mal armada: sprint=%q módulo=%q qa=%q", api.gotSprintName, api.gotModule, api.gotQAEmail)
+	if api.gotScope != (provider.QAScope{SprintName: "Pagos_Sprint 12", Module: "Pagos"}) || api.gotQAEmail != "qa@example.test" {
+		t.Errorf("consulta mal armada: %+v qa=%q", api.gotScope, api.gotQAEmail)
 	}
-	if api.gotSchema.Project != "OPS" {
-		t.Errorf("no se pasó el schema: %+v", api.gotSchema)
+	if len(s.Tasks) != 2 {
+		t.Errorf("las tareas de revisión no son filas del reporte: %+v", s.Tasks)
 	}
 	if s.Tasks[0].ReviewTaskKey != "OPS-20" || s.Tasks[0].ReviewTaskURL == "" {
 		t.Errorf("OPS-7 debe enlazar su tarea de revisión: %+v", s.Tasks[0])
@@ -279,16 +264,16 @@ func TestCollectSprintLinksReviewTasks(t *testing.T) {
 func TestCollectKanbanUsesWindow(t *testing.T) {
 	tg, _ := Resolve(validConfig(), Request{}, monday)
 	api := &fakeAPI{}
-	if err := NewSession(api, tg).Collect(ctx); err != nil {
+	if err := newSession(api, tg).Collect(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if api.gotSince != "2026-09-07" {
-		t.Errorf("since = %q, esperaba 2026-09-07", api.gotSince)
+	if api.gotScope != (provider.QAScope{Since: "2026-09-07"}) {
+		t.Errorf("alcance = %+v, esperaba desde 2026-09-07", api.gotScope)
 	}
 }
 
 func TestCollectPropagatesErrors(t *testing.T) {
-	s := NewSession(&fakeAPI{reviewErr: errors.New("timeout")}, sprintTarget(t))
+	s := newSession(&fakeAPI{reviewErr: errors.New("timeout")}, sprintTarget(t))
 	if err := s.Collect(ctx); err == nil {
 		t.Error("si la búsqueda falla no hay reporte que armar")
 	}
@@ -296,10 +281,13 @@ func TestCollectPropagatesErrors(t *testing.T) {
 
 func TestEvaluateTaskFailedLookupIsUnknown(t *testing.T) {
 	api := &fakeAPI{docErr: map[string]error{"OPS-7": errors.New("403")}}
-	s := NewSession(api, sprintTarget(t))
-	s.Tasks = []atlassian.QAIssue{{Key: "OPS-7"}}
+	s := newSession(api, sprintTarget(t))
+	s.Tasks = []provider.QAIssue{{Key: "OPS-7"}}
 
 	warnings := s.EvaluateTask(ctx, 0)
+	if api.gotLinkPrefix != document.DeployTitlePrefix {
+		t.Errorf("el enlace se busca con el prefijo %q", api.gotLinkPrefix)
+	}
 	if !s.Tasks[0].DeployDocUnknown || s.Tasks[0].HasDeployDoc {
 		t.Errorf("una consulta fallida es desconocida, no un control fallido: %+v", s.Tasks[0])
 	}
@@ -316,8 +304,8 @@ func TestEvaluateTaskFailedLookupIsUnknown(t *testing.T) {
 
 func TestEvaluateTaskObservations(t *testing.T) {
 	api := &fakeAPI{novedad: map[string]string{"OPS-7": "falta validar el monto"}}
-	s := NewSession(api, sprintTarget(t))
-	s.Tasks = []atlassian.QAIssue{{Key: "OPS-7", HasCodingErrors: true}, {Key: "OPS-8"}}
+	s := newSession(api, sprintTarget(t))
+	s.Tasks = []provider.QAIssue{{Key: "OPS-7", HasCodingErrors: true}, {Key: "OPS-8"}}
 
 	s.EvaluateTask(ctx, 0)
 	s.EvaluateTask(ctx, 1)
@@ -356,12 +344,9 @@ func publishedReport(t *testing.T, kept document.QAPreserved) map[string]any {
 func TestDraftUpdatePreservesHandWrittenParts(t *testing.T) {
 	note := []any{map[string]any{"type": "paragraph", "content": []any{map[string]any{"type": "text", "text": "Sin bloqueos"}}}}
 	consider := []any{map[string]any{"type": "paragraph", "content": []any{map[string]any{"type": "text", "text": "Reprobar en staging"}}}}
-	api := &fakeAPI{current: &atlassian.PageADF{
-		Page: atlassian.Page{ID: "p1", Version: 4},
-		ADF:  publishedReport(t, document.QAPreserved{Observation: note, Considerations: consider}),
-	}}
-	s := NewSession(api, sprintTarget(t))
-	s.Existing = &atlassian.Page{ID: "p1"}
+	api := &fakeAPI{current: &provider.Doc{DocRef: provider.DocRef{ID: "p1", Version: 4}, Body: publishedReport(t, document.QAPreserved{Observation: note, Considerations: consider})}}
+	s := newSession(api, sprintTarget(t))
+	s.Existing = &provider.DocRef{ID: "p1"}
 
 	d, err := s.DraftUpdate(ctx)
 	if err != nil {
@@ -377,17 +362,17 @@ func TestDraftUpdatePreservesHandWrittenParts(t *testing.T) {
 }
 
 func TestDraftUpdateRefusesWhenPageUnreadable(t *testing.T) {
-	s := NewSession(&fakeAPI{currentErr: errors.New("timeout")}, sprintTarget(t))
-	s.Existing = &atlassian.Page{ID: "p1"}
+	s := newSession(&fakeAPI{currentErr: errors.New("timeout")}, sprintTarget(t))
+	s.Existing = &provider.DocRef{ID: "p1"}
 	if d, err := s.DraftUpdate(ctx); err == nil || d != nil {
 		t.Error("sin leer la página actual no se arma un reemplazo")
 	}
 }
 
 func TestDraftUpdateReportsLostParts(t *testing.T) {
-	api := &fakeAPI{current: &atlassian.PageADF{Page: atlassian.Page{ID: "p1"}}} // not ADF
-	s := NewSession(api, sprintTarget(t))
-	s.Existing = &atlassian.Page{ID: "p1"}
+	api := &fakeAPI{current: &provider.Doc{DocRef: provider.DocRef{ID: "p1"}}} // not ADF
+	s := newSession(api, sprintTarget(t))
+	s.Existing = &provider.DocRef{ID: "p1"}
 
 	d, err := s.DraftUpdate(ctx)
 	if err != nil {
@@ -404,23 +389,23 @@ func TestDraftUpdateReportsLostParts(t *testing.T) {
 func TestLocations(t *testing.T) {
 	api := &fakeAPI{}
 	tg, _ := Resolve(validConfig(), Request{}, monday)
-	if _, err := NewSession(api, tg).Locations(ctx); !errors.Is(err, ErrNoLocations) {
+	if _, err := newSession(api, tg).Locations(ctx); !errors.Is(err, ErrNoLocations) {
 		t.Errorf("sin consolidados previos esperaba ErrNoLocations, obtuve %v", err)
 	}
-	if api.gotPagesFor == nil || *api.gotPagesFor != "" {
-		t.Errorf("en Kanban se buscan consolidados de cualquier módulo")
+	if api.gotTitleSearch == nil || *api.gotTitleSearch != "Consolidado de Pruebas QA" {
+		t.Errorf("en Kanban se buscan consolidados de cualquier módulo: %v", api.gotTitleSearch)
 	}
 
-	api.qaPages = []atlassian.Page{{ID: "q1"}}
-	if _, err := NewSession(api, sprintTarget(t)).Locations(ctx); err != nil || *api.gotPagesFor != "Pagos" {
-		t.Errorf("en Sprint se buscan los del módulo: %q %v", *api.gotPagesFor, err)
+	api.qaPages = []provider.DocRef{{ID: "q1"}}
+	if _, err := newSession(api, sprintTarget(t)).Locations(ctx); err != nil || *api.gotTitleSearch != "Consolidado de Pruebas QA - Pagos" {
+		t.Errorf("en Sprint se buscan los del módulo: %q %v", *api.gotTitleSearch, err)
 	}
 }
 
 func TestPublishUpdateUsesCurrentVersion(t *testing.T) {
 	api := &fakeAPI{}
-	s := NewSession(api, sprintTarget(t))
-	res, err := s.Publish(ctx, &Draft{Title: "T", Replaces: &atlassian.PageADF{Page: atlassian.Page{ID: "p1", Version: 4}}}, nil)
+	s := newSession(api, sprintTarget(t))
+	res, err := s.Publish(ctx, &Draft{Title: "T", Replaces: &provider.Doc{DocRef: provider.DocRef{ID: "p1", Version: 4}}}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -430,18 +415,18 @@ func TestPublishUpdateUsesCurrentVersion(t *testing.T) {
 }
 
 func TestPublishCreateNextToSibling(t *testing.T) {
-	api := &fakeAPI{pages: map[string]*atlassian.Page{"q1": {ID: "q1", SpaceID: "99", ParentID: "50"}}}
-	s := NewSession(api, sprintTarget(t))
+	api := &fakeAPI{}
+	s := newSession(api, sprintTarget(t))
 	d := s.DraftCreate()
 
 	if _, err := s.Publish(ctx, d, nil); err == nil {
 		t.Error("crear sin ubicación debe fallar")
 	}
-	res, err := s.Publish(ctx, d, &atlassian.Page{ID: "q1"})
+	res, err := s.Publish(ctx, d, &provider.DocRef{ID: "q1"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if res.Updated || api.created.spaceID != "99" || api.created.parentID != "50" || api.created.title != s.Target.Title {
+	if res.Updated || api.created.near != "q1" || api.created.title != s.Target.Title {
 		t.Errorf("create mal hecho: %+v", api.created)
 	}
 }
