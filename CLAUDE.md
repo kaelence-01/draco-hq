@@ -30,12 +30,14 @@ de empezar una tarea.
 
 ## Comandos
 
-Todavía no hay `main.go`: solo existe el core en `internal/`. Los comandos de
-todos los días están en el **Makefile** (`make` lista todo; las opciones van
-como variables):
+El modo comando está en construcción (fase 3): `main.go` y `cmd/` existen, con
+`help` y `version`; cada actividad suma un comando. Los comandos de todos los
+días están en el **Makefile** (`make` lista todo; las opciones van como
+variables):
 
 ```bash
 make start name=<tema> [type=feature|fix|docs]   # nueva actividad desde develop al día
+make run args="help"      # draco con go run, sin instalarlo
 make test [pkg=./internal/qa] [run=Golden] [v=1]  # tests (todos puros, sin red)
 make lint                 # gofmt sin diferencias + go vet
 make golden [pkg=...]     # regenerar goldens tras un cambio intencional
@@ -43,11 +45,16 @@ make check                # verificaciones de cerrar-actividad
 make push [force=1]       # sube la rama actual (lo corre el autor: SSH)
 make pr [web=1]           # PR de la rama actual hacia develop
 make finish               # tras fusionar: develop al día y ramas fusionadas borradas
+make release-build ver=vX.Y.Z    # binarios de todas las plataformas + checksums.txt en dist/
+make release bump=patch|minor|major  # tag y GitHub Release desde main (lo corre el autor)
 ```
 
 `make sync` actualiza `develop` solo con *fast-forward*: si `develop` local se
-desvió de `origin/develop`, falla en vez de mezclar. Nunca hay objetivos que
-publiquen en `main`.
+desvió de `origin/develop`, falla en vez de mezclar. Ningún objetivo escribe
+commits en `main`: `make release` solo etiqueta `main` ya integrada, limpia e
+igual a `origin/main` (guía: `docs/release.md`). Las plataformas del release
+(`PLATFORMS` del Makefile) y `updater.Platforms` deben coincidir; un test lo
+verifica.
 
 Go: `go.mod` declara `go 1.26.1`. No cambiarlo sin verificar qué versión tienen
 instalada los colaboradores y el CI.
@@ -55,7 +62,17 @@ instalada los colaboradores y el CI.
 ## Arquitectura
 
 ```
+main.go        Entrada: cmd.New(os.Stdin, os.Stdout, os.Stderr).Start(os.Args[1:])
+               (Start = Run + oferta de instalación y aviso de versión nueva,
+               solo en una terminal)
+cmd/           Modo comando: router de mapa, flags por comando, ayuda en dos
+               niveles, códigos de salida (0 ok, 1 error, 2 uso)
 internal/
+  build/       Versión (ldflags)
+  installer/   Instalación en el primer uso: copia a ~/.local/bin o
+               %LOCALAPPDATA%\Programs\draco y agrega la carpeta al PATH
+  updater/     Releases de GitHub: última versión, descarga verificada con
+               checksums.txt (P-006), reemplazo del ejecutable, caché del aviso
   provider/    Modelo neutro y puertos (Tracker, QATracker, DocStore,
                ChangeSource)
     atlassian/ Adaptador: cliente HTTP (Basic Auth) + Jira v3 + Confluence
@@ -78,9 +95,7 @@ docs/
   security/patrones-seguros.md   Patrones P-001..P-008 (autoridad en seguridad)
 ```
 
-Planeado (ver roadmap): `cmd/` (modo
-comando), `internal/tui/` (modo visual), `internal/installer`,
-`internal/updater`, `main.go`, `Makefile`.
+Planeado (ver roadmap): `internal/tui/` (modo visual).
 
 ### El patrón de los flujos: preparar → revisar → publicar
 
@@ -149,13 +164,36 @@ Cada flujo vive en su propio paquete (`internal/deploy` es la referencia) y
 - `qa_email` es una protección de UX, no control de acceso: lo lee de la config
   del propio usuario. La autorización real son los permisos de Atlassian.
 
+### El modo comando (`cmd/`)
+
+- Un comando se registra con `register(&command{run, help, summary}, nombres…)`;
+  `TestEveryCommandHasHelpAndSummary` exige las tres cosas.
+- Los flags se declaran por comando (`[]flag`) y se leen con `parseFlags`: un
+  flag desconocido o sin valor es un error de uso (sale con 2), nunca se
+  ignora; solo un flag `optional` (`-o` de `backlog scan`) puede ir sin valor. `-h`/`--help` muestra la ayuda y **nunca ejecuta** el comando.
+- Los comandos que **guardan** la config la leen con `config.LoadFile` (solo
+  el archivo), nunca con `LoadLocal`: este mezcla las variables `ATLASSIAN_*`
+  y un token del entorno terminaría escrito en el disco.
+- Todo se escribe en `App.Out`/`App.Err` (los tests usan buffers); el color
+  solo aparece en una terminal real y sin `NO_COLOR`.
+- Un comando recorre los pasos de su flujo y pregunta por texto donde el flujo
+  deja la decisión al usuario; nunca reimplementa lógica del flujo.
+- Los tests de comandos no tocan la red ni el sistema: `loadConfig`,
+  `openProfile`, `saveDialog`, `now`, `scanRepo`, `newUpdater`, `executable`
+  e `installDir` son variables del paquete
+  que los tests reemplazan (config en memoria, tracker y git simulados, adaptador Markdown
+  real en una carpeta temporal). El diálogo nativo de guardar nunca se abre en
+  un test: en WSL abriría una ventana de Windows.
+
 ## Dependencias
 
-Hoy: `gopkg.in/yaml.v3` y `github.com/yuin/goldmark` (Markdown → formato de cada
-destino; solo en los adaptadores). Están aprobadas para la TUI las librerías de
-Charm (Bubble Tea, Bubbles, Lip Gloss, Huh), y `golang.org/x/sys` cuando se
-porte el instalador de Windows. Cualquier otra se justifica antes de agregarla. El router
-de comandos será un `map[string]func([]string) error` como en gtt, sin Cobra.
+Hoy: `gopkg.in/yaml.v3`, `github.com/yuin/goldmark` (Markdown → formato de cada
+destino; solo en los adaptadores) y `golang.org/x/term` (leer el token sin
+mostrarlo en `draco init`) y `golang.org/x/sys` (el PATH de Windows en el
+registro, en el instalador). Están aprobadas para la TUI las librerías de Charm
+(Bubble Tea, Bubbles, Lip Gloss, Huh). Cualquier otra se justifica antes de
+agregarla. El router de comandos es un mapa de nombre a comando, como
+en gtt, sin Cobra.
 
 ## Idioma
 
@@ -188,6 +226,10 @@ main ── develop ── feature/<tema>   (PR → develop, nunca a main)
 - Toda actividad nace de `develop` actualizada en `feature/<tema>` (o `fix/`,
   `docs/`), termina en **un solo commit** y llega a `develop` por PR. El push y
   el PR los hace el autor.
+- **`develop` → `main` siempre con *merge commit***, nunca con *rebase and
+  merge* ni *squash*: esos copian los commits con otros hashes, `main` y
+  `develop` dejan de compartir historia y el siguiente PR choca en cada
+  archivo (bitácora 026).
 - Toda actividad lleva su entrada en **`docs/bitacora/fase-N/NNN-<tema>.md`**
   (N: fase del roadmap; NNN: número global) en ese
   mismo commit, y su fila en el índice. Las entradas de actividades ya

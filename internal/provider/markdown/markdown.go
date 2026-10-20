@@ -214,7 +214,11 @@ func (s *Store) Locations(_ context.Context, q provider.LocationQuery) (*provide
 			return
 		}
 		seen[dir] = true
-		out = append(out, provider.DocRef{ID: dir + "/", Title: dir + "/", URL: filepath.Join(s.root, filepath.FromSlash(dir))})
+		title := dir + "/"
+		if dir == "." {
+			title = "./ (raíz de la carpeta)"
+		}
+		out = append(out, provider.DocRef{ID: dir + "/", Title: title, URL: filepath.Join(s.root, filepath.FromSlash(dir))})
 	}
 	for _, d := range ds {
 		add(path.Dir(d.id))

@@ -1,6 +1,7 @@
 package config
 
 import (
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -95,5 +96,15 @@ func TestProjectAndProfileEditing(t *testing.T) {
 	}
 	if err := cfg.RemoveProfile("externo"); err == nil {
 		t.Error("quitar un perfil inexistente es un error")
+	}
+}
+
+func TestProfileTemplateDir(t *testing.T) {
+	p := &Profile{Template: "/plantillas/equipo"}
+	if got := p.TemplateDir("qa"); got != filepath.Join("/plantillas/equipo", "qa") {
+		t.Errorf("TemplateDir = %q", got)
+	}
+	if got := (&Profile{}).TemplateDir("deploy"); got != "" {
+		t.Errorf("sin carpeta no hay plantilla del perfil: %q", got)
 	}
 }

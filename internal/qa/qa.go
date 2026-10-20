@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -139,18 +138,11 @@ func (t *Target) deployPrefix() string {
 // way, without an explicit folder.
 func (t *Target) loadTemplates(explicit string) error {
 	user, _ := config.TemplatesDir()
-	dirs := func(kind string, first string) []string {
-		d := []string{first, filepath.Join(".draco", "templates", kind)}
-		if user != "" {
-			d = append(d, filepath.Join(user, kind))
-		}
-		return d
-	}
 	var err error
-	if t.Template, err = document.LoadTemplate("qa", dirs("qa", explicit)...); err != nil {
+	if t.Template, err = document.LoadTemplate("qa", document.Dirs("qa", explicit, "", user)...); err != nil {
 		return err
 	}
-	deploy, err := document.LoadTemplate("deploy", dirs("deploy", "")...)
+	deploy, err := document.LoadTemplate("deploy", document.Dirs("deploy", "", "", user)...)
 	if err != nil {
 		return err
 	}
@@ -319,15 +311,24 @@ func (s *Session) build() (string, error) {
 }
 
 // Locations lists recent consolidated reports as candidate siblings for a new
-// one: the module's in Sprint mode, any in Kanban mode.
+// one: the module's in Sprint mode, any in Kanban mode. Without any, it falls
+// back to the destination's own locations (a Markdown folder offers itself).
 func (s *Session) Locations(ctx context.Context) ([]provider.DocRef, error) {
-	title := s.Target.template().Manifest.Prefix
+	prefix := s.Target.template().Manifest.Prefix
+	title := prefix
 	if s.Target.Module != "" {
 		title += " - " + s.Target.Module
 	}
 	pages, err := s.docs.SearchTitle(ctx, title)
 	if err != nil {
 		return nil, err
+	}
+	if len(pages) == 0 {
+		loc, err := s.docs.Locations(ctx, provider.LocationQuery{TitlePrefix: prefix})
+		if err != nil {
+			return nil, err
+		}
+		pages = loc.Docs
 	}
 	if len(pages) == 0 {
 		return nil, ErrNoLocations

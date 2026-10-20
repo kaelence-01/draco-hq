@@ -48,11 +48,11 @@ de Windows (`cmd`) se ve más limitado.
 |---|---|---|
 | 1 | Nombre, identidad y repositorio | ✅ |
 | 2 | Core: portar la lógica de gtt, separar los flujos y desacoplar los proveedores | ✅ |
-| 3 | Modo comando (`cmd/`, `main.go`), instalador, updater, releases | ⬜ siguiente |
+| 3 | Modo comando (`cmd/`, `main.go`), instalador, updater, releases | 🟡 en curso |
 | 4 | Modo visual mínimo: pantalla principal, proyectos, generar documento | ⬜ |
 | 5 | Resto de pantallas: backlog, QA, exportar | ⬜ |
 | 6 | Barra de comandos con autocompletado, temas, ayuda | ⬜ |
-| v1.0 | Instaladores, checksums, migración desde gtt, README | ⬜ |
+| v1.0 | Instaladores, checksums, migración desde gtt, README completo | ⬜ |
 
 ### Fase 2 — hecho
 
@@ -116,6 +116,25 @@ y plantillas remotas, en ese orden según demanda (diseño, §9).
 
 ### Fase 3 — modo comando
 
+draco se vuelve ejecutable. Cada comando arma sus adaptadores con
+`profile.Open` y recorre los pasos de su flujo preguntando por texto; todo lo
+que publica tiene `--dry-run`. Lo que toca la red se prueba a mano contra una
+instancia propia, empezando por `--dry-run`.
+
+| # | Actividad | Rama | Criterio de cierre |
+|---|---|---|---|
+| 1 | ✅ README | `docs/readme` | El repo explica qué es draco, su estado y cómo se trabaja |
+| 2 | ✅ Base del comando: `main.go`, router `cmd/`, flags cortos y largos (portar `parseFlagsWithShorts` y sus tests), ayuda en dos niveles, `version` por ldflags | `feature/cli-base` | `go run . help` y `go run . help <cmd>`; `-h` nunca ejecuta |
+| 3 | ✅ `draco g` (falta la prueba manual del autor contra Confluence): despliegue sobre el flujo, ubicación y secciones no conservadas preguntadas por texto, `--dry-run`, `--profile`, `--space`, `--template` | `feature/cli-generate` | `--dry-run` muestra el Markdown; prueba manual contra Confluence y contra Markdown local |
+| 4 | ✅ `draco qa` y `draco f` (falta la prueba manual del autor contra Jira y Confluence) (con los diálogos nativos para guardar) | `feature/cli-qa-fetch` | `--dry-run` del consolidado; exportar a un `.txt` |
+| 5 | ✅ `draco backlog scan` | `feature/cli-backlog` | Mismo informe y flags que gtt |
+| 6a | ✅ `draco init`, `draco project` y `draco profile` sobre las funciones puras de `config`; token oculto con `golang.org/x/term` | `feature/cli-init` | Una config nueva se crea sin editar YAML |
+| 6b | ✅ `draco template init/list/validate/preview` sobre el motor de plantillas | `feature/cli-template` | Una plantilla se copia, se edita y se previsualiza sin publicar |
+| 7a | ✅ Instalador, updater y `draco update` (SHA-256 contra `checksums.txt`, aviso con caché de 24 h); binarios linux y darwin amd64/arm64 y windows amd64 | `feature/updater` | Tests contra un GitHub simulado: instala, actualiza y rechaza un binario alterado |
+| 7b | ✅ Objetivos de release del Makefile, `checksums.txt`, guía de release y primer release `v0.1.0` | `feature/release` | Un release de prueba se instala y se actualiza |
+
+Detalle:
+
 - `main.go` + `cmd/` con router de mapa (sin Cobra), parser de flags cortos y
   largos (portar `parseFlagsWithShorts` de gtt y sus tests), ayuda en dos
   niveles (`draco help`, `draco help <comando>`, `-h` que nunca ejecuta).
@@ -163,7 +182,8 @@ terminales no lo soporta): necesita el nombre en letras grandes con caracteres.
   nombre de paquete; el comando sigue siendo `draco`.
 - Migración desde gtt: leer `~/.config/gtt/config.yaml` para no repetir el
   asistente (pendiente de confirmar).
-- README, guía de usuario y una bitácora por versión
+- Guía de usuario y completar el README con la instalación (la base existe
+  desde la fase 3); bitácora enlazada por versión
   (Solicitud → Motivación → Diseño técnico → Archivos → Cómo verificar).
 
 ## Decisiones tomadas

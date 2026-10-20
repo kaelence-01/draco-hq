@@ -128,3 +128,47 @@ func TestFechaEnEspanol(t *testing.T) {
 		t.Errorf("fecha = %q", got)
 	}
 }
+
+func TestDirsOrder(t *testing.T) {
+	got := Dirs("qa", "/explicita", "/repos/pagos-api", "/home/yo/.config/draco/templates")
+	want := []string{"/explicita", filepath.Join("/repos/pagos-api", ".draco", "templates", "qa"), filepath.Join("/home/yo/.config/draco/templates", "qa")}
+	if strings.Join(got, "|") != strings.Join(want, "|") {
+		t.Errorf("Dirs = %v, want %v", got, want)
+	}
+	if got := Dirs("deploy", "", "", ""); len(got) != 2 || got[1] != filepath.Join(".draco", "templates", "deploy") {
+		t.Errorf("sin repo ni usuario: %v", got)
+	}
+}
+
+func TestBuiltinFilesRoundTrip(t *testing.T) {
+	for _, kind := range Kinds {
+		files, err := BuiltinFiles(kind)
+		if err != nil || files["template.yaml"] == nil || files["main.md.tmpl"] == nil {
+			t.Fatalf("%s: %v %v", kind, err, files)
+		}
+		dir := t.TempDir()
+		for n, b := range files {
+			if err := os.WriteFile(filepath.Join(dir, n), b, 0644); err != nil {
+				t.Fatal(err)
+			}
+		}
+		copied, err := LoadTemplate(kind, dir)
+		if err != nil || copied.Manifest.Prefix != MustBuiltin(kind).Manifest.Prefix {
+			t.Errorf("%s: una copia sin editar se carga igual que la incluida: %v", kind, err)
+		}
+	}
+	if _, err := BuiltinFiles("otro"); err == nil {
+		t.Error("un tipo desconocido es error")
+	}
+}
+
+func TestMissingPreserved(t *testing.T) {
+	q := MustBuiltin("qa")
+	md := "## Resumen\n\n### Observación\n\n```\n### Consideraciones\n```\n"
+	if got := q.MissingPreserved(md); len(got) != 1 || got[0] != "Consideraciones" {
+		t.Errorf("un título dentro de un bloque de código no cuenta: %v", got)
+	}
+	if got := MustBuiltin("deploy").MissingPreserved("## A considerar:\n"); got != nil {
+		t.Errorf("los dos puntos finales no importan: %v", got)
+	}
+}

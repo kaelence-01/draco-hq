@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"path/filepath"
 	"sort"
 	"strings"
 )
@@ -11,7 +12,7 @@ import (
 type Profile struct {
 	Tracker  ProviderConfig `yaml:"tracker"`
 	Docs     ProviderConfig `yaml:"docs"`
-	Template string         `yaml:"template,omitempty"` // template folder; overrides the repo's and the user's
+	Template string         `yaml:"template,omitempty"` // templates folder, one subfolder per kind; see TemplateDir
 }
 
 // ProviderConfig names an adapter and its settings. Jira and Confluence take
@@ -20,6 +21,16 @@ type ProviderConfig struct {
 	Provider string `yaml:"provider"`        // jira | confluence | markdown
 	Space    string `yaml:"space,omitempty"` // confluence: space key
 	Path     string `yaml:"path,omitempty"`  // markdown: folder
+}
+
+// TemplateDir is the profile's folder for the template of kind (deploy, qa),
+// laid out like the user's templates folder; empty without one. It overrides
+// the repo's and the user's.
+func (p *Profile) TemplateDir(kind string) string {
+	if p.Template == "" {
+		return ""
+	}
+	return filepath.Join(p.Template, kind)
 }
 
 // LegacyProfile names the profile a config without profiles reads as.
@@ -64,7 +75,7 @@ func (c *Config) ProjectNames() []string { return sortedKeys(c.Projects) }
 
 // SetProject adds or replaces a project.
 func (c *Config) SetProject(name string, p *ProjectConfig) error {
-	if err := validName("proyecto", name); err != nil {
+	if err := ValidName("proyecto", name); err != nil {
 		return err
 	}
 	if c.Projects == nil {
@@ -98,7 +109,7 @@ func (c *Config) SetDefaultProject(name string) error {
 
 // SetProfile adds or replaces a profile.
 func (c *Config) SetProfile(name string, p *Profile) error {
-	if err := validName("perfil", name); err != nil {
+	if err := ValidName("perfil", name); err != nil {
 		return err
 	}
 	if c.Profiles == nil {
@@ -130,7 +141,8 @@ func (c *Config) SetDefaultProfile(name string) error {
 	return nil
 }
 
-func validName(kind, name string) error {
+// ValidName checks a project or profile name; kind names it in the error.
+func ValidName(kind, name string) error {
 	if strings.TrimSpace(name) == "" || strings.ContainsAny(name, " \t\n/") {
 		return fmt.Errorf("nombre de %s inválido %q: sin espacios ni /", kind, name)
 	}
