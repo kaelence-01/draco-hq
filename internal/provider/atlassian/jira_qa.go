@@ -1,6 +1,7 @@
 package atlassian
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -64,8 +65,8 @@ type jiraSearchResponse struct {
 
 // GetQATasksForReview returns the module's sprint dev tasks that reached QA,
 // excluding the QA review tasks themselves.
-func (c *Client) GetQATasksForReview(s QASchema, sprintName, module string) ([]QAIssue, error) {
-	all, err := c.searchQAIssues(s, sprintReviewJQL(s, sprintName, module))
+func (c *Client) GetQATasksForReview(ctx context.Context, s QASchema, sprintName, module string) ([]QAIssue, error) {
+	all, err := c.searchQAIssues(ctx, s, sprintReviewJQL(s, sprintName, module))
 	if err != nil {
 		return nil, err
 	}
@@ -95,8 +96,8 @@ func devTasksOnly(all []QAIssue) []QAIssue {
 
 // GetQATasksAsAssignee returns the sprint tasks assigned to qaEmail, or to
 // currentUser() when it is empty or cannot be resolved.
-func (c *Client) GetQATasksAsAssignee(s QASchema, sprintName, qaEmail string) ([]QAIssue, error) {
-	return c.searchQAIssues(s, sprintAssigneeJQL(s, sprintName, c.assigneeClause(qaEmail)))
+func (c *Client) GetQATasksAsAssignee(ctx context.Context, s QASchema, sprintName, qaEmail string) ([]QAIssue, error) {
+	return c.searchQAIssues(ctx, s, sprintAssigneeJQL(s, sprintName, c.assigneeClause(ctx, qaEmail)))
 }
 
 func sprintAssigneeJQL(s QASchema, sprintName, assignee string) string {
@@ -108,9 +109,9 @@ func sprintAssigneeJQL(s QASchema, sprintName, assignee string) string {
 
 // assigneeClause returns qaEmail's accountId quoted (Jira Cloud JQL does not
 // accept emails), or currentUser().
-func (c *Client) assigneeClause(qaEmail string) string {
+func (c *Client) assigneeClause(ctx context.Context, qaEmail string) string {
 	if qaEmail != "" {
-		if accountID, err := c.resolveAccountID(qaEmail); err == nil && accountID != "" {
+		if accountID, err := c.resolveAccountID(ctx, qaEmail); err == nil && accountID != "" {
 			return quoteLiteral(accountID)
 		}
 	}
@@ -137,8 +138,8 @@ func parseDevTaskKey(summary string) string {
 	return issueKeyRe.FindString(strings.ToUpper(summary))
 }
 
-func (c *Client) resolveAccountID(email string) (string, error) {
-	body, err := c.Get("/rest/api/3/user/search?query=" + url.QueryEscape(email))
+func (c *Client) resolveAccountID(ctx context.Context, email string) (string, error) {
+	body, err := c.Get(ctx, "/rest/api/3/user/search?query="+url.QueryEscape(email))
 	if err != nil {
 		return "", err
 	}
@@ -151,14 +152,14 @@ func (c *Client) resolveAccountID(email string) (string, error) {
 	return users[0].AccountID, nil
 }
 
-func (c *Client) searchQAIssues(s QASchema, jql string) ([]QAIssue, error) {
+func (c *Client) searchQAIssues(ctx context.Context, s QASchema, jql string) ([]QAIssue, error) {
 	payload := map[string]any{
 		"jql":        jql,
 		"fields":     []string{"key", "summary", s.FieldCodingErrors, s.FieldDevReturns, s.FieldDevStatus},
 		"maxResults": 100,
 	}
 
-	body, err := c.Post("/rest/api/3/search/jql", payload)
+	body, err := c.Post(ctx, "/rest/api/3/search/jql", payload)
 	if err != nil {
 		return nil, fmt.Errorf("error buscando issues: %w", err)
 	}
@@ -201,8 +202,8 @@ func (c *Client) searchQAIssues(s QASchema, jql string) ([]QAIssue, error) {
 
 // GetNovedadComment returns the text after "Novedad::" in the issue's comments,
 // joined with "; ". An error means unknown, not "no observations".
-func (c *Client) GetNovedadComment(issueKey string) (string, error) {
-	body, err := c.Get(fmt.Sprintf("/rest/api/3/issue/%s/comment?orderBy=-created&maxResults=50", issueKey))
+func (c *Client) GetNovedadComment(ctx context.Context, issueKey string) (string, error) {
+	body, err := c.Get(ctx, fmt.Sprintf("/rest/api/3/issue/%s/comment?orderBy=-created&maxResults=50", issueKey))
 	if err != nil {
 		return "", fmt.Errorf("error leyendo comentarios de %s: %w", issueKey, err)
 	}
@@ -268,8 +269,8 @@ func KanbanWindow(now time.Time) (since time.Time, period string) {
 
 // GetQATasksForReviewKanban returns the dev tasks of any module that moved to
 // the testing status after sinceDate (YYYY-MM-DD).
-func (c *Client) GetQATasksForReviewKanban(s QASchema, sinceDate string) ([]QAIssue, error) {
-	all, err := c.searchQAIssues(s, kanbanReviewJQL(s, sinceDate))
+func (c *Client) GetQATasksForReviewKanban(ctx context.Context, s QASchema, sinceDate string) ([]QAIssue, error) {
+	all, err := c.searchQAIssues(ctx, s, kanbanReviewJQL(s, sinceDate))
 	if err != nil {
 		return nil, err
 	}
@@ -284,8 +285,8 @@ func kanbanReviewJQL(s QASchema, sinceDate string) string {
 }
 
 // GetQATasksAsAssigneeKanban returns the QA user's tasks updated since sinceDate.
-func (c *Client) GetQATasksAsAssigneeKanban(s QASchema, sinceDate, qaEmail string) ([]QAIssue, error) {
-	return c.searchQAIssues(s, kanbanAssigneeJQL(s, sinceDate, c.assigneeClause(qaEmail)))
+func (c *Client) GetQATasksAsAssigneeKanban(ctx context.Context, s QASchema, sinceDate, qaEmail string) ([]QAIssue, error) {
+	return c.searchQAIssues(ctx, s, kanbanAssigneeJQL(s, sinceDate, c.assigneeClause(ctx, qaEmail)))
 }
 
 func kanbanAssigneeJQL(s QASchema, sinceDate, assignee string) string {
@@ -297,8 +298,8 @@ func kanbanAssigneeJQL(s QASchema, sinceDate, assignee string) string {
 
 // HasDeployDocLink reports whether the issue links a deploy document. An error
 // means "could not check", not "no document".
-func (c *Client) HasDeployDocLink(issueKey string) (bool, error) {
-	body, err := c.Get(fmt.Sprintf("/rest/api/3/issue/%s/remotelink", issueKey))
+func (c *Client) HasDeployDocLink(ctx context.Context, issueKey string) (bool, error) {
+	body, err := c.Get(ctx, fmt.Sprintf("/rest/api/3/issue/%s/remotelink", issueKey))
 	if err != nil {
 		return false, fmt.Errorf("error leyendo enlaces remotos de %s: %w", issueKey, err)
 	}

@@ -46,8 +46,9 @@ instalada los colaboradores y el CI.
 
 ```
 internal/
-  atlassian/   Cliente HTTP (Basic Auth) + Jira v3 + Confluence v1/v2,
-               escapado JQL/CQL (query.go), conversión storage → texto
+  provider/    Modelo neutro y puertos (Tracker, DocStore)
+    atlassian/ Adaptador: cliente HTTP (Basic Auth) + Jira v3 + Confluence
+               v1/v2, escapado JQL/CQL (query.go), conversión storage → texto
   config/      Config YAML + variables de entorno (env > archivo)
   document/    Construcción del ADF (deploy doc y QA) y preservación de secciones
   git/         git show, agrupación por carpeta, errores accionables
@@ -77,12 +78,13 @@ Cada flujo vive en su propio paquete (`internal/deploy` es la referencia) y
   `ReadCommits`, `DraftCreate`/`DraftUpdate`, `Locations`, `Publish`). Entre paso
   y paso decide quien llama: el modo comando pregunta por texto y la TUI con
   listas y formularios, sobre los mismos pasos.
-- **Proveedores (en transición):** los flujos pasarán a hablar solo con los
-  puertos de `internal/provider`, nunca con un adaptador
-  (`docs/arquitectura/proveedores.md`). Mientras tanto:
-- Atlassian entra por una **interfaz** definida en el paquete del flujo, con
-  `var _ Atlassian = (*atlassian.Client)(nil)` para que no se desincronice. Los
-  tests usan un doble (`fakeAPI`).
+- Cada paso recibe un `context.Context` (la TUI cancela con él).
+- Los flujos hablan con los **puertos** de `internal/provider` (`Tracker`,
+  `DocStore`), **nunca con un adaptador**; el llamador construye el adaptador
+  (`atlassian.NewTracker`, `atlassian.NewDocStore`) y se lo pasa a la
+  `Session`. Los tests usan un doble (`fakeAPI`) que embebe el puerto y
+  sobrescribe solo lo que el flujo usa. `qa` todavía usa una interfaz propia
+  sobre `*atlassian.Client`: pasa a puertos en la actividad 3b del roadmap.
 - Las situaciones degradadas pero viables se devuelven como `Warnings` o como
   campos (`Draft.Preserved`, `Draft.NotPreserved`, `Result.LinkErr`,
   `Locations.TeamWide`), nunca se
@@ -99,7 +101,7 @@ Cada flujo vive en su propio paquete (`internal/deploy` es la referencia) y
   textos de ayuda y **datos de prueba**: usa nombres genéricos (`OPS-7`,
   `pagos-api`, `mi-org`, módulos `Pagos`/`Facturacion`). El repositorio es
   público. Autoridad: `docs/security/patrones-seguros.md`.
-- **Todo valor interpolado en JQL o CQL pasa por `atlassian.quoteLiteral`.**
+- **Todo valor interpolado en JQL o CQL pasa por `quoteLiteral`** (adaptador de Atlassian).
   Nunca un valor entre comillas escritas a mano en un format string.
 - **Confluence v2 filtra spaces por `space-id` numérico, nunca por `space-key`.**
   Un parámetro desconocido se ignora en silencio y el filtro deja de filtrar.

@@ -1,66 +1,80 @@
 package deploy
 
 import (
+	"context"
 	"errors"
 	"reflect"
 	"strings"
 	"testing"
 
-	"github.com/kaelence-01/draco-hq/internal/atlassian"
 	"github.com/kaelence-01/draco-hq/internal/config"
 	"github.com/kaelence-01/draco-hq/internal/document"
+	"github.com/kaelence-01/draco-hq/internal/provider"
 )
 
 type fakeAPI struct {
-	issue        *atlassian.Issue
-	byTitle      *atlassian.Page
-	byIssue      *atlassian.Page
+	provider.DocStore
+
+	issue        *provider.Issue
+	byTitle      *provider.DocRef
+	byIssue      *provider.DocRef
 	byIssueErr   error
-	current      *atlassian.PageADF
+	current      *provider.Doc
 	currentErr   error
-	pages        map[string]*atlassian.Page
-	me           *atlassian.JiraUser
+	me           *provider.User
 	meErr        error
-	lastDocs     []atlassian.Page
+	lastDocs     []provider.DocRef
 	lastFellBack bool
 	linkErr      error
 
-	gotAccountID string
-	created      struct{ spaceID, parentID, title string }
+	gotLocations provider.LocationQuery
+	created      struct{ near, title string }
 	updated      struct {
 		id      string
 		version int
 	}
-	linked bool
+	linked provider.DocRef
 }
 
-func (f *fakeAPI) GetIssue(string) (*atlassian.Issue, error)               { return f.issue, nil }
-func (f *fakeAPI) FindPageByTitle(string, string) (*atlassian.Page, error) { return f.byTitle, nil }
-func (f *fakeAPI) GetPageADF(string) (*atlassian.PageADF, error)           { return f.current, f.currentErr }
-func (f *fakeAPI) GetPage(id string) (*atlassian.Page, error)              { return f.pages[id], nil }
-func (f *fakeAPI) Whoami() (*atlassian.JiraUser, error)                    { return f.me, f.meErr }
-func (f *fakeAPI) FindDeployDocByIssue(string, string) (*atlassian.Page, error) {
+func (f *fakeAPI) Issue(context.Context, string) (*provider.Issue, error) { return f.issue, nil }
+func (f *fakeAPI) Me(context.Context) (*provider.User, error)             { return f.me, f.meErr }
+
+func (f *fakeAPI) LinkDocument(_ context.Context, _ string, doc provider.DocRef) error {
+	f.linked = doc
+	return f.linkErr
+}
+
+func (f *fakeAPI) FindByTitle(context.Context, string) (*provider.DocRef, error) {
+	return f.byTitle, nil
+}
+
+func (f *fakeAPI) FindByTitleKey(context.Context, string, string) (*provider.DocRef, error) {
 	return f.byIssue, f.byIssueErr
 }
 
-func (f *fakeAPI) FindLastDeployDoc(_ string, accountID string) ([]atlassian.Page, bool, error) {
-	f.gotAccountID = accountID
-	return f.lastDocs, f.lastFellBack, nil
+func (f *fakeAPI) Read(context.Context, provider.DocRef) (*provider.Doc, error) {
+	return f.current, f.currentErr
 }
 
-func (f *fakeAPI) CreatePage(spaceID, parentID, title string, _ map[string]any) (*atlassian.Page, error) {
-	f.created.spaceID, f.created.parentID, f.created.title = spaceID, parentID, title
-	return &atlassian.Page{ID: "new", WebURL: "https://example.test/new"}, nil
+func (f *fakeAPI) Locations(_ context.Context, q provider.LocationQuery) (*provider.Locations, error) {
+	f.gotLocations = q
+	return &provider.Locations{Docs: f.lastDocs, TeamWide: f.lastFellBack}, nil
 }
 
-func (f *fakeAPI) UpdatePage(id, _ string, version int, _ map[string]any) (*atlassian.Page, error) {
-	f.updated.id, f.updated.version = id, version
-	return &atlassian.Page{ID: id, WebURL: "https://example.test/" + id}, nil
+func (f *fakeAPI) Create(_ context.Context, near provider.DocRef, title string, _ map[string]any) (*provider.DocRef, error) {
+	f.created.near, f.created.title = near.ID, title
+	return &provider.DocRef{ID: "new", URL: "https://example.test/new"}, nil
 }
 
-func (f *fakeAPI) CreateJiraRemoteLink(string, string, string, string) error {
-	f.linked = true
-	return f.linkErr
+func (f *fakeAPI) Update(_ context.Context, r provider.DocRef, _ string, _ map[string]any) (*provider.DocRef, error) {
+	f.updated.id, f.updated.version = r.ID, r.Version
+	return &provider.DocRef{ID: r.ID, URL: "https://example.test/" + r.ID}, nil
+}
+
+var ctx = context.Background()
+
+func newSession(api *fakeAPI, files ChangedFilesFunc, t *Target) *Session {
+	return NewSession(api, api, files, t)
 }
 
 func filesOK(hashes []string, _ string) ([]string, error) {
@@ -76,8 +90,8 @@ func target() *Target {
 }
 
 func readySession(api *fakeAPI) *Session {
-	s := NewSession(api, filesOK, target())
-	if err := s.FetchIssue(); err != nil {
+	s := newSession(api, filesOK, target())
+	if err := s.FetchIssue(ctx); err != nil {
 		panic(err)
 	}
 	if err := s.ReadCommits(); err != nil {
@@ -87,7 +101,7 @@ func readySession(api *fakeAPI) *Session {
 }
 
 func newAPI() *fakeAPI {
-	return &fakeAPI{issue: &atlassian.Issue{Key: "OPS-7", Summary: "Filtro de pagos", URL: "https://example.test/browse/OPS-7"}}
+	return &fakeAPI{issue: &provider.Issue{Key: "OPS-7", Summary: "Filtro de pagos", URL: "https://example.test/browse/OPS-7"}}
 }
 
 func TestResolveSpacePrecedence(t *testing.T) {
@@ -178,9 +192,9 @@ func TestResolveRequestOverridesVCS(t *testing.T) {
 
 func TestFindExistingFallsBackToIssueSearch(t *testing.T) {
 	api := newAPI()
-	api.byIssue = &atlassian.Page{ID: "42"}
+	api.byIssue = &provider.DocRef{ID: "42"}
 	s := readySession(api)
-	if err := s.FindExisting(); err != nil {
+	if err := s.FindExisting(ctx); err != nil {
 		t.Fatal(err)
 	}
 	if s.Existing == nil || s.Existing.ID != "42" {
@@ -192,7 +206,7 @@ func TestFindExistingIgnoresFallbackError(t *testing.T) {
 	api := newAPI()
 	api.byIssueErr = errors.New("índice no disponible")
 	s := readySession(api)
-	if err := s.FindExisting(); err != nil {
+	if err := s.FindExisting(ctx); err != nil {
 		t.Errorf("el fallback es best-effort y no debe fallar: %v", err)
 	}
 	if s.Existing != nil {
@@ -209,7 +223,7 @@ func TestReadCommitsKeepsGoingWhenOneSideFails(t *testing.T) {
 		}
 		return filesOK(h, dir)
 	}
-	s := NewSession(newAPI(), files, tg)
+	s := newSession(newAPI(), files, tg)
 	if err := s.ReadCommits(); err != nil {
 		t.Fatalf("con un lado bueno no debe fallar: %v", err)
 	}
@@ -223,7 +237,7 @@ func TestReadCommitsKeepsGoingWhenOneSideFails(t *testing.T) {
 
 func TestReadCommitsFailsWhenEverySideFails(t *testing.T) {
 	files := func([]string, string) ([]string, error) { return nil, errors.New("x") }
-	if err := NewSession(newAPI(), files, target()).ReadCommits(); err == nil {
+	if err := newSession(newAPI(), files, target()).ReadCommits(); err == nil {
 		t.Error("sin ningún commit legible debe fallar")
 	}
 }
@@ -239,11 +253,11 @@ func considerDoc(text string) map[string]any {
 
 func TestDraftUpdatePreservesConsiderSection(t *testing.T) {
 	api := newAPI()
-	api.current = &atlassian.PageADF{Page: atlassian.Page{ID: "42", Version: 5}, ADF: considerDoc("Reiniciar colas a mano")}
+	api.current = &provider.Doc{DocRef: provider.DocRef{ID: "42", Version: 5}, Body: considerDoc("Reiniciar colas a mano")}
 	s := readySession(api)
-	s.Existing = &atlassian.Page{ID: "42"}
+	s.Existing = &provider.DocRef{ID: "42"}
 
-	d, err := s.DraftUpdate()
+	d, err := s.DraftUpdate(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -251,7 +265,7 @@ func TestDraftUpdatePreservesConsiderSection(t *testing.T) {
 		t.Error("esperaba Preserved = true")
 	}
 	got := document.ExtractSection(d.ADF, document.ConsiderHeading)
-	want := document.ExtractSection(api.current.ADF, document.ConsiderHeading)
+	want := document.ExtractSection(api.current.Body, document.ConsiderHeading)
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("la sección no se preservó:\n obtuve %v\n esperaba %v", got, want)
 	}
@@ -261,18 +275,18 @@ func TestDraftUpdateRefusesWhenCurrentPageUnreadable(t *testing.T) {
 	api := newAPI()
 	api.currentErr = errors.New("timeout")
 	s := readySession(api)
-	s.Existing = &atlassian.Page{ID: "42"}
-	if d, err := s.DraftUpdate(); err == nil || d != nil {
+	s.Existing = &provider.DocRef{ID: "42"}
+	if d, err := s.DraftUpdate(ctx); err == nil || d != nil {
 		t.Error("sin poder leer la página actual no debe haber borrador: se sobrescribiría a ciegas")
 	}
 }
 
 func TestDraftUpdateWarnsOnNonADFPage(t *testing.T) {
 	api := newAPI()
-	api.current = &atlassian.PageADF{Page: atlassian.Page{ID: "42"}}
+	api.current = &provider.Doc{DocRef: provider.DocRef{ID: "42"}}
 	s := readySession(api)
-	s.Existing = &atlassian.Page{ID: "42"}
-	d, err := s.DraftUpdate()
+	s.Existing = &provider.DocRef{ID: "42"}
+	d, err := s.DraftUpdate(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -284,52 +298,54 @@ func TestDraftUpdateWarnsOnNonADFPage(t *testing.T) {
 func TestLocationsFallsBackToTeamWhenUserUnknown(t *testing.T) {
 	api := newAPI()
 	api.meErr = errors.New("403")
-	api.lastDocs = []atlassian.Page{{ID: "1"}}
-	loc, err := readySession(api).Locations()
+	api.lastDocs = []provider.DocRef{{ID: "1"}}
+	loc, err := readySession(api).Locations(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !loc.OwnerUnknown || !loc.TeamWide || api.gotAccountID != "" {
-		t.Errorf("esperaba lista de todo el equipo sin accountID, obtuve %+v (account %q)", loc, api.gotAccountID)
+	if !loc.OwnerUnknown || !loc.TeamWide || api.gotLocations.AuthorID != "" {
+		t.Errorf("esperaba lista de todo el equipo sin autor, obtuve %+v (autor %q)", loc, api.gotLocations.AuthorID)
 	}
 }
 
 func TestLocationsWithoutPreviousDocs(t *testing.T) {
 	api := newAPI()
-	api.me = &atlassian.JiraUser{AccountID: "me"}
-	if _, err := readySession(api).Locations(); !errors.Is(err, ErrNoLocations) {
+	api.me = &provider.User{ID: "me"}
+	if _, err := readySession(api).Locations(ctx); !errors.Is(err, ErrNoLocations) {
 		t.Errorf("esperaba ErrNoLocations, obtuve %v", err)
+	}
+	if api.gotLocations.AuthorID != "me" || api.gotLocations.TitlePrefix != document.DeployTitlePrefix {
+		t.Errorf("consulta de ubicaciones = %+v", api.gotLocations)
 	}
 }
 
 func TestPublishCreatesNextToSiblingAndReportsLinkError(t *testing.T) {
 	api := newAPI()
-	api.pages = map[string]*atlassian.Page{"9": {ID: "9", SpaceID: "S1", ParentID: "P1"}}
 	api.linkErr = errors.New("sin permisos")
 	s := readySession(api)
 
-	res, err := s.Publish(s.DraftCreate(), &atlassian.Page{ID: "9"})
+	res, err := s.Publish(ctx, s.DraftCreate(), &provider.DocRef{ID: "9"})
 	if err != nil {
 		t.Fatalf("un fallo del enlace no debe hacer fallar la publicación: %v", err)
 	}
-	if api.created.spaceID != "S1" || api.created.parentID != "P1" || api.created.title != s.Title {
-		t.Errorf("creada en %+v, esperaba S1/P1 con el título del issue", api.created)
+	if api.created.near != "9" || api.created.title != s.Title {
+		t.Errorf("creada en %+v, esperaba junto a 9 con el título del issue", api.created)
 	}
-	if res.LinkErr == nil || !api.linked {
+	if res.LinkErr == nil || api.linked.ID != "new" || api.linked.Title != s.Title {
 		t.Error("el error del enlace a Jira debe llegar al llamador en LinkErr")
 	}
 }
 
 func TestPublishUpdateUsesCurrentVersion(t *testing.T) {
 	api := newAPI()
-	api.current = &atlassian.PageADF{Page: atlassian.Page{ID: "42", Version: 5}, ADF: considerDoc("x")}
+	api.current = &provider.Doc{DocRef: provider.DocRef{ID: "42", Version: 5}, Body: considerDoc("x")}
 	s := readySession(api)
-	s.Existing = &atlassian.Page{ID: "42"}
-	d, err := s.DraftUpdate()
+	s.Existing = &provider.DocRef{ID: "42"}
+	d, err := s.DraftUpdate(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	res, err := s.Publish(d, nil)
+	res, err := s.Publish(ctx, d, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -340,7 +356,7 @@ func TestPublishUpdateUsesCurrentVersion(t *testing.T) {
 
 func TestPublishNewWithoutSiblingFails(t *testing.T) {
 	s := readySession(newAPI())
-	if _, err := s.Publish(s.DraftCreate(), nil); err == nil {
+	if _, err := s.Publish(ctx, s.DraftCreate(), nil); err == nil {
 		t.Error("un documento nuevo necesita ubicación")
 	}
 }

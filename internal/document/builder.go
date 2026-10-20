@@ -60,6 +60,9 @@ func Build(doc DeployDoc) map[string]any {
 	}
 }
 
+// DeployTitlePrefix starts every deploy document title; searches rely on it.
+const DeployTitlePrefix = "Documento de Despliegue"
+
 // BuildTitle builds the page title, replacing characters Confluence rejects.
 func BuildTitle(issueKey, summary string) string {
 	replacer := strings.NewReplacer(
@@ -70,7 +73,7 @@ func BuildTitle(issueKey, summary string) string {
 		"]", ")",
 	)
 	sanitized := strings.TrimSpace(replacer.Replace(summary))
-	return fmt.Sprintf("Documento de Despliegue - %s - %s", issueKey, sanitized)
+	return fmt.Sprintf("%s - %s - %s", DeployTitlePrefix, issueKey, sanitized)
 }
 
 func headerTable(issueKey, issueURL string) map[string]any {

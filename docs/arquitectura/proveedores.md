@@ -5,9 +5,8 @@ plataforma (Jira, Confluence, GitHub, GitLab, Azure DevOps, Linear, Notion…) s
 conecta con un adaptador. La estructura del documento deja de estar en código:
 es una plantilla que cada equipo elige y ajusta.
 
-Estado: **diseño aprobado, en implementación** (roadmap, fase 2). Los nombres de
-tipos e interfaces son un borrador: se fijan al implementarlos y este documento
-se actualiza con lo que quede.
+Estado: **en implementación** (roadmap, fase 2). Las secciones 3 y 4 reflejan
+lo implementado; el resto es diseño y se actualiza al implementarlo.
 
 ## 1. Roles
 
@@ -36,73 +35,54 @@ internal/
 Regla: **un flujo nunca importa un adaptador.** Los adaptadores se compilan
 dentro del binario y se eligen por nombre desde la config.
 
-## 3. Modelo neutro (borrador)
+## 3. Modelo neutro
 
-```go
-type Issue struct {
-    Key, Title, URL, Status string
-}
+Implementado en `internal/provider/provider.go` (actividad 3a): `Issue`,
+`User`, `DocRef` (con la versión leída), `Doc` (referencia + cuerpo),
+`LocationQuery` / `Locations` y `Exported` (texto + metadatos, con `Source`, el
+nombre de la plataforma).
 
-type User struct {
-    ID, Email, Name string
-}
+**Transición:** `Doc.Body` y el cuerpo que reciben `Create` y `Update` son el
+formato nativo del destino (ADF en Confluence) hasta que el documento pase a
+Markdown (actividad 4); la preservación de secciones sigue en los flujos hasta
+entonces. Así los goldens se mantienen idénticos en el cambio a puertos.
 
-// DocRef identifies a document in a destination.
-type DocRef struct {
-    ID, Title, URL string
-    Version        int // optimistic concurrency where the destination has it
-}
-
-// Location is where a new document can be created: a Confluence parent page,
-// a directory, a Notion database.
-type Location struct {
-    ID, Title, URL string
-}
-
-// Document is what a flow publishes: Markdown rendered from a template.
-type Document struct {
-    Title    string
-    Markdown string
-    Preserve []string // headings of sections the user edits by hand
-}
-```
-
-## 4. Puertos (borrador)
+## 4. Puertos
 
 ```go
 type Tracker interface {
     Issue(ctx context.Context, key string) (*Issue, error)
     Me(ctx context.Context) (*User, error)
     LinkDocument(ctx context.Context, issueKey string, doc DocRef) error
-    HasDocumentLink(ctx context.Context, issueKey string) (bool, error)
 }
 
 type DocStore interface {
     FindByTitle(ctx context.Context, title string) (*DocRef, error)
+    FindByTitleKey(ctx context.Context, prefix, key string) (*DocRef, error)
+    Read(ctx context.Context, ref DocRef) (*Doc, error)
+    Locations(ctx context.Context, q LocationQuery) (*Locations, error)
+    Create(ctx context.Context, near DocRef, title string, body map[string]any) (*DocRef, error)
+    Update(ctx context.Context, ref DocRef, title string, body map[string]any) (*DocRef, error)
     Search(ctx context.Context, text string) ([]DocRef, error)
-    Locations(ctx context.Context, hint LocationHint) ([]Location, error)
-    Export(ctx context.Context, ref DocRef) (*Exported, error) // text + metadata
-    // Sections reports which of the named hand-edited sections the current
-    // page has, so the caller can ask before an update that would lose them.
-    Sections(ctx context.Context, ref DocRef, names []string) (found []string, err error)
-    Create(ctx context.Context, at Location, doc Document) (*DocRef, error)
-    Update(ctx context.Context, ref DocRef, doc Document) (*DocRef, error)
-}
-
-type ChangeSource interface {
-    ChangedFiles(ctx context.Context, repo string, hashes []string) ([]string, error)
-    RecentCommits(ctx context.Context, repo string, n int) ([]Commit, error)
+    Export(ctx context.Context, ref DocRef) (*Exported, error)
 }
 ```
 
-- `context.Context` en todos los puertos: la TUI necesita cancelar.
-- **Capacidades opcionales** como interfaces aparte, detectadas con una
-  aserción de tipo: `QATracker` (consultas del consolidado QA, solo Jira por
-  ahora), `CommentReader` (observaciones «Novedad::»). Un flujo que necesita una
-  capacidad que el tracker no tiene devuelve un error centinela que la UI
-  explica.
-- Cada adaptador pasa la misma batería de **tests de contrato** con servidores
-  simulados (`httptest`); ningún test usa una instancia real.
+- `context.Context` en todos los puertos, el cliente HTTP y los pasos de las
+  `Session`: la TUI necesita cancelar.
+- El destino se construye ya acotado (un space de Confluence); el flujo no ve
+  spaces ni páginas padre: `Create` recibe el documento junto al que va el
+  nuevo y el adaptador resuelve dónde queda.
+- Las convenciones de draco (prefijo «Documento de Despliegue») las pasa el
+  flujo como parámetro (`FindByTitleKey`, `LocationQuery.TitlePrefix`); el
+  adaptador no las conoce. Pasarán a la plantilla en la actividad 5.
+- **Pendiente (3b):** capacidad opcional `QATracker` (consultas del
+  consolidado, observaciones, enlace al documento), detectada con una aserción
+  de tipo, y `ChangeSource` (archivos de un commit, commits recientes).
+- **Pendiente (4):** `Sections` para preguntar qué secciones escritas a mano
+  encuentra el destino, y cuerpo en Markdown.
+- Tests: el adaptador se prueba con `httptest` (sin red). La batería común de
+  contrato llega con el segundo adaptador (actividad 6).
 
 ## 5. Documento: plantilla → Markdown → formato del destino
 

@@ -17,6 +17,7 @@ La historia y el porqué de cada decisión van aquí, no en comentarios del cód
 | [005](./005-fetch.md) | Flujo de exportar | `feature/fetch` | 2026-10-19 | 2 | `internal/fetch` sin E/S; nombres de archivo con tildes transliteradas |
 | [006](./006-arquitectura.md) | Diseño de proveedores y plantillas | `docs/arquitectura` | 2026-10-19 | 2 | Puertos y adaptadores, plantillas → Markdown, fase 2 reordenada en 7 actividades |
 | [007](./007-golden.md) | Goldens del documento actual | `feature/golden` | 2026-10-19 | 2 | 7 goldens (builder y flujos) como criterio de «documento idéntico»; fecha del consolidado fijable |
+| [008](./008-puertos.md) | Puertos y Atlassian como adaptador (3a) | `feature/puertos` | 2026-10-19 | 2 | `internal/provider`, `context` en todo, `deploy` y `fetch` sobre puertos; goldens sin regenerar |
 
 ## Formato de cada entrada
 

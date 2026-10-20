@@ -1,27 +1,20 @@
-// Package fetch exports a Confluence page that mentions a Jira issue as plain
-// text, with no terminal I/O. Steps: Search, then Export of the page picked.
+// Package fetch exports a document that mentions an issue as plain text, with
+// no terminal I/O. Steps: Search, then Export of the document picked.
 package fetch
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
 	"strings"
 
-	"github.com/kaelence-01/draco-hq/internal/atlassian"
 	"github.com/kaelence-01/draco-hq/internal/config"
+	"github.com/kaelence-01/draco-hq/internal/provider"
 )
 
-// Atlassian is the part of the Confluence client the workflow uses.
-type Atlassian interface {
-	FindPagesByText(query, spaceKey string) ([]atlassian.Page, error)
-	GetPageWithContent(pageID string) (*atlassian.PageContent, error)
-}
-
-var _ Atlassian = (*atlassian.Client)(nil)
-
-// ErrNoPages means no Confluence page mentions the issue.
-var ErrNoPages = errors.New("no se encontraron páginas en Confluence que mencionen el issue")
+// ErrNoPages means no document mentions the issue.
+var ErrNoPages = errors.New("no se encontraron documentos que mencionen el issue")
 
 // Request is what the user asks for, before applying config.
 type Request struct {
@@ -32,7 +25,7 @@ type Request struct {
 // Target is a Request resolved against config.
 type Target struct {
 	Issue    string
-	SpaceKey string // empty searches every space
+	SpaceKey string // scope of the DocStore; empty searches every space
 }
 
 // Resolve applies config to the request.
@@ -50,20 +43,20 @@ func Resolve(cfg *config.Config, req Request) (*Target, error) {
 
 // Session is one run of the workflow; the steps fill its exported fields.
 type Session struct {
-	api Atlassian
+	docs provider.DocStore
 
 	Target *Target
-	Pages  []atlassian.Page // most recently modified first
+	Pages  []provider.DocRef // most recently modified first
 }
 
 // NewSession starts a run for an already resolved target.
-func NewSession(api Atlassian, t *Target) *Session {
-	return &Session{api: api, Target: t}
+func NewSession(docs provider.DocStore, t *Target) *Session {
+	return &Session{docs: docs, Target: t}
 }
 
-// Search lists the pages that mention the issue.
-func (s *Session) Search() error {
-	pages, err := s.api.FindPagesByText(s.Target.Issue, s.Target.SpaceKey)
+// Search lists the documents that mention the issue.
+func (s *Session) Search(ctx context.Context) error {
+	pages, err := s.docs.Search(ctx, s.Target.Issue)
 	if err != nil {
 		return err
 	}
@@ -74,26 +67,26 @@ func (s *Session) Search() error {
 	return nil
 }
 
-// Export is a page converted to text, ready to save.
+// Export is a document converted to text, ready to save.
 type Export struct {
-	Page     *atlassian.PageContent
+	Doc      *provider.Exported
 	Text     string
 	FileName string // suggested name, without directory
 }
 
-// Export downloads the page and converts it to text.
-func (s *Session) Export(page *atlassian.Page) (*Export, error) {
+// Export downloads the document and converts it to text.
+func (s *Session) Export(ctx context.Context, page *provider.DocRef) (*Export, error) {
 	if page == nil {
 		return nil, fmt.Errorf("falta elegir la página a exportar")
 	}
-	content, err := s.api.GetPageWithContent(page.ID)
+	doc, err := s.docs.Export(ctx, *page)
 	if err != nil {
 		return nil, err
 	}
 	return &Export{
-		Page:     content,
-		Text:     atlassian.BuildIssueTxt(s.Target.Issue, content),
-		FileName: fileName(s.Target.Issue, content.Title),
+		Doc:      doc,
+		Text:     issueText(s.Target.Issue, doc),
+		FileName: fileName(s.Target.Issue, doc.Title),
 	}, nil
 }
 
@@ -139,4 +132,44 @@ func fileName(issue, title string) string {
 var accents = map[rune]rune{
 	'á': 'a', 'é': 'e', 'í': 'i', 'ó': 'o', 'ú': 'u', 'ü': 'u', 'ñ': 'n',
 	'Á': 'A', 'É': 'E', 'Í': 'I', 'Ó': 'O', 'Ú': 'U', 'Ü': 'U', 'Ñ': 'N',
+}
+
+// issueText frames the document text with a header of its metadata.
+func issueText(issue string, d *provider.Exported) string {
+	var sb strings.Builder
+	frame := strings.Repeat("=", 80)
+	line := func(parts ...string) {
+		for _, p := range parts {
+			sb.WriteString(p)
+		}
+		sb.WriteByte('\n')
+	}
+
+	line(frame)
+	line(issue, " - ", d.Title)
+	line(frame)
+	line("Fuente: ", d.Source, " - ", d.Space)
+	line("URL: ", d.URL)
+	if d.CreatedDate != "" {
+		sb.WriteString("Creado: " + d.CreatedDate)
+		if d.Version > 0 {
+			fmt.Fprintf(&sb, " | Versión: %d", d.Version)
+		}
+		sb.WriteByte('\n')
+	}
+	if d.UpdatedBy != "" {
+		line("Última edición: ", d.UpdatedBy)
+	}
+	line(strings.Repeat("-", 80))
+
+	if d.Text != "" {
+		sb.WriteByte('\n')
+		sb.WriteString(d.Text)
+	}
+
+	sb.WriteByte('\n')
+	line(frame)
+	line("FIN DEL DOCUMENTO")
+	line(frame)
+	return sb.String()
 }
