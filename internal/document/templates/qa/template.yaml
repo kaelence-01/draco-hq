@@ -1,0 +1,6 @@
+# Plantilla incluida del consolidado de QA.
+title: "Consolidado de Pruebas QA - {{if .Sprint}}{{.Module}} - Sprint {{.Sprint}}{{else}}{{.Period}}{{end}}"
+prefix: "Consolidado de Pruebas QA"
+preserve:
+  - "Observación"
+  - "Consideraciones"

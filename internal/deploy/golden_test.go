@@ -11,6 +11,6 @@ func TestGoldenDraftCreate(t *testing.T) {
 	s.Target.VCSHost, s.Target.VCSOrg = "https://bitbucket.org", "mi-org"
 	s.Target.Checklist = []string{"Respaldar base de datos", "Desplegar backend"}
 
-	d := s.DraftCreate()
+	d := draft(t, s)
 	golden.AssertText(t, "draft-create.golden.md", "# "+d.Title+"\n\n"+d.Markdown)
 }

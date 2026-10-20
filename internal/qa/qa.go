@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -33,6 +34,10 @@ type Request struct {
 	Sprint int    // 0: Kanban mode
 	Module string // required in Sprint mode
 	Space  string // overrides the global space key
+
+	// Template is a folder with a QA template that overrides the repo's and
+	// the user's.
+	Template string
 }
 
 // Target is a Request resolved against config.
@@ -54,6 +59,15 @@ type Target struct {
 	Report   config.QAReportConfig
 	Date     time.Time // review date printed in the report
 
+	// Template renders the report; nil is the built-in one. DeployPrefix
+	// starts deploy document titles, which is how a task's link to its deploy
+	// document is recognized; empty is the built-in one.
+	Template     *document.Template
+	DeployPrefix string
+
+	// ReviewPrefixes start the summaries of QA review tasks (qa_jira).
+	ReviewPrefixes []string
+
 	// Warnings are degraded but workable situations to show the user.
 	Warnings []string
 }
@@ -73,19 +87,29 @@ func Resolve(cfg *config.Config, req Request, now time.Time) (*Target, error) {
 	if err := cfg.QAJira.Validate(); err != nil {
 		return nil, err
 	}
+	t.ReviewPrefixes = cfg.QAJira.Reviews()
+	if err := t.loadTemplates(req.Template); err != nil {
+		return nil, err
+	}
 
+	var title string
+	var err error
 	if t.Kanban {
 		since, period := kanbanWindow(now)
 		t.Since, t.Period = since.Format("2006-01-02"), period
-		t.Title = document.BuildQAKanbanTitle(period)
+		title, err = document.QATitle(t.template(), "", 0, period)
 		if module != "" {
 			t.warn("el módulo no aplica en modo Kanban: se incluyen las tareas de todos los módulos.")
 		}
 	} else {
 		t.Sprint, t.Module = req.Sprint, module
 		t.SprintName = cfg.QAJira.SprintNameFor(module, req.Sprint)
-		t.Title = document.BuildQATitle(module, req.Sprint)
+		title, err = document.QATitle(t.template(), module, req.Sprint, "")
 	}
+	if err != nil {
+		return nil, err
+	}
+	t.Title = title
 
 	t.SpaceKey = req.Space
 	if t.SpaceKey == "" {
@@ -104,6 +128,44 @@ func Resolve(cfg *config.Config, req Request, now time.Time) (*Target, error) {
 }
 
 func (t *Target) warn(msg string) { t.Warnings = append(t.Warnings, msg) }
+
+func (t *Target) template() *document.Template {
+	if t.Template == nil {
+		return document.MustBuiltin("qa")
+	}
+	return t.Template
+}
+
+func (t *Target) deployPrefix() string {
+	if t.DeployPrefix == "" {
+		return document.MustBuiltin("deploy").Manifest.Prefix
+	}
+	return t.DeployPrefix
+}
+
+// loadTemplates resolves the QA template (explicit folder, then the current
+// repo's .draco/templates/qa, then the user's) and the deploy prefix the same
+// way, without an explicit folder.
+func (t *Target) loadTemplates(explicit string) error {
+	user, _ := config.TemplatesDir()
+	dirs := func(kind string, first string) []string {
+		d := []string{first, filepath.Join(".draco", "templates", kind)}
+		if user != "" {
+			d = append(d, filepath.Join(user, kind))
+		}
+		return d
+	}
+	var err error
+	if t.Template, err = document.LoadTemplate("qa", dirs("qa", explicit)...); err != nil {
+		return err
+	}
+	deploy, err := document.LoadTemplate("deploy", dirs("deploy", "")...)
+	if err != nil {
+		return err
+	}
+	t.DeployPrefix = deploy.Manifest.Prefix
+	return nil
+}
 
 func (t *Target) scope() provider.QAScope {
 	if t.Kanban {
@@ -152,7 +214,7 @@ func (s *Session) Collect(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	s.Tasks = devTasksOnly(all)
+	s.Tasks = devTasksOnly(all, s.Target.ReviewPrefixes)
 	if s.QATasks, err = s.tracker.AssignedTasks(ctx, sc, s.Target.QAEmail); err != nil {
 		return err
 	}
@@ -173,7 +235,7 @@ func (s *Session) EvaluateTask(ctx context.Context, i int) []string {
 	t := &s.Tasks[i]
 	var warnings []string
 
-	hasDoc, err := s.tracker.HasDocumentLink(ctx, t.Key, document.DeployTitlePrefix)
+	hasDoc, err := s.tracker.HasDocumentLink(ctx, t.Key, s.Target.deployPrefix())
 	t.HasDeployDoc = err == nil && hasDoc
 	t.DeployDocUnknown = err != nil
 	if err != nil {
@@ -214,12 +276,13 @@ type Draft struct {
 	NotPreserved []string
 }
 
-// handWritten are the sections QA writes by hand; the destination keeps them.
-var handWritten = []string{document.QAObservationHeading, document.QAConsiderationsHeading}
-
 // DraftCreate builds a new report.
-func (s *Session) DraftCreate() *Draft {
-	return &Draft{Title: s.Target.Title, Markdown: s.build()}
+func (s *Session) DraftCreate() (*Draft, error) {
+	md, err := s.build()
+	if err != nil {
+		return nil, err
+	}
+	return &Draft{Title: s.Target.Title, Markdown: md}, nil
 }
 
 // DraftUpdate builds the replacement for s.Existing; the destination carries
@@ -229,11 +292,16 @@ func (s *Session) DraftUpdate(ctx context.Context) (*Draft, error) {
 	if s.Existing == nil {
 		return nil, fmt.Errorf("no hay un consolidado existente que actualizar")
 	}
+	handWritten := s.Target.template().Manifest.Preserve
 	found, err := s.docs.Sections(ctx, *s.Existing, handWritten)
 	if err != nil {
 		return nil, fmt.Errorf("no se pudo leer el consolidado actual; se cancela la actualización para no sobrescribir lo escrito a mano: %w", err)
 	}
-	d := &Draft{Title: s.Target.Title, Markdown: s.build(), Replaces: s.Existing}
+	md, err := s.build()
+	if err != nil {
+		return nil, err
+	}
+	d := &Draft{Title: s.Target.Title, Markdown: md, Replaces: s.Existing}
 	for _, name := range handWritten {
 		if !slices.Contains(found, name) {
 			d.NotPreserved = append(d.NotPreserved, name)
@@ -242,7 +310,7 @@ func (s *Session) DraftUpdate(ctx context.Context) (*Draft, error) {
 	return d, nil
 }
 
-func (s *Session) build() string {
+func (s *Session) build() (string, error) {
 	t := s.Target
 	doc := document.QADoc{
 		Date:         t.Date,
@@ -256,13 +324,13 @@ func (s *Session) build() string {
 	} else {
 		doc.Sprint, doc.Module = t.Sprint, t.Module
 	}
-	return document.QAMarkdown(doc)
+	return document.QA(s.Target.template(), doc)
 }
 
 // Locations lists recent consolidated reports as candidate siblings for a new
 // one: the module's in Sprint mode, any in Kanban mode.
 func (s *Session) Locations(ctx context.Context) ([]provider.DocRef, error) {
-	title := document.QATitlePrefix
+	title := s.Target.template().Manifest.Prefix
 	if s.Target.Module != "" {
 		title += " - " + s.Target.Module
 	}
@@ -285,7 +353,7 @@ type Result struct {
 // Publish creates or updates the report. sibling is the document picked from
 // Locations; it is ignored for an update.
 func (s *Session) Publish(ctx context.Context, d *Draft, sibling *provider.DocRef) (*Result, error) {
-	doc := provider.Document{Title: d.Title, Markdown: d.Markdown, Preserve: handWritten}
+	doc := provider.Document{Title: d.Title, Markdown: d.Markdown, Preserve: s.Target.template().Manifest.Preserve}
 	if d.Replaces != nil {
 		page, err := s.docs.Update(ctx, *d.Replaces, doc)
 		if err != nil {

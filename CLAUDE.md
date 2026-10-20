@@ -64,7 +64,8 @@ internal/
     git/       Adaptador: clon local (archivos de un commit, commits recientes)
     markdown/  Adaptador: carpeta local de archivos .md como destino
   config/      Config YAML + variables de entorno (env > archivo)
-  document/    Documento de despliegue y consolidado QA en Markdown
+  document/    Documento de despliegue y consolidado QA en Markdown, desde
+               plantillas (templates/ incluidas; ver arquitectura §7)
   backlog/     Detectores de deuda técnica (sin red)
   deploy/      Flujo del documento de despliegue, sin E/S de terminal
   qa/          Flujo del consolidado de QA, sin E/S de terminal
@@ -121,10 +122,12 @@ Cada flujo vive en su propio paquete (`internal/deploy` es la referencia) y
 - **Confluence v2 filtra spaces por `space-id` numérico, nunca por `space-key`.**
   Un parámetro desconocido se ignora en silencio y el filtro deja de filtrar.
   Resolver claves con `ResolveSpaceID`.
-- **Los documentos son Markdown** (`internal/document`); cada adaptador de
-  destino lo convierte a su formato. Todo valor interpolado pasa por `mdText` /
-  `mdURL`: un `|` o un `<` en un nombre de archivo no puede romper una tabla ni
-  abrir HTML.
+- **Los documentos son Markdown generado desde plantillas**
+  (`internal/document`); cada adaptador de destino lo convierte a su formato.
+  Los valores llegan a la plantilla ya escapados por `mdText` / `mdURL`: un
+  `|` o un `<` en un nombre de archivo no puede romper una tabla ni abrir
+  HTML, aunque la plantilla sea del usuario. Título, prefijo de búsqueda y
+  secciones a conservar salen del manifiesto (`template.yaml`), no del flujo.
 - **El ADF es `map[string]any` crudo**, sin structs tipados, y solo existe en el
   adaptador de Atlassian. Se envía como `body.value` (string JSON) con
   `representation: atlas_doc_format`.

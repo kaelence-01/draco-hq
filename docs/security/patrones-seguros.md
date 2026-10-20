@@ -44,6 +44,8 @@ qa_jira:
   statuses: [10001, 10002, 10003, 10004]   # ids o nombres
   testing_status: Testing                  # opcional; por defecto «Testing»
   sprint_name: "{module}_Sprint {sprint}"  # opcional; así se llama el sprint en Jira
+  review_prefixes: ["Revisión de Tarea", "QA"]  # opcional; resúmenes de las tareas de revisión
+  observation_marker: "Novedad::"          # opcional; marca de las observaciones en comentarios
   fields:
     coding_errors: customfield_10001
     dev_returns: customfield_10002

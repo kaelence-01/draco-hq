@@ -136,8 +136,8 @@ type QATracker interface {
 	// HasDocumentLink reports a link from the issue whose title starts with
 	// prefix. An error means "could not check", never "no link".
 	HasDocumentLink(ctx context.Context, issueKey, prefix string) (bool, error)
-	// Observations joins the text after "Novedad::" in the issue's comments;
-	// empty with a nil error means there are none.
+	// Observations joins the text after the configured marker ("Novedad::")
+	// in the issue's comments; empty with a nil error means there are none.
 	Observations(ctx context.Context, issueKey string) (string, error)
 }
 

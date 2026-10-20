@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/kaelence-01/draco-hq/internal/config"
-	"github.com/kaelence-01/draco-hq/internal/document"
 	"github.com/kaelence-01/draco-hq/internal/provider"
 )
 
@@ -129,7 +128,7 @@ func TestResolveSprintMode(t *testing.T) {
 	if tg.SprintName != "Pagos_Sprint 12" {
 		t.Errorf("SprintName = %q", tg.SprintName)
 	}
-	if tg.Title != document.BuildQATitle("Pagos", 12) {
+	if tg.Title != "Consolidado de Pruebas QA - Pagos - Sprint 12" {
 		t.Errorf("Title = %q", tg.Title)
 	}
 	if len(tg.Warnings) != 0 {
@@ -284,7 +283,7 @@ func TestEvaluateTaskFailedLookupIsUnknown(t *testing.T) {
 	s.Tasks = []provider.QAIssue{{Key: "OPS-7"}}
 
 	warnings := s.EvaluateTask(ctx, 0)
-	if api.gotLinkPrefix != document.DeployTitlePrefix {
+	if api.gotLinkPrefix != "Documento de Despliegue" {
 		t.Errorf("el enlace se busca con el prefijo %q", api.gotLinkPrefix)
 	}
 	if !s.Tasks[0].DeployDocUnknown || s.Tasks[0].HasDeployDoc {
@@ -322,7 +321,7 @@ func TestEvaluateTaskObservations(t *testing.T) {
 }
 
 func TestDraftUpdateKeepsWhatTheReportHas(t *testing.T) {
-	api := &fakeAPI{sections: []string{document.QAObservationHeading, document.QAConsiderationsHeading}}
+	api := &fakeAPI{sections: []string{"Observación", "Consideraciones"}}
 	s := newSession(api, sprintTarget(t))
 	s.Existing = &provider.DocRef{ID: "p1"}
 
@@ -344,7 +343,7 @@ func TestDraftUpdateRefusesWhenPageUnreadable(t *testing.T) {
 }
 
 func TestDraftUpdateReportsMissingSections(t *testing.T) {
-	api := &fakeAPI{sections: []string{document.QAConsiderationsHeading}}
+	api := &fakeAPI{sections: []string{"Consideraciones"}}
 	s := newSession(api, sprintTarget(t))
 	s.Existing = &provider.DocRef{ID: "p1"}
 
@@ -352,7 +351,7 @@ func TestDraftUpdateReportsMissingSections(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(d.NotPreserved, []string{document.QAObservationHeading}) {
+	if !reflect.DeepEqual(d.NotPreserved, []string{"Observación"}) {
 		t.Errorf("NotPreserved = %v", d.NotPreserved)
 	}
 }
@@ -383,7 +382,7 @@ func TestPublishUpdateKeepsHandWritten(t *testing.T) {
 	if !res.Updated || api.updated.id != "p1" || api.updated.doc.Markdown != "md" {
 		t.Errorf("update mal hecho: %+v %+v", res, api.updated)
 	}
-	if !reflect.DeepEqual(api.updated.doc.Preserve, []string{document.QAObservationHeading, document.QAConsiderationsHeading}) {
+	if !reflect.DeepEqual(api.updated.doc.Preserve, []string{"Observación", "Consideraciones"}) {
 		t.Errorf("el destino debe conservar lo escrito a mano: %v", api.updated.doc.Preserve)
 	}
 }
@@ -391,7 +390,7 @@ func TestPublishUpdateKeepsHandWritten(t *testing.T) {
 func TestPublishCreateNextToSibling(t *testing.T) {
 	api := &fakeAPI{}
 	s := newSession(api, sprintTarget(t))
-	d := s.DraftCreate()
+	d := draft(t, s)
 
 	if _, err := s.Publish(ctx, d, nil); err == nil {
 		t.Error("crear sin ubicación debe fallar")
@@ -402,5 +401,31 @@ func TestPublishCreateNextToSibling(t *testing.T) {
 	}
 	if res.Updated || api.created.near != "q1" || api.created.title != s.Target.Title {
 		t.Errorf("create mal hecho: %+v", api.created)
+	}
+}
+
+func draft(t *testing.T, s *Session) *Draft {
+	t.Helper()
+	d, err := s.DraftCreate()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return d
+}
+
+func TestCustomReviewPrefixesComeFromConfig(t *testing.T) {
+	cfg := validConfig()
+	cfg.QAJira.ReviewPrefixes = []string{"Validación"}
+	tg, err := Resolve(cfg, Request{Sprint: 12, Module: "Pagos"}, monday)
+	if err != nil {
+		t.Fatal(err)
+	}
+	api := &fakeAPI{review: []provider.QAIssue{{Key: "OPS-7"}, {Key: "OPS-9", Summary: "Validación de OPS-7"}, {Key: "OPS-10", Summary: "QA de OPS-7"}}}
+	s := newSession(api, tg)
+	if err := s.Collect(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if len(s.Tasks) != 2 || s.Tasks[1].Key != "OPS-10" {
+		t.Errorf("con prefijos propios solo «Validación» es tarea de revisión: %+v", s.Tasks)
 	}
 }
