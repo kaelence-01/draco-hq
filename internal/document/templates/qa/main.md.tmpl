@@ -1,0 +1,28 @@
+{{block "informacion" .}}## Información General
+
+|  |  |
+|---|---|
+| **Fechas de Revisión** | {{.Date}} |
+| **Líder Técnico** | {{.LiderTecnico}} |
+| **PMO** | {{.PMO}} |
+| **QA** | {{.QA}} |
+| **{{.PeriodLabel}}** | {{.PeriodValue}} |
+
+{{end}}{{block "tabla" .}}## Tabla Consolidada
+
+| Tarea | Sin errores Codificación | Sin devolución desarrollo | Documentación requerida | Pull Request Aprobado | Observaciones | Tarea de Revisión |
+|---|---|---|---|---|---|---|
+{{range .Tasks}}| {{.Task}} | {{.Errors}} | {{.Returns}} | {{.DeployDoc}} | {{.PR}} | {{.Observations}} | {{.Review}} |
+{{end}}
+{{end}}{{block "resumen" .}}## Resumen
+
+| Total de Tareas |
+|---|
+| {{.Total}} |
+
+### Observación
+
+### Consideraciones
+
+- 
+{{end}}

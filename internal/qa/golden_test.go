@@ -30,6 +30,6 @@ func TestGoldenDraftCreateSprint(t *testing.T) {
 		s.EvaluateTask(ctx, i)
 	}
 
-	d := s.DraftCreate()
+	d := draft(t, s)
 	golden.AssertText(t, "draft-create-sprint.golden.md", "# "+d.Title+"\n\n"+d.Markdown)
 }

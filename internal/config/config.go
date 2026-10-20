@@ -85,6 +85,37 @@ type QAJiraConfig struct {
 	SprintName string `yaml:"sprint_name,omitempty"`
 
 	Fields QAJiraFields `yaml:"fields,omitempty"`
+
+	// ReviewPrefixes start the summaries of QA review tasks: they are not rows
+	// of the report, they are linked to the task they review. Empty means
+	// DefaultReviewPrefixes.
+	ReviewPrefixes []string `yaml:"review_prefixes,omitempty"`
+
+	// ObservationMarker starts the comment text taken as an observation.
+	// Empty means DefaultObservationMarker.
+	ObservationMarker string `yaml:"observation_marker,omitempty"`
+}
+
+// DefaultReviewPrefixes is the ReviewPrefixes used when the config leaves it empty.
+var DefaultReviewPrefixes = []string{"Revisión de Tarea", "Revision de Tarea", "QA"}
+
+// DefaultObservationMarker is the ObservationMarker used when the config leaves it empty.
+const DefaultObservationMarker = "Novedad::"
+
+// Reviews returns ReviewPrefixes or its default.
+func (q *QAJiraConfig) Reviews() []string {
+	if len(q.ReviewPrefixes) == 0 {
+		return DefaultReviewPrefixes
+	}
+	return q.ReviewPrefixes
+}
+
+// Marker returns ObservationMarker or its default.
+func (q *QAJiraConfig) Marker() string {
+	if strings.TrimSpace(q.ObservationMarker) == "" {
+		return DefaultObservationMarker
+	}
+	return q.ObservationMarker
 }
 
 // QAJiraFields are the custom field ids (customfield_NNNNN) the report reads.
@@ -266,6 +297,16 @@ func (c *Config) GetProject(name string) (*ProjectConfig, string, error) {
 
 // configPathHint is the config path as shown in messages; see ConfigPath.
 const configPathHint = "~/.config/draco/config.yaml"
+
+// TemplatesDir returns the folder of the user's document templates, one
+// subfolder per kind (deploy, qa).
+func TemplatesDir() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(home, ".config", "draco", "templates"), nil
+}
 
 // ConfigPath returns the path to the config file.
 func ConfigPath() (string, error) {

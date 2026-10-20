@@ -1,5 +1,5 @@
-// Package document builds draco's documents as Markdown; each destination
-// adapter converts it to its own format.
+// Package document builds draco's documents as Markdown from templates; each
+// destination adapter converts it to its own format.
 package document
 
 import (
@@ -26,59 +26,53 @@ type DeployDoc struct {
 	Checklist []string
 }
 
-// ConsiderHeading opens the section of the deploy document the deployment team
-// edits by hand; the destination keeps it on update.
-const ConsiderHeading = "A considerar"
+// deployView is what the deploy template receives: every value is already
+// escaped Markdown.
+type deployView struct {
+	Issue     string // the issue as a card, or "—"
+	Sides     []sideView
+	Checklist []string
+}
 
-// DeployTitlePrefix starts every deploy document title; searches rely on it.
-const DeployTitlePrefix = "Documento de Despliegue"
+type sideView struct {
+	Label string
+	Rows  []fileRow
+}
 
-// DeployMarkdown builds the deploy document.
-func DeployMarkdown(doc DeployDoc) string {
-	var b strings.Builder
-	b.WriteString("|  |  |\n|---|---|\n")
-	b.WriteString("| **Épica** | _Enlace a épica o función de Jira relacionada_ |\n")
-	fmt.Fprintf(&b, "| **Tarea(s)** | %s |\n\n", card(doc.IssueURL))
+type fileRow struct {
+	Server, App, Dir string
+	Files, Links     []string
+}
 
-	b.WriteString("## Arquitecturas e interfaces\n\n")
+// Deploy renders the deploy document.
+func Deploy(t *Template, doc DeployDoc) (string, error) {
+	v := deployView{Issue: card(doc.IssueURL)}
 	if len(doc.FrontendFiles) > 0 {
-		b.WriteString("### Proyectos y formularios - Frontend:\n\n")
-		filesTable(&b, doc.FrontendRepo, doc.FrontendCommit, doc.FrontendFiles, doc.VCSHost, doc.VCSOrg)
+		v.Sides = append(v.Sides, side("Frontend", doc.FrontendRepo, doc.FrontendCommit, doc.FrontendFiles, doc.VCSHost, doc.VCSOrg))
 	}
 	if len(doc.BackendFiles) > 0 {
-		b.WriteString("### Proyectos y formularios - Backend:\n\n")
-		filesTable(&b, doc.BackendRepo, doc.BackendCommit, doc.BackendFiles, doc.VCSHost, doc.VCSOrg)
+		v.Sides = append(v.Sides, side("Backend", doc.BackendRepo, doc.BackendCommit, doc.BackendFiles, doc.VCSHost, doc.VCSOrg))
 	}
-
-	fmt.Fprintf(&b, "## %s:\n\n", ConsiderHeading)
 	checklist := doc.Checklist
 	if len(checklist) == 0 {
 		checklist = defaultChecklist
 	}
 	for _, step := range checklist {
 		if step = strings.TrimSpace(step); step != "" {
-			fmt.Fprintf(&b, "- [ ] %s\n", mdText(step))
+			v.Checklist = append(v.Checklist, mdText(step))
 		}
 	}
-	return b.String()
+	return t.render(v)
 }
 
-// BuildTitle builds the page title, replacing characters Confluence rejects.
-func BuildTitle(issueKey, summary string) string {
-	replacer := strings.NewReplacer(
-		"/", "-",
-		":", "-",
-		"|", "-",
-		"[", "(",
-		"]", ")",
-	)
-	sanitized := strings.TrimSpace(replacer.Replace(summary))
-	return fmt.Sprintf("%s - %s - %s", DeployTitlePrefix, issueKey, sanitized)
+// DeployTitle renders the deploy document title, replacing the characters
+// Confluence rejects in titles.
+func DeployTitle(t *Template, issueKey, summary string) (string, error) {
+	replacer := strings.NewReplacer("/", "-", ":", "-", "|", "-", "[", "(", "]", ")")
+	return t.renderTitle(struct{ IssueKey, Summary string }{issueKey, strings.TrimSpace(replacer.Replace(summary))})
 }
 
-func filesTable(b *strings.Builder, repoName, commitHash string, files map[string][]string, vcsHost, vcsOrg string) {
-	b.WriteString("| Servidor | Aplicación web | Ubicación | Nombre del archivo | Observación |\n|---|---|---|---|---|\n")
-
+func side(label, repoName, commitHash string, files map[string][]string, vcsHost, vcsOrg string) sideView {
 	var repoURL string
 	if vcsHost != "" && vcsOrg != "" {
 		repoURL = fmt.Sprintf("%s/%s/%s", vcsHost, vcsOrg, repoName)
@@ -94,24 +88,24 @@ func filesTable(b *strings.Builder, repoName, commitHash string, files map[strin
 	}
 	sort.Strings(dirs)
 
+	s := sideView{Label: label}
 	for _, dir := range dirs {
-		names := make([]string, 0, len(files[dir]))
-		links := make([]string, 0, len(files[dir]))
+		row := fileRow{Server: server, App: mdText(repoName), Dir: mdText(dir)}
 		for _, name := range files[dir] {
-			path := dir + "/" + name
+			p := dir + "/" + name
 			if dir == "." {
-				path = name
+				p = name
 			}
-			names = append(names, mdText(name))
-			if u := commitFileURL(vcsHost, repoURL, commitHash, path); u != "" {
-				links = append(links, link("link", u))
+			row.Files = append(row.Files, mdText(name))
+			if u := commitFileURL(vcsHost, repoURL, commitHash, p); u != "" {
+				row.Links = append(row.Links, link("link", u))
 			} else {
-				links = append(links, "—")
+				row.Links = append(row.Links, "—")
 			}
 		}
-		fmt.Fprintf(b, "| %s | %s | %s | %s | %s |\n", server, mdText(repoName), mdText(dir), strings.Join(names, "<br>"), strings.Join(links, "<br>"))
+		s.Rows = append(s.Rows, row)
 	}
-	b.WriteString("\n")
+	return s
 }
 
 // commitFileURL links a file inside a commit, or "" for an unknown host (no

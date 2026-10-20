@@ -1,0 +1,17 @@
+{{block "encabezado" .}}|  |  |
+|---|---|
+| **Épica** | _Enlace a épica o función de Jira relacionada_ |
+| **Tarea(s)** | {{.Issue}} |
+
+{{end}}{{block "archivos" .}}## Arquitecturas e interfaces
+
+{{range .Sides}}### Proyectos y formularios - {{.Label}}:
+
+| Servidor | Aplicación web | Ubicación | Nombre del archivo | Observación |
+|---|---|---|---|---|
+{{range .Rows}}| {{.Server}} | {{.App}} | {{.Dir}} | {{join .Files "<br>"}} | {{join .Links "<br>"}} |
+{{end}}
+{{end}}{{end}}{{block "checklist" .}}## A considerar:
+
+{{range .Checklist}}- [ ] {{.}}
+{{end}}{{end}}

@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kaelence-01/draco-hq/internal/config"
 	"github.com/kaelence-01/draco-hq/internal/provider"
 )
 
@@ -49,7 +50,7 @@ func TestDevTasksOnlyDropsReviewTasks(t *testing.T) {
 		{Key: "OPS-2", Summary: "Revisión de Tarea - OPS-1"},
 		{Key: "OPS-3", Summary: "revision de tarea - OPS-9"},
 		{Key: "OPS-4", Summary: "QA regresión"},
-	})
+	}, config.DefaultReviewPrefixes)
 	if len(got) != 1 || got[0].Key != "OPS-1" {
 		t.Errorf("devTasksOnly = %+v, esperaba solo OPS-1", got)
 	}

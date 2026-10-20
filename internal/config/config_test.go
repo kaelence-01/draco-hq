@@ -130,3 +130,14 @@ func TestQAJiraValidateNil(t *testing.T) {
 		t.Errorf("sin sección qa_jira debe pedirla, obtuve: %v", err)
 	}
 }
+
+func TestQAJiraConventionDefaults(t *testing.T) {
+	q := &QAJiraConfig{}
+	if q.Marker() != "Novedad::" || len(q.Reviews()) != 3 {
+		t.Errorf("defaults = %q, %v", q.Marker(), q.Reviews())
+	}
+	q = &QAJiraConfig{ObservationMarker: "Obs:", ReviewPrefixes: []string{"Validación"}}
+	if q.Marker() != "Obs:" || q.Reviews()[0] != "Validación" {
+		t.Errorf("valores propios = %q, %v", q.Marker(), q.Reviews())
+	}
+}

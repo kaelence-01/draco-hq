@@ -3,12 +3,13 @@ package deploy
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/kaelence-01/draco-hq/internal/config"
-	"github.com/kaelence-01/draco-hq/internal/document"
 	"github.com/kaelence-01/draco-hq/internal/provider"
 )
 
@@ -257,7 +258,7 @@ func TestReadCommitsFailsWhenEverySideFails(t *testing.T) {
 
 func TestDraftUpdateAsksTheDestinationForConsider(t *testing.T) {
 	api := newAPI()
-	api.sections = []string{document.ConsiderHeading}
+	api.sections = []string{"A considerar"}
 	s := readySession(api)
 	s.Existing = &provider.DocRef{ID: "42"}
 
@@ -265,10 +266,10 @@ func TestDraftUpdateAsksTheDestinationForConsider(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !d.Preserved || d.Replaces.ID != "42" {
+	if len(d.NotPreserved) != 0 || d.Replaces.ID != "42" {
 		t.Errorf("borrador = %+v", d)
 	}
-	if !reflect.DeepEqual(api.gotSections, []string{document.ConsiderHeading}) {
+	if !reflect.DeepEqual(api.gotSections, []string{"A considerar"}) {
 		t.Errorf("secciones consultadas = %v", api.gotSections)
 	}
 	if !strings.Contains(d.Markdown, "## A considerar:") {
@@ -294,8 +295,8 @@ func TestDraftUpdateReportsMissingConsider(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if d.Preserved {
-		t.Error("sin la sección en el documento actual, Preserved debe ser false para que la UI pregunte")
+	if !reflect.DeepEqual(d.NotPreserved, []string{"A considerar"}) {
+		t.Errorf("sin la sección en el documento actual la UI debe preguntar: %v", d.NotPreserved)
 	}
 }
 
@@ -318,7 +319,7 @@ func TestLocationsWithoutPreviousDocs(t *testing.T) {
 	if _, err := readySession(api).Locations(ctx); !errors.Is(err, ErrNoLocations) {
 		t.Errorf("esperaba ErrNoLocations, obtuve %v", err)
 	}
-	if api.gotLocations.AuthorID != "me" || api.gotLocations.TitlePrefix != document.DeployTitlePrefix {
+	if api.gotLocations.AuthorID != "me" || api.gotLocations.TitlePrefix != "Documento de Despliegue" {
 		t.Errorf("consulta de ubicaciones = %+v", api.gotLocations)
 	}
 }
@@ -328,7 +329,7 @@ func TestPublishCreatesNextToSiblingAndReportsLinkError(t *testing.T) {
 	api.linkErr = errors.New("sin permisos")
 	s := readySession(api)
 
-	res, err := s.Publish(ctx, s.DraftCreate(), &provider.DocRef{ID: "9"})
+	res, err := s.Publish(ctx, draft(t, s), &provider.DocRef{ID: "9"})
 	if err != nil {
 		t.Fatalf("un fallo del enlace no debe hacer fallar la publicación: %v", err)
 	}
@@ -342,7 +343,7 @@ func TestPublishCreatesNextToSiblingAndReportsLinkError(t *testing.T) {
 
 func TestPublishUpdateKeepsConsider(t *testing.T) {
 	api := newAPI()
-	api.sections = []string{document.ConsiderHeading}
+	api.sections = []string{"A considerar"}
 	s := readySession(api)
 	s.Existing = &provider.DocRef{ID: "42"}
 	d, err := s.DraftUpdate(ctx)
@@ -356,14 +357,14 @@ func TestPublishUpdateKeepsConsider(t *testing.T) {
 	if !res.Updated || api.updated.id != "42" || api.updated.doc.Markdown != d.Markdown {
 		t.Errorf("actualización = %+v", api.updated)
 	}
-	if !reflect.DeepEqual(api.updated.doc.Preserve, []string{document.ConsiderHeading}) {
+	if !reflect.DeepEqual(api.updated.doc.Preserve, []string{"A considerar"}) {
 		t.Errorf("el destino debe conservar «A considerar»: %v", api.updated.doc.Preserve)
 	}
 }
 
 func TestPublishNewWithoutSiblingFails(t *testing.T) {
 	s := readySession(newAPI())
-	if _, err := s.Publish(ctx, s.DraftCreate(), nil); err == nil {
+	if _, err := s.Publish(ctx, draft(t, s), nil); err == nil {
 		t.Error("un documento nuevo necesita ubicación")
 	}
 }
@@ -395,5 +396,39 @@ func TestGroupByDirectory(t *testing.T) {
 	}
 	if got := groupByDirectory(nil); len(got) != 0 {
 		t.Errorf("esperaba mapa vacío, obtuve %#v", got)
+	}
+}
+
+func draft(t *testing.T, s *Session) *Draft {
+	t.Helper()
+	d, err := s.DraftCreate()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return d
+}
+
+func TestResolveFindsTheRepoTemplateAndTheFlagWins(t *testing.T) {
+	repo := t.TempDir()
+	repoTpl := filepath.Join(repo, ".draco", "templates", "deploy")
+	explicit := t.TempDir()
+	for _, dir := range []string{repoTpl, explicit} {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	cfg := &config.Config{ConfluenceSpaceKey: "DEV", Projects: map[string]*config.ProjectConfig{"app": {BackendPath: repo, BackendRepo: "api"}}}
+	req := Request{Issue: "OPS-1", BackendHashes: []string{"a"}, Project: "app"}
+
+	tg, err := Resolve(cfg, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tg.Template.Source != repoTpl {
+		t.Errorf("plantilla del repo = %q, esperaba %q", tg.Template.Source, repoTpl)
+	}
+	req.Template = explicit
+	if tg, _ = Resolve(cfg, req); tg.Template.Source != explicit {
+		t.Errorf("la carpeta explícita debe ganar: %q", tg.Template.Source)
 	}
 }

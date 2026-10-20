@@ -1,0 +1,5 @@
+# Plantilla incluida del documento de despliegue.
+title: "Documento de Despliegue - {{.IssueKey}} - {{.Summary}}"
+prefix: "Documento de Despliegue"
+preserve:
+  - "A considerar"

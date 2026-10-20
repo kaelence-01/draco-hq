@@ -18,6 +18,8 @@ type QASchema struct {
 	Statuses      []string // ids or names
 	TestingStatus string   // status whose transition opens the Kanban window
 
+	ObservationMarker string // comment text that starts an observation
+
 	FieldCodingErrors string // number: errors found in review
 	FieldDevReturns   string // number: times sent back to dev
 	FieldDevStatus    string // Development panel: PR state
@@ -144,9 +146,9 @@ func (c *Client) searchQAIssues(ctx context.Context, s QASchema, jql string) ([]
 	return issues, nil
 }
 
-// GetNovedadComment returns the text after "Novedad::" in the issue's comments,
+// GetObservations returns the text after marker in the issue's comments,
 // joined with "; ". An error means unknown, not "no observations".
-func (c *Client) GetNovedadComment(ctx context.Context, issueKey string) (string, error) {
+func (c *Client) GetObservations(ctx context.Context, issueKey, marker string) (string, error) {
 	body, err := c.Get(ctx, fmt.Sprintf("/rest/api/3/issue/%s/comment?orderBy=-created&maxResults=50", issueKey))
 	if err != nil {
 		return "", fmt.Errorf("error leyendo comentarios de %s: %w", issueKey, err)
@@ -161,12 +163,12 @@ func (c *Client) GetNovedadComment(ctx context.Context, issueKey string) (string
 		return "", fmt.Errorf("error parseando comentarios de %s: %w", issueKey, err)
 	}
 
+	m := strings.ToLower(marker)
 	var parts []string
 	for _, comment := range resp.Comments {
 		text := adfExtractText(comment.Body)
-		if idx := strings.Index(strings.ToLower(text), "novedad::"); idx != -1 {
-			observation := strings.TrimSpace(text[idx+len("novedad::"):])
-			if observation != "" {
+		if idx := strings.Index(strings.ToLower(text), m); idx != -1 {
+			if observation := strings.TrimSpace(text[idx+len(m):]); observation != "" {
 				parts = append(parts, observation)
 			}
 		}

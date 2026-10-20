@@ -173,19 +173,35 @@ Implementado en la actividad 4b:
 
 ## 7. Plantillas
 
-- Una plantilla es una carpeta: `template.yaml` (nombre, versión, datos que
-  requiere, secciones a preservar, variables) y `*.md.tmpl`.
-- Resolución, la primera que exista gana: flag `--template`, perfil activo,
-  `.draco/templates/` del repo, `~/.config/draco/templates/`, plantilla incluida
-  en el binario (`embed.FS`).
-- La plantilla incluida reproduce el documento actual. Reemplaza el punto
-  «convenciones de texto configurables»: títulos, «Revisión de Tarea»,
-  «Novedad::» y el título del consolidado pasan a la plantilla o a su manifiesto.
-- Herencia con `{{ block }}` / `{{ define }}`: una plantilla extiende otra y
-  redefine solo lo que cambia.
-- Seguridad: solo funciones registradas por draco; plantillas remotas solo con
-  versión fija o checksum SHA-256; los secretos nunca son variables de
+Implementado en la actividad 5 (`internal/document`):
+
+- Una plantilla es una carpeta con `template.yaml` y archivos `*.md.tmpl`
+  (`text/template`). El manifiesto tiene `title` (plantilla del título),
+  `prefix` (inicio fijo de todo título, en el que se apoyan las búsquedas;
+  un título que no lo respeta es un error) y `preserve` (secciones escritas a
+  mano).
+- Las plantillas del documento de despliegue (`deploy`) y del consolidado
+  (`qa`) vienen incluidas en el binario (`embed.FS`) y reproducen el documento
+  anterior idéntico; el único cambio fue la fecha del consolidado, ahora en
+  español («21 sep 2026»).
+- Resolución: la carpeta explícita (`Request.Template`, luego el flag
+  `--template`), `.draco/templates/<tipo>/` del repo y
+  `~/.config/draco/templates/<tipo>/`; la primera que exista personaliza la
+  incluida. Sus campos de `template.yaml` reemplazan los incluidos y sus
+  `*.md.tmpl` se leen encima: un `{{define "checklist"}}` reemplaza ese
+  `{{block}}`, y un `main.md.tmpl` reemplaza el documento completo. Bloques
+  incluidos: `encabezado`, `archivos`, `checklist` (despliegue) e
+  `informacion`, `tabla`, `resumen` (consolidado).
+- Seguridad: la plantilla recibe los valores **ya escapados** como Markdown
+  (una plantilla del usuario no puede romper una tabla aunque no escape), y la
+  única función disponible es `join`. Los secretos nunca son datos de
   plantilla.
+- «Revisión de Tarea» y «Novedad::» no son del documento sino del proceso de
+  QA en Jira: pasan a `qa_jira.review_prefixes` y `qa_jira.observation_marker`,
+  con los valores anteriores por defecto.
+- Pendiente para la fase 3 o después: comandos `draco template
+  init/list/validate/preview`, plantilla elegida por perfil, y plantillas
+  remotas (Git con versión fija o URL con checksum SHA-256).
 
 ## 8. Configuración con perfiles
 
