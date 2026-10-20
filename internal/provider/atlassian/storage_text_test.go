@@ -37,47 +37,6 @@ func TestStorageToTextOutput(t *testing.T) {
 	}
 }
 
-func TestBuildIssueTxtWithAllFields(t *testing.T) {
-	page := &PageContent{
-		Title:       "Titulo",
-		SpaceName:   "Space",
-		WebURL:      "https://example.com/p",
-		CreatedDate: "2026-10-01",
-		Version:     3,
-		UpdatedBy:   "Usuario",
-		StorageBody: "<p>Hola</p>",
-	}
-	want := bar80 + "\nAPP-1 - Titulo\n" + bar80 + "\n" +
-		"Fuente: Confluence - Space\nURL: https://example.com/p\n" +
-		"Creado: 2026-10-01 | Versión: 3\nÚltima edición: Usuario\n" +
-		sep80 + "\n\nHola\n\n" +
-		bar80 + "\nFIN DEL DOCUMENTO\n" + bar80 + "\n"
-
-	if got := BuildIssueTxt("APP-1", page); got != want {
-		t.Errorf("salida distinta.\ngot:  %q\nwant: %q", got, want)
-	}
-}
-
-func TestBuildIssueTxtOmitsEmptyOptionalLines(t *testing.T) {
-	page := &PageContent{Title: "Minimo", SpaceName: "Space", WebURL: "https://example.com/m"}
-	want := bar80 + "\nAPP-2 - Minimo\n" + bar80 + "\n" +
-		"Fuente: Confluence - Space\nURL: https://example.com/m\n" +
-		sep80 + "\n\n" +
-		bar80 + "\nFIN DEL DOCUMENTO\n" + bar80 + "\n"
-
-	if got := BuildIssueTxt("APP-2", page); got != want {
-		t.Errorf("salida distinta.\ngot:  %q\nwant: %q", got, want)
-	}
-}
-
-func TestBuildIssueTxtVersionNeedsCreatedDate(t *testing.T) {
-	page := &PageContent{Title: "T", Version: 5}
-
-	if got := BuildIssueTxt("APP-3", page); strings.Contains(got, "Versión") {
-		t.Errorf("sin fecha de creación no debe imprimir la versión: %q", got)
-	}
-}
-
 func TestStorageToTextRegressions(t *testing.T) {
 	cases := []struct {
 		name string

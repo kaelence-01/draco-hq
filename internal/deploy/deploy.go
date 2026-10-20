@@ -4,33 +4,18 @@
 package deploy
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/kaelence-01/draco-hq/internal/atlassian"
 	"github.com/kaelence-01/draco-hq/internal/config"
 	"github.com/kaelence-01/draco-hq/internal/document"
 	"github.com/kaelence-01/draco-hq/internal/git"
+	"github.com/kaelence-01/draco-hq/internal/provider"
 )
-
-// Atlassian is the part of the Jira and Confluence client the workflow uses.
-type Atlassian interface {
-	GetIssue(issueKey string) (*atlassian.Issue, error)
-	FindPageByTitle(title, spaceKey string) (*atlassian.Page, error)
-	FindDeployDocByIssue(issueKey, spaceKey string) (*atlassian.Page, error)
-	GetPageADF(pageID string) (*atlassian.PageADF, error)
-	GetPage(pageID string) (*atlassian.Page, error)
-	Whoami() (*atlassian.JiraUser, error)
-	FindLastDeployDoc(spaceKey, accountID string) (pages []atlassian.Page, fellBack bool, err error)
-	CreatePage(spaceID, parentID, title string, adfBody map[string]any) (*atlassian.Page, error)
-	UpdatePage(pageID, title string, currentVersion int, adfBody map[string]any) (*atlassian.Page, error)
-	CreateJiraRemoteLink(issueKey, pageID, pageURL, pageTitle string) error
-}
-
-var _ Atlassian = (*atlassian.Client)(nil)
 
 // ChangedFilesFunc lists the files touched by the commits in the repo at
 // workDir; empty means the current directory.
@@ -67,7 +52,7 @@ type Repo struct {
 type Target struct {
 	Issue       string
 	ProjectName string // empty when no project applies
-	SpaceKey    string
+	SpaceKey    string // scope of the DocStore
 	VCSHost     string
 	VCSOrg      string
 	Backend     Repo
@@ -159,26 +144,27 @@ type Commits struct {
 
 // Session is one run of the workflow; the steps fill its exported fields.
 type Session struct {
-	api   Atlassian
-	files ChangedFilesFunc
+	tracker provider.Tracker
+	docs    provider.DocStore
+	files   ChangedFilesFunc
 
 	Target *Target
 
-	Issue    *atlassian.Issue
-	Title    string // deterministic from the issue; Confluence's uniqueness key
-	Existing *atlassian.Page
+	Issue    *provider.Issue
+	Title    string // deterministic from the issue; the destination's uniqueness key
+	Existing *provider.DocRef
 	Backend  *Commits // nil when the side is not deployed
 	Frontend *Commits
 }
 
 // NewSession starts a run for an already resolved target.
-func NewSession(api Atlassian, files ChangedFilesFunc, t *Target) *Session {
-	return &Session{api: api, files: files, Target: t}
+func NewSession(tracker provider.Tracker, docs provider.DocStore, files ChangedFilesFunc, t *Target) *Session {
+	return &Session{tracker: tracker, docs: docs, files: files, Target: t}
 }
 
-// FetchIssue reads the Jira issue and computes the document title.
-func (s *Session) FetchIssue() error {
-	issue, err := s.api.GetIssue(s.Target.Issue)
+// FetchIssue reads the issue and computes the document title.
+func (s *Session) FetchIssue(ctx context.Context) error {
+	issue, err := s.tracker.Issue(ctx, s.Target.Issue)
 	if err != nil {
 		return err
 	}
@@ -189,13 +175,13 @@ func (s *Session) FetchIssue() error {
 
 // FindExisting looks for a deploy document already published for the issue:
 // by exact title (no index lag), then best effort by issue key for a renamed one.
-func (s *Session) FindExisting() error {
-	page, err := s.api.FindPageByTitle(s.Title, s.Target.SpaceKey)
+func (s *Session) FindExisting(ctx context.Context) error {
+	page, err := s.docs.FindByTitle(ctx, s.Title)
 	if err != nil {
 		return err
 	}
 	if page == nil {
-		if p, ferr := s.api.FindDeployDocByIssue(s.Target.Issue, s.Target.SpaceKey); ferr == nil {
+		if p, ferr := s.docs.FindByTitleKey(ctx, document.DeployTitlePrefix, s.Target.Issue); ferr == nil {
 			page = p
 		}
 	}
@@ -242,7 +228,7 @@ type Draft struct {
 	ADF   map[string]any
 
 	// Replaces is the page an update overwrites; nil for a new document.
-	Replaces *atlassian.PageADF
+	Replaces *provider.Doc
 
 	// Preserved reports that "A considerar" was read back; when false on an
 	// update the section resets to the template, so the caller must ask.
@@ -258,21 +244,21 @@ func (s *Session) DraftCreate() *Draft {
 
 // DraftUpdate builds the replacement for s.Existing, carrying "A considerar"
 // over. It fails if the current page cannot be read, rather than overwrite it.
-func (s *Session) DraftUpdate() (*Draft, error) {
+func (s *Session) DraftUpdate(ctx context.Context) (*Draft, error) {
 	if s.Existing == nil {
 		return nil, fmt.Errorf("no hay un documento existente que actualizar")
 	}
-	current, err := s.api.GetPageADF(s.Existing.ID)
+	current, err := s.docs.Read(ctx, *s.Existing)
 	if err != nil {
 		return nil, fmt.Errorf("no se pudo leer el documento actual; se cancela la actualización para no sobrescribir su contenido: %w", err)
 	}
 
 	d := &Draft{Title: s.Title, Replaces: current}
 	var preserved []any
-	if current.ADF == nil {
+	if current.Body == nil {
 		d.Warnings = append(d.Warnings, "el documento actual no está en formato ADF; no se pudo leer la sección \"A considerar\".")
 	} else {
-		preserved = document.ExtractSection(current.ADF, document.ConsiderHeading)
+		preserved = document.ExtractSection(current.Body, document.ConsiderHeading)
 	}
 	d.Preserved = len(preserved) > 0
 	d.ADF = s.build(preserved)
@@ -304,7 +290,7 @@ func (s *Session) build(preserved []any) map[string]any {
 
 // Locations are candidate siblings: a new document goes under the picked one's parent.
 type Locations struct {
-	Pages []atlassian.Page
+	Docs []provider.DocRef
 
 	// TeamWide means the list is not limited to the user's own documents.
 	TeamWide     bool
@@ -312,63 +298,60 @@ type Locations struct {
 }
 
 // Locations lists recent deploy documents, the user's own first choice.
-func (s *Session) Locations() (*Locations, error) {
+func (s *Session) Locations(ctx context.Context) (*Locations, error) {
 	loc := &Locations{}
-	var accountID string
-	if me, err := s.api.Whoami(); err == nil {
-		accountID = me.AccountID
+	q := provider.LocationQuery{TitlePrefix: document.DeployTitlePrefix}
+	if me, err := s.tracker.Me(ctx); err == nil {
+		q.AuthorID = me.ID
 	} else {
 		loc.OwnerUnknown = true
 	}
 
-	pages, fellBack, err := s.api.FindLastDeployDoc(s.Target.SpaceKey, accountID)
+	found, err := s.docs.Locations(ctx, q)
 	if err != nil {
 		return nil, err
 	}
-	if len(pages) == 0 {
+	if len(found.Docs) == 0 {
 		return nil, ErrNoLocations
 	}
-	loc.Pages = pages
-	loc.TeamWide = fellBack || loc.OwnerUnknown
+	loc.Docs = found.Docs
+	loc.TeamWide = found.TeamWide || loc.OwnerUnknown
 	return loc, nil
 }
 
 // Result is a published document.
 type Result struct {
-	Page    *atlassian.Page
+	Page    *provider.DocRef
 	Updated bool
 
-	// LinkErr is a failed Jira remote link: not fatal, but the caller must
+	// LinkErr is a failed link from the issue: not fatal, but the caller must
 	// report it, since the QA report checks that link.
 	LinkErr error
 }
 
-// Publish creates or updates the page and links it from the Jira issue.
-// sibling is the page picked from Locations; it is ignored for an update.
-func (s *Session) Publish(d *Draft, sibling *atlassian.Page) (*Result, error) {
-	var page *atlassian.Page
+// Publish creates or updates the document and links it from the issue.
+// sibling is the document picked from Locations; it is ignored for an update.
+func (s *Session) Publish(ctx context.Context, d *Draft, sibling *provider.DocRef) (*Result, error) {
+	var page *provider.DocRef
 	var err error
 	res := &Result{}
 
 	if d.Replaces != nil {
-		page, err = s.api.UpdatePage(d.Replaces.ID, d.Title, d.Replaces.Version, d.ADF)
+		page, err = s.docs.Update(ctx, d.Replaces.DocRef, d.Title, d.ADF)
 		res.Updated = true
 	} else {
 		if sibling == nil {
 			return nil, fmt.Errorf("falta elegir la ubicación del documento nuevo")
 		}
-		var ref *atlassian.Page
-		if ref, err = s.api.GetPage(sibling.ID); err != nil {
-			return nil, err
-		}
-		page, err = s.api.CreatePage(ref.SpaceID, ref.ParentID, d.Title, d.ADF)
+		page, err = s.docs.Create(ctx, *sibling, d.Title, d.ADF)
 	}
 	if err != nil {
 		return nil, err
 	}
 
 	res.Page = page
-	res.LinkErr = s.api.CreateJiraRemoteLink(s.Target.Issue, page.ID, page.WebURL, d.Title)
+	link := provider.DocRef{ID: page.ID, Title: d.Title, URL: page.URL}
+	res.LinkErr = s.tracker.LinkDocument(ctx, s.Target.Issue, link)
 	return res, nil
 }
 

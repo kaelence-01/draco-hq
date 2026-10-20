@@ -1,6 +1,7 @@
 package atlassian
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -46,15 +47,13 @@ type pageResponse struct {
 	} `json:"_links"`
 }
 
-// deployDocSearchLimit caps the deploy documents offered as a location.
-const deployDocSearchLimit = 10
-
-const deployDocTitlePrefix = "Documento de Despliegue"
+// recentPagesLimit caps the pages offered as a location.
+const recentPagesLimit = 10
 
 // ResolveSpaceID returns the numeric space ID of a space key.
-func (c *Client) ResolveSpaceID(spaceKey string) (string, error) {
+func (c *Client) ResolveSpaceID(ctx context.Context, spaceKey string) (string, error) {
 	path := fmt.Sprintf("/wiki/api/v2/spaces?keys=%s&limit=1", url.QueryEscape(spaceKey))
-	body, err := c.Get(path)
+	body, err := c.Get(ctx, path)
 	if err != nil {
 		return "", fmt.Errorf("error resolviendo space %q: %w", spaceKey, err)
 	}
@@ -73,11 +72,12 @@ func (c *Client) ResolveSpaceID(spaceKey string) (string, error) {
 	return result.Results[0].ID, nil
 }
 
-// FindLastDeployDoc returns the newest deploy documents of the space, read from
-// the v2 pages API (no CQL index lag). With an accountID it returns only that
-// user's, falling back to the team's with fellBack set when the user has none.
-func (c *Client) FindLastDeployDoc(spaceKey, accountID string) (pages []Page, fellBack bool, err error) {
-	spaceID, err := c.ResolveSpaceID(spaceKey)
+// FindRecentPages returns the newest pages of the space whose title starts with
+// prefix, read from the v2 pages API (no CQL index lag). With an accountID it
+// returns only that user's, falling back to the team's with fellBack set when
+// the user has none.
+func (c *Client) FindRecentPages(ctx context.Context, spaceKey, prefix, accountID string) (pages []Page, fellBack bool, err error) {
+	spaceID, err := c.ResolveSpaceID(ctx, spaceKey)
 	if err != nil {
 		return nil, false, err
 	}
@@ -85,7 +85,7 @@ func (c *Client) FindLastDeployDoc(spaceKey, accountID string) (pages []Page, fe
 	// v2 cannot filter by title prefix: over-fetch and filter here.
 	path := fmt.Sprintf("/wiki/api/v2/pages?space-id=%s&sort=-created-date&limit=100", url.QueryEscape(spaceID))
 
-	body, err := c.Get(path)
+	body, err := c.Get(ctx, path)
 	if err != nil {
 		return nil, false, fmt.Errorf("error buscando documentos: %w", err)
 	}
@@ -97,10 +97,10 @@ func (c *Client) FindLastDeployDoc(spaceKey, accountID string) (pages []Page, fe
 		return nil, false, fmt.Errorf("error parseando respuesta: %w", err)
 	}
 
-	all := make([]Page, 0, deployDocSearchLimit)
-	mine := make([]Page, 0, deployDocSearchLimit)
+	all := make([]Page, 0, recentPagesLimit)
+	mine := make([]Page, 0, recentPagesLimit)
 	for _, r := range result.Results {
-		if !strings.HasPrefix(r.Title, deployDocTitlePrefix) {
+		if !strings.HasPrefix(r.Title, prefix) {
 			continue
 		}
 		p := Page{
@@ -111,10 +111,10 @@ func (c *Client) FindLastDeployDoc(spaceKey, accountID string) (pages []Page, fe
 			Version:  r.Version.Number,
 			WebURL:   c.BaseURL + "/wiki" + r.Links.WebUI,
 		}
-		if len(all) < deployDocSearchLimit {
+		if len(all) < recentPagesLimit {
 			all = append(all, p)
 		}
-		if accountID != "" && r.AuthorID == accountID && len(mine) < deployDocSearchLimit {
+		if accountID != "" && r.AuthorID == accountID && len(mine) < recentPagesLimit {
 			mine = append(mine, p)
 		}
 	}
@@ -147,10 +147,10 @@ type pageADFResponse struct {
 
 // GetPageADF returns a page by ID with its body parsed as ADF, to carry
 // hand-edited sections across an update (which replaces the whole body).
-func (c *Client) GetPageADF(pageID string) (*PageADF, error) {
+func (c *Client) GetPageADF(ctx context.Context, pageID string) (*PageADF, error) {
 	path := fmt.Sprintf("/wiki/api/v2/pages/%s?body-format=atlas_doc_format", pageID)
 
-	body, err := c.Get(path)
+	body, err := c.Get(ctx, path)
 	if err != nil {
 		return nil, fmt.Errorf("error obteniendo página %s: %w", pageID, err)
 	}
@@ -183,10 +183,10 @@ func (c *Client) GetPageADF(pageID string) (*PageADF, error) {
 }
 
 // GetPage returns a page by ID, including its parent and space.
-func (c *Client) GetPage(pageID string) (*Page, error) {
+func (c *Client) GetPage(ctx context.Context, pageID string) (*Page, error) {
 	path := fmt.Sprintf("/wiki/api/v2/pages/%s", pageID)
 
-	body, err := c.Get(path)
+	body, err := c.Get(ctx, path)
 	if err != nil {
 		return nil, fmt.Errorf("error obteniendo página %s: %w", pageID, err)
 	}
@@ -206,17 +206,18 @@ func (c *Client) GetPage(pageID string) (*Page, error) {
 	}, nil
 }
 
-// FindDeployDocByIssue searches a deploy document by issue key. It uses CQL, so
-// it is subject to index lag. An empty spaceKey searches all spaces.
-func (c *Client) FindDeployDocByIssue(issueKey, spaceKey string) (*Page, error) {
+// FindPageByTitleKey searches a page whose title contains both prefix and key.
+// It uses CQL, so it is subject to index lag. An empty spaceKey searches all
+// spaces.
+func (c *Client) FindPageByTitleKey(ctx context.Context, prefix, key, spaceKey string) (*Page, error) {
 	cqlBase := fmt.Sprintf(`title ~ %s AND title ~ %s`,
-		quoteLiteral(deployDocTitlePrefix), quoteLiteral(issueKey))
+		quoteLiteral(prefix), quoteLiteral(key))
 	if spaceKey != "" {
 		cqlBase += fmt.Sprintf(` AND space = %s`, quoteLiteral(spaceKey))
 	}
 	path := fmt.Sprintf("/wiki/rest/api/search?cql=%s&limit=1", url.QueryEscape(cqlBase))
 
-	body, err := c.Get(path)
+	body, err := c.Get(ctx, path)
 	if err != nil {
 		return nil, fmt.Errorf("error buscando documento existente: %w", err)
 	}
@@ -242,17 +243,17 @@ func (c *Client) FindDeployDocByIssue(issueKey, spaceKey string) (*Page, error) 
 // lag, and the same uniqueness rule Confluence applies on create. An empty
 // spaceKey searches all spaces; otherwise it is resolved to a space-id, since v2
 // silently ignores an unknown filter and would match another space's page.
-func (c *Client) findPageByExactTitle(title, spaceKey string) (*Page, error) {
+func (c *Client) findPageByExactTitle(ctx context.Context, title, spaceKey string) (*Page, error) {
 	path := fmt.Sprintf("/wiki/api/v2/pages?title=%s&limit=1", url.QueryEscape(title))
 	if spaceKey != "" {
-		spaceID, err := c.ResolveSpaceID(spaceKey)
+		spaceID, err := c.ResolveSpaceID(ctx, spaceKey)
 		if err != nil {
 			return nil, err
 		}
 		path += "&space-id=" + url.QueryEscape(spaceID)
 	}
 
-	body, err := c.Get(path)
+	body, err := c.Get(ctx, path)
 	if err != nil {
 		return nil, fmt.Errorf("error buscando documento existente: %w", err)
 	}
@@ -280,12 +281,12 @@ func (c *Client) findPageByExactTitle(title, spaceKey string) (*Page, error) {
 }
 
 // FindPageByTitle looks up a page by its exact title, with no index lag.
-func (c *Client) FindPageByTitle(title, spaceKey string) (*Page, error) {
-	return c.findPageByExactTitle(title, spaceKey)
+func (c *Client) FindPageByTitle(ctx context.Context, title, spaceKey string) (*Page, error) {
+	return c.findPageByExactTitle(ctx, title, spaceKey)
 }
 
 // CreatePage creates a new Confluence page under the given parent.
-func (c *Client) CreatePage(spaceID, parentID, title string, adfBody map[string]any) (*Page, error) {
+func (c *Client) CreatePage(ctx context.Context, spaceID, parentID, title string, adfBody map[string]any) (*Page, error) {
 	adfStr, err := marshalADF(adfBody)
 	if err != nil {
 		return nil, err
@@ -302,7 +303,7 @@ func (c *Client) CreatePage(spaceID, parentID, title string, adfBody map[string]
 		},
 	}
 
-	body, err := c.Post("/wiki/api/v2/pages", payload)
+	body, err := c.Post(ctx, "/wiki/api/v2/pages", payload)
 	if err != nil {
 		return nil, fmt.Errorf("error creando página: %w", err)
 	}
@@ -320,7 +321,7 @@ func (c *Client) CreatePage(spaceID, parentID, title string, adfBody map[string]
 }
 
 // UpdatePage replaces the whole body of a page; currentVersion is the one read.
-func (c *Client) UpdatePage(pageID, title string, currentVersion int, adfBody map[string]any) (*Page, error) {
+func (c *Client) UpdatePage(ctx context.Context, pageID, title string, currentVersion int, adfBody map[string]any) (*Page, error) {
 	adfStr, err := marshalADF(adfBody)
 	if err != nil {
 		return nil, err
@@ -340,7 +341,7 @@ func (c *Client) UpdatePage(pageID, title string, currentVersion int, adfBody ma
 		},
 	}
 
-	body, err := c.Put(fmt.Sprintf("/wiki/api/v2/pages/%s", pageID), payload)
+	body, err := c.Put(ctx, fmt.Sprintf("/wiki/api/v2/pages/%s", pageID), payload)
 	if err != nil {
 		return nil, fmt.Errorf("error actualizando página: %w", err)
 	}
@@ -359,7 +360,7 @@ func (c *Client) UpdatePage(pageID, title string, currentVersion int, adfBody ma
 
 // FindQAPagesForModule returns recent QA reports of a module, or of any module
 // when module is empty. An empty spaceKey searches all spaces.
-func (c *Client) FindQAPagesForModule(module, spaceKey string) ([]Page, error) {
+func (c *Client) FindQAPagesForModule(ctx context.Context, module, spaceKey string) ([]Page, error) {
 	title := "Consolidado de Pruebas QA"
 	if module != "" {
 		title += " - " + module
@@ -372,7 +373,7 @@ func (c *Client) FindQAPagesForModule(module, spaceKey string) ([]Page, error) {
 	}
 	path := fmt.Sprintf("/wiki/rest/api/search?cql=%s&limit=5", url.QueryEscape(cqlBase))
 
-	body, err := c.Get(path)
+	body, err := c.Get(ctx, path)
 	if err != nil {
 		return nil, fmt.Errorf("error buscando páginas QA de referencia: %w", err)
 	}

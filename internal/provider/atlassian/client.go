@@ -1,6 +1,7 @@
 package atlassian
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -28,8 +29,8 @@ func NewClient(baseURL, email, token string) *Client {
 }
 
 // Get performs a GET request to the given path.
-func (c *Client) Get(path string) ([]byte, error) {
-	req, err := http.NewRequest("GET", c.BaseURL+path, nil)
+func (c *Client) Get(ctx context.Context, path string) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", c.BaseURL+path, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -55,23 +56,23 @@ func (c *Client) Get(path string) ([]byte, error) {
 }
 
 // Post performs a POST request with a JSON body.
-func (c *Client) Post(path string, payload any) ([]byte, error) {
-	return c.doJSON("POST", path, payload)
+func (c *Client) Post(ctx context.Context, path string, payload any) ([]byte, error) {
+	return c.doJSON(ctx, "POST", path, payload)
 }
 
 // Put performs a PUT request with a JSON body.
-func (c *Client) Put(path string, payload any) ([]byte, error) {
-	return c.doJSON("PUT", path, payload)
+func (c *Client) Put(ctx context.Context, path string, payload any) ([]byte, error) {
+	return c.doJSON(ctx, "PUT", path, payload)
 }
 
 // doJSON executes a request with a JSON body and returns the response body.
-func (c *Client) doJSON(method, path string, payload any) ([]byte, error) {
+func (c *Client) doJSON(ctx context.Context, method, path string, payload any) ([]byte, error) {
 	data, err := json.Marshal(payload)
 	if err != nil {
 		return nil, err
 	}
 
-	req, err := http.NewRequest(method, c.BaseURL+path, strings.NewReader(string(data)))
+	req, err := http.NewRequestWithContext(ctx, method, c.BaseURL+path, strings.NewReader(string(data)))
 	if err != nil {
 		return nil, err
 	}

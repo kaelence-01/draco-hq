@@ -3,7 +3,7 @@ package document
 import (
 	"testing"
 
-	"github.com/kaelence-01/draco-hq/internal/atlassian"
+	"github.com/kaelence-01/draco-hq/internal/provider/atlassian"
 )
 
 func qaReport(preserved QAPreserved) map[string]any {
