@@ -319,15 +319,24 @@ func (s *Session) build() (string, error) {
 }
 
 // Locations lists recent consolidated reports as candidate siblings for a new
-// one: the module's in Sprint mode, any in Kanban mode.
+// one: the module's in Sprint mode, any in Kanban mode. Without any, it falls
+// back to the destination's own locations (a Markdown folder offers itself).
 func (s *Session) Locations(ctx context.Context) ([]provider.DocRef, error) {
-	title := s.Target.template().Manifest.Prefix
+	prefix := s.Target.template().Manifest.Prefix
+	title := prefix
 	if s.Target.Module != "" {
 		title += " - " + s.Target.Module
 	}
 	pages, err := s.docs.SearchTitle(ctx, title)
 	if err != nil {
 		return nil, err
+	}
+	if len(pages) == 0 {
+		loc, err := s.docs.Locations(ctx, provider.LocationQuery{TitlePrefix: prefix})
+		if err != nil {
+			return nil, err
+		}
+		pages = loc.Docs
 	}
 	if len(pages) == 0 {
 		return nil, ErrNoLocations
