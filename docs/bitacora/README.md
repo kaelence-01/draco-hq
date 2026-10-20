@@ -42,6 +42,7 @@ Sin entradas: se hizo antes de que existiera la bitácora.
 | # | Actividad | Rama | Fecha | Resumen |
 |---|---|---|---|---|
 | [017](./fase-3/017-readme.md) | README y plan de la fase 3 | `docs/readme` | 2026-10-19 | README del repo; la fase 3 en 7 actividades con criterio de cierre |
+| [018](./fase-3/018-cli-base.md) | Base del modo comando | `feature/cli-base` | 2026-10-19 | `main.go`, router de mapa, flags declarados por comando, ayuda en dos niveles, `version`, códigos de salida |
 
 ## Formato de cada entrada
 

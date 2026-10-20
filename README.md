@@ -6,8 +6,8 @@ despliegue** de una tarea a partir del issue y de sus commits, publica el
 detecta **deuda técnica** en tus repos. Sin IA.
 
 > **Estado: en desarrollo.** El núcleo está terminado y probado (fase 2); el
-> modo comando está en construcción (fase 3). Todavía no hay un binario para
-> instalar. Ver [`docs/roadmap.md`](docs/roadmap.md).
+> modo comando está en construcción (fase 3): hoy responde `help` y `version`.
+> Todavía no hay un binario para instalar. Ver [`docs/roadmap.md`](docs/roadmap.md).
 
 ## Qué hace
 
@@ -64,6 +64,7 @@ Requisitos: Go 1.26 y GNU Make.
 
 ```bash
 make                     # lista todos los atajos
+make run args="help"     # draco sin instalarlo (go run .)
 make test                # tests (sin red: dobles, servidores simulados y repos temporales)
 make lint                # gofmt + go vet
 make test pkg=./internal/qa run=Kanban v=1
@@ -73,6 +74,7 @@ make golden              # regenera los goldens tras un cambio intencional
 Estructura:
 
 ```
+main.go, cmd/            modo comando
 internal/
   deploy/ qa/ fetch/     flujos, sin entrada ni salida de terminal
   backlog/               detectores de deuda técnica

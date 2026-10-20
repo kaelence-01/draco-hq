@@ -12,7 +12,7 @@ time   ?= 20s
 BRANCH := $(shell git branch --show-current 2>/dev/null)
 GOFILES = $(shell git ls-files --cached --others --exclude-standard '*.go')
 
-.PHONY: help sync start push pr finish prune build test vet fmt lint golden fuzz check ci
+.PHONY: help sync start push pr finish prune build run test vet fmt lint golden fuzz check ci
 
 ##@ Git
 
@@ -57,6 +57,9 @@ prune: ## Borra las ramas locales ya fusionadas en develop (ni main, ni develop,
 build: ## Compila todo
 	go build ./...
 
+run: ## Corre draco sin instalarlo: make run args="help g"
+	go run . $(args)
+
 test: ## Tests: make test [pkg=./internal/qa] [run=Golden] [v=1]
 	go test $(if $(v),-v,) $(if $(run),-run '$(run)',) $(pkg)
 
@@ -89,4 +92,4 @@ help: ## Muestra esta ayuda
 	/^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } \
 	/^[a-z-]+:.*## / { printf "  \033[36m%-8s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 	@echo
-	@echo "Opciones: name= type=feature|fix|docs  pkg= run= v=1  force=1  web=1  time="
+	@echo "Opciones: name= type=feature|fix|docs  pkg= run= v=1  force=1  web=1  time=  args="
