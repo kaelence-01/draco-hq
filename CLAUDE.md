@@ -4,8 +4,10 @@ Guía para Claude Code (claude.ai/code) al trabajar en este repositorio.
 
 ## Qué es draco
 
-**DRACO** es una herramienta de terminal open source (Go) para equipos que usan
-Jira y Confluence:
+**DRACO** es una herramienta de terminal open source (Go) para documentar
+despliegues. Hoy trabaja con Jira y Confluence; la arquitectura de proveedores
+(`docs/arquitectura/proveedores.md`, en implementación) la abre a GitHub,
+GitLab, Azure DevOps, Linear, Notion o Markdown local:
 
 - Genera y actualiza el **documento de despliegue** de una tarea en Confluence a
   partir del issue de Jira y sus commits de git.
@@ -55,6 +57,8 @@ internal/
   fetch/       Flujo de exportar una página a texto, sin E/S de terminal
 docs/
   roadmap.md                 Visión, fases, estado y decisiones
+  arquitectura/proveedores.md    Puertos, adaptadores y plantillas (diseño)
+  bitacora/                  Una entrada por actividad
   security/patrones-seguros.md   Patrones P-001..P-008 (autoridad en seguridad)
 ```
 
@@ -73,6 +77,9 @@ Cada flujo vive en su propio paquete (`internal/deploy` es la referencia) y
   `ReadCommits`, `DraftCreate`/`DraftUpdate`, `Locations`, `Publish`). Entre paso
   y paso decide quien llama: el modo comando pregunta por texto y la TUI con
   listas y formularios, sobre los mismos pasos.
+- **Proveedores (en transición):** los flujos pasarán a hablar solo con los
+  puertos de `internal/provider`, nunca con un adaptador
+  (`docs/arquitectura/proveedores.md`). Mientras tanto:
 - Atlassian entra por una **interfaz** definida en el paquete del flujo, con
   `var _ Atlassian = (*atlassian.Client)(nil)` para que no se desincronice. Los
   tests usan un doble (`fakeAPI`).
@@ -116,8 +123,9 @@ Cada flujo vive en su propio paquete (`internal/deploy` es la referencia) y
 ## Dependencias
 
 Hoy: solo `gopkg.in/yaml.v3`. Están aprobadas para la TUI las librerías de Charm
-(Bubble Tea, Bubbles, Lip Gloss, Huh), y `golang.org/x/sys` cuando se porte el
-instalador de Windows. Cualquier otra se justifica antes de agregarla. El router
+(Bubble Tea, Bubbles, Lip Gloss, Huh), `golang.org/x/sys` cuando se porte el
+instalador de Windows, y `github.com/yuin/goldmark` (con sus extensiones GFM)
+para convertir el Markdown de las plantillas al formato de cada destino. Cualquier otra se justifica antes de agregarla. El router
 de comandos será un `map[string]func([]string) error` como en gtt, sin Cobra.
 
 ## Idioma
