@@ -139,6 +139,10 @@ de comandos será un `map[string]func([]string) error` como en gtt, sin Cobra.
 
 - `go test ./...` cubre funciones puras y los flujos con dobles. **Ningún test
   usa la red ni una instancia real de Atlassian.**
+- **Goldens** (`internal/golden`): el documento generado por el builder y por
+  los flujos se fija en `testdata/*.golden.json`. Un cambio intencional se
+  regenera con `DRACO_UPDATE_GOLDEN=1 go test ./...` y el diff de esos archivos
+  se revisa en el PR como parte del cambio.
 - Lo que toca la red se verifica a mano contra una instancia propia; los
   comandos que publican tendrán `--dry-run`.
 - Cuando exista el instalador: **nunca ejecutar un binario recién compilado**

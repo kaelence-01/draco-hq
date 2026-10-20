@@ -97,8 +97,8 @@ se cierra con un criterio verificable.
 
 | # | Actividad | Rama | Criterio de cierre |
 |---|---|---|---|
-| 1 | Diseño de proveedores, roadmap y decisiones | `docs/arquitectura` | Diseño publicado en el repo |
-| 2 | Snapshot (golden) del ADF actual de deploy y QA | `feature/golden` | Tests que fijan el documento de hoy byte a byte |
+| 1 | ✅ Diseño de proveedores, roadmap y decisiones | `docs/arquitectura` | Diseño publicado en el repo |
+| 2 | ✅ Snapshot (golden) del ADF actual de deploy y QA | `feature/golden` | Tests que fijan el documento de hoy byte a byte |
 | 3 | Modelo neutro, puertos y Atlassian como adaptador (`internal/provider`) | `feature/puertos` | Los flujos no importan `atlassian`; golden en verde: documento idéntico |
 | 4 | Documento en Markdown (`goldmark`) y conversión a ADF en el adaptador, con la preservación de secciones dentro del adaptador | `feature/markdown` | Golden actualizado a **contenido equivalente**; solo las diferencias aceptadas en el diseño (§5) |
 | 5 | Plantillas (`text/template`, manifiesto, resolución por fuentes, plantilla incluida) | `feature/plantillas` | La plantilla incluida reproduce el documento; otra plantilla lo cambia sin recompilar. Absorbe las convenciones de texto («Documento de Despliegue», «Revisión de Tarea», «Novedad::», título del consolidado) |

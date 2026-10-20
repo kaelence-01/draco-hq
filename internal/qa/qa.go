@@ -70,6 +70,7 @@ type Target struct {
 	Schema   atlassian.QASchema
 	QAEmail  string
 	Report   config.QAReportConfig
+	Date     time.Time // review date printed in the report
 
 	// Warnings are degraded but workable situations to show the user.
 	Warnings []string
@@ -81,7 +82,7 @@ func Resolve(cfg *config.Config, req Request, now time.Time) (*Target, error) {
 	if req.Sprint < 0 {
 		return nil, fmt.Errorf("el sprint debe ser un número positivo: %d", req.Sprint)
 	}
-	t := &Target{Kanban: req.Sprint == 0, QAEmail: cfg.QAEmail}
+	t := &Target{Kanban: req.Sprint == 0, QAEmail: cfg.QAEmail, Date: now}
 	module := strings.TrimSpace(req.Module)
 	if !t.Kanban && module == "" {
 		return nil, fmt.Errorf("falta el módulo: es obligatorio en modo Sprint")
@@ -291,6 +292,7 @@ func (s *Session) DraftUpdate() (*Draft, error) {
 func (s *Session) build(kept document.QAPreserved) map[string]any {
 	t := s.Target
 	doc := document.QADoc{
+		Date:         t.Date,
 		Tasks:        s.Tasks,
 		QATasks:      s.QATasks,
 		LiderTecnico: t.Report.LiderTecnico,

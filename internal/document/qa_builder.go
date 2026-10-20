@@ -23,6 +23,8 @@ type QADoc struct {
 
 	// Preserved is zero for a new report.
 	Preserved QAPreserved
+
+	Date time.Time // review date; zero is today
 }
 
 const (
@@ -112,7 +114,11 @@ func BuildQAKanbanTitle(period string) string {
 }
 
 func qaInfoTable(periodHeader, periodValue string, doc QADoc) map[string]any {
-	today := time.Now().Format("02 Jan 2006")
+	date := doc.Date
+	if date.IsZero() {
+		date = time.Now()
+	}
+	today := date.Format("02 Jan 2006")
 	return table("full-width", 760, []any{
 		tableRow([]any{
 			tableHeader(200, textNode("Fechas de Revisión")),
