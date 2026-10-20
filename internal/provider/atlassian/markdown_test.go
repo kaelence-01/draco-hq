@@ -180,22 +180,28 @@ const deploySample = `|  |  |
 // TestGoldenPublishedADF fixes what Confluence receives for draco's real
 // documents: the Markdown of internal/document through this converter.
 func TestGoldenPublishedADF(t *testing.T) {
-	deploy := document.DeployMarkdown(document.DeployDoc{
+	deploy, err := document.Deploy(document.MustBuiltin("deploy"), document.DeployDoc{
 		IssueKey: "OPS-7", IssueURL: "https://example.test/browse/OPS-7",
 		VCSHost: "https://bitbucket.org", VCSOrg: "mi-org",
 		BackendRepo: "pagos-api", BackendCommit: "a1b2c3d",
 		BackendFiles: map[string][]string{"app/Http/Pagos": {"FiltroController.php", "Rango.php"}},
 		Checklist:    []string{"Respaldar base de datos", "Desplegar backend"},
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	golden.Assert(t, "adf-deploy", MarkdownToADF(deploy))
 
-	qa := document.QAMarkdown(document.QADoc{
+	qa, err := document.QA(document.MustBuiltin("qa"), document.QADoc{
 		Sprint: 12, Module: "Pagos", Date: time.Date(2026, 9, 21, 12, 0, 0, 0, time.UTC),
 		Tasks: []provider.QAIssue{
 			{URL: "https://example.test/browse/OPS-7", HasDeployDoc: true, PRMerged: true, ReviewTaskURL: "https://example.test/browse/OPS-20"},
 			{URL: "https://example.test/browse/OPS-8", HasCodingErrors: true, DeployDocUnknown: true, Observations: "falta validar el monto"},
 		},
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	golden.Assert(t, "adf-qa", MarkdownToADF(qa))
 }
 

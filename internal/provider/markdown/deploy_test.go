@@ -50,7 +50,7 @@ func publish(t *testing.T, s *deploy.Session) *deploy.Result {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !d.Preserved {
+		if len(d.NotPreserved) != 0 {
 			t.Error("el documento publicado tiene «A considerar»")
 		}
 		res, err := s.Publish(ctx, d, nil)
@@ -63,7 +63,11 @@ func publish(t *testing.T, s *deploy.Session) *deploy.Result {
 	if err != nil {
 		t.Fatal(err)
 	}
-	res, err := s.Publish(ctx, s.DraftCreate(), &loc.Docs[0])
+	d, err := s.DraftCreate()
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := s.Publish(ctx, d, &loc.Docs[0])
 	if err != nil {
 		t.Fatal(err)
 	}

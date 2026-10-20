@@ -9,14 +9,20 @@ import (
 	"github.com/kaelence-01/draco-hq/internal/provider"
 )
 
-// devTasksOnly drops the QA review tasks ("Revisión de Tarea - …", "QA …").
-func devTasksOnly(all []provider.QAIssue) []provider.QAIssue {
+// devTasksOnly drops the QA review tasks, whose summaries start with one of
+// prefixes (case-insensitive).
+func devTasksOnly(all []provider.QAIssue, prefixes []string) []provider.QAIssue {
 	dev := make([]provider.QAIssue, 0, len(all))
 	for _, t := range all {
 		lower := strings.ToLower(t.Summary)
-		if !strings.HasPrefix(lower, "revisión de tarea") &&
-			!strings.HasPrefix(lower, "revision de tarea") &&
-			!strings.HasPrefix(lower, "qa") {
+		review := false
+		for _, p := range prefixes {
+			if strings.HasPrefix(lower, strings.ToLower(p)) {
+				review = true
+				break
+			}
+		}
+		if !review {
 			dev = append(dev, t)
 		}
 	}

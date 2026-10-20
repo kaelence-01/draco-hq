@@ -48,7 +48,7 @@ de Windows (`cmd`) se ve más limitado.
 |---|---|---|
 | 1 | Nombre, identidad y repositorio | ✅ |
 | 2 | Core: portar la lógica de gtt, separar los flujos y desacoplar los proveedores | 🟡 en curso |
-| 3 | Modo comando (`cmd/`, `main.go`), instalador, updater, Makefile, releases | ⬜ |
+| 3 | Modo comando (`cmd/`, `main.go`), instalador, updater, releases | ⬜ |
 | 4 | Modo visual mínimo: pantalla principal, proyectos, generar documento | ⬜ |
 | 5 | Resto de pantallas: backlog, QA, exportar | ⬜ |
 | 6 | Barra de comandos con autocompletado, temas, ayuda | ⬜ |
@@ -103,7 +103,7 @@ se cierra con un criterio verificable.
 | 3b | ✅ Capacidad `QATracker`, `qa` y `document` sin tipos de Atlassian, puerto de cambios (`ChangeSource`, con commits recientes) | `feature/puertos-qa` | Ningún flujo importa un adaptador; goldens sin regenerar |
 | 4a | ✅ Conversor Markdown → ADF en el adaptador de Confluence (`goldmark`) con las convenciones del diseño (§5) | `feature/markdown-adf` | Tests por construcción y convención, golden del conversor, fuzzing sin pánicos; nada publicado cambia |
 | 4b | ✅ El builder genera Markdown; preservación de secciones dentro del adaptador (`Sections`); «Observación» del consolidado como sección | `feature/markdown` | Goldens regenerados a **contenido equivalente**; solo las diferencias aceptadas en el diseño (§5) |
-| 5 | Plantillas (`text/template`, manifiesto, resolución por fuentes, plantilla incluida) | `feature/plantillas` | La plantilla incluida reproduce el documento; otra plantilla lo cambia sin recompilar. Absorbe las convenciones de texto («Documento de Despliegue», «Revisión de Tarea», «Novedad::», título del consolidado) |
+| 5 | ✅ Plantillas (`text/template`, manifiesto, resolución por fuentes, plantilla incluida) | `feature/plantillas` | La plantilla incluida reproduce el documento; otra plantilla lo cambia sin recompilar. Absorbe las convenciones de texto («Documento de Despliegue», «Revisión de Tarea», «Novedad::», título del consolidado) |
 | 6 | ✅ Destino Markdown local (`internal/provider/markdown`) | `feature/salida-markdown` | Un documento de despliegue completo publicado sin Confluence |
 | 7 | Config con perfiles y migración del `config.yaml` actual | `feature/perfiles` | Un `config.yaml` de hoy se migra solo; absorbe «proyectos y configuración» como funciones puras |
 
@@ -129,6 +129,8 @@ y plantillas remotas, en ese orden según demanda (diseño, §9).
   Windows), `updater` (GitHub Releases de este repo, verificación SHA-256,
   aviso cacheado cada 24 h, variable `DRACO_NO_UPDATE_CHECK`), `build` (versión
   por ldflags).
+- Plantillas desde el modo comando: flag `--template` y comandos `draco
+  template init/list/validate/preview` (el motor ya existe, actividad 5).
 - Objetivos de release en el Makefile (ya existe para el día a día) y proceso
   de release con `checksums.txt` (P-006). Releases solo
   desde `main` actualizado y con el árbol limpio.

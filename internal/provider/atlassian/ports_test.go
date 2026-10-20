@@ -124,7 +124,7 @@ func TestNewQATrackerConvertsConfig(t *testing.T) {
 	}
 	got := NewQATracker(NewClient("https://example.test", "", ""), q).schema
 	want := QASchema{
-		Project: "OPS", Statuses: []string{"10001"}, TestingStatus: config.DefaultTestingStatus,
+		Project: "OPS", Statuses: []string{"10001"}, TestingStatus: config.DefaultTestingStatus, ObservationMarker: config.DefaultObservationMarker,
 		FieldCodingErrors: "customfield_1", FieldDevReturns: "customfield_2", FieldDevStatus: "customfield_3",
 	}
 	if !reflect.DeepEqual(got, want) {
@@ -202,5 +202,23 @@ func TestDocStoreSectionsReadsLegacyObservationCell(t *testing.T) {
 	}
 	if nodes, _ := preservedSection(legacy, "Observación"); !strings.Contains(asJSON(nodes), "Sprint estable") {
 		t.Errorf("la observación vieja debe leerse de la celda: %s", asJSON(nodes))
+	}
+}
+
+func TestQATrackerObservationsUseTheConfiguredMarker(t *testing.T) {
+	comment := func(text string) map[string]any {
+		return map[string]any{"body": map[string]any{"type": "doc", "content": []any{
+			map[string]any{"type": "paragraph", "content": []any{map[string]any{"type": "text", "text": text}}},
+		}}}
+	}
+	c := fakeConfluence(t, map[string]func(http.ResponseWriter, *http.Request){
+		"GET /rest/api/3/issue/OPS-7/comment": func(w http.ResponseWriter, _ *http.Request) {
+			writeJSON(w, map[string]any{"comments": []any{comment("Obs: falta el monto"), comment("Novedad:: no aplica"), comment("sin marcador")}})
+		},
+	})
+	q := &config.QAJiraConfig{Project: "OPS", ObservationMarker: "obs:"}
+	got, err := NewQATracker(c, q).Observations(context.Background(), "OPS-7")
+	if err != nil || got != "falta el monto" {
+		t.Errorf("observaciones = %q, %v", got, err)
 	}
 }

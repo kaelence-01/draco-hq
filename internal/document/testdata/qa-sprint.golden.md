@@ -4,7 +4,7 @@
 
 |  |  |
 |---|---|
-| **Fechas de Revisión** | 21 Sep 2026 |
+| **Fechas de Revisión** | 21 sep 2026 |
 | **Líder Técnico** | Líder de ejemplo |
 | **PMO** | PMO de ejemplo |
 | **QA** | QA de ejemplo |

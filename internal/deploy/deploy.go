@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/kaelence-01/draco-hq/internal/config"
@@ -34,6 +35,10 @@ type Request struct {
 	Space   string // overrides the project and global space key
 	VCSHost string // overrides the project's vcs_host
 	VCSOrg  string // overrides the project's vcs_org
+
+	// Template is a folder with a deploy template that overrides the repo's
+	// and the user's.
+	Template string
 }
 
 // Repo is one side (backend or frontend) of a deploy.
@@ -53,6 +58,9 @@ type Target struct {
 	Backend     Repo
 	Frontend    Repo
 	Checklist   []string
+
+	// Template renders the document; nil is the built-in one.
+	Template *document.Template
 
 	// Warnings are degraded but workable situations to show the user.
 	Warnings []string
@@ -104,6 +112,10 @@ func Resolve(cfg *config.Config, req Request) (*Target, error) {
 		return nil, ErrNoSpace
 	}
 
+	if t.Template, err = loadTemplate(req.Template, t.Backend.WorkDir); err != nil {
+		return nil, err
+	}
+
 	t.resolveSide(&t.Backend, "backend", proj != nil)
 	t.resolveSide(&t.Frontend, "frontend", proj != nil)
 
@@ -128,6 +140,24 @@ func (t *Target) resolveSide(r *Repo, side string, hasProject bool) {
 }
 
 func (t *Target) warn(msg string) { t.Warnings = append(t.Warnings, msg) }
+
+func (t *Target) template() *document.Template {
+	if t.Template == nil {
+		return document.MustBuiltin("deploy")
+	}
+	return t.Template
+}
+
+// loadTemplate resolves the deploy template: the explicit folder, then the
+// repo's .draco/templates/deploy (repoDir empty: the current directory), then
+// the user's; the built-in one is the base of all of them.
+func loadTemplate(explicit, repoDir string) (*document.Template, error) {
+	dirs := []string{explicit, filepath.Join(repoDir, ".draco", "templates", "deploy")}
+	if user, err := config.TemplatesDir(); err == nil {
+		dirs = append(dirs, filepath.Join(user, "deploy"))
+	}
+	return document.LoadTemplate("deploy", dirs...)
+}
 
 // Commits is the result of reading one side's commits.
 type Commits struct {
@@ -164,7 +194,11 @@ func (s *Session) FetchIssue(ctx context.Context) error {
 		return err
 	}
 	s.Issue = issue
-	s.Title = document.BuildTitle(issue.Key, issue.Summary)
+	title, err := document.DeployTitle(s.Target.template(), issue.Key, issue.Summary)
+	if err != nil {
+		return err
+	}
+	s.Title = title
 	return nil
 }
 
@@ -176,7 +210,7 @@ func (s *Session) FindExisting(ctx context.Context) error {
 		return err
 	}
 	if page == nil {
-		if p, ferr := s.docs.FindByTitleKey(ctx, document.DeployTitlePrefix, s.Target.Issue); ferr == nil {
+		if p, ferr := s.docs.FindByTitleKey(ctx, s.Target.template().Manifest.Prefix, s.Target.Issue); ferr == nil {
 			page = p
 		}
 	}
@@ -225,15 +259,19 @@ type Draft struct {
 	// Replaces is the document an update overwrites; nil for a new one.
 	Replaces *provider.DocRef
 
-	// Preserved reports that the current document has "A considerar"; when
-	// false on an update the section resets to the template, so the caller
-	// must ask.
-	Preserved bool
+	// NotPreserved names the hand-written sections ("A considerar") the
+	// current document lacks: they go out as the template has them, so when
+	// set on an update the caller must ask.
+	NotPreserved []string
 }
 
 // DraftCreate builds a new document with the configured checklist.
-func (s *Session) DraftCreate() *Draft {
-	return &Draft{Title: s.Title, Markdown: s.build()}
+func (s *Session) DraftCreate() (*Draft, error) {
+	md, err := s.build()
+	if err != nil {
+		return nil, err
+	}
+	return &Draft{Title: s.Title, Markdown: md}, nil
 }
 
 // DraftUpdate builds the replacement for s.Existing; the destination carries
@@ -243,14 +281,25 @@ func (s *Session) DraftUpdate(ctx context.Context) (*Draft, error) {
 	if s.Existing == nil {
 		return nil, fmt.Errorf("no hay un documento existente que actualizar")
 	}
-	found, err := s.docs.Sections(ctx, *s.Existing, []string{document.ConsiderHeading})
+	preserve := s.Target.template().Manifest.Preserve
+	found, err := s.docs.Sections(ctx, *s.Existing, preserve)
 	if err != nil {
 		return nil, fmt.Errorf("no se pudo leer el documento actual; se cancela la actualización para no sobrescribir su contenido: %w", err)
 	}
-	return &Draft{Title: s.Title, Markdown: s.build(), Replaces: s.Existing, Preserved: len(found) > 0}, nil
+	md, err := s.build()
+	if err != nil {
+		return nil, err
+	}
+	d := &Draft{Title: s.Title, Markdown: md, Replaces: s.Existing}
+	for _, name := range preserve {
+		if !slices.Contains(found, name) {
+			d.NotPreserved = append(d.NotPreserved, name)
+		}
+	}
+	return d, nil
 }
 
-func (s *Session) build() string {
+func (s *Session) build() (string, error) {
 	doc := document.DeployDoc{
 		IssueKey:     s.Issue.Key,
 		IssueSummary: s.Issue.Summary,
@@ -269,7 +318,7 @@ func (s *Session) build() string {
 		doc.FrontendCommit = s.Frontend.Hashes[0]
 		doc.FrontendFiles = s.Frontend.Files
 	}
-	return document.DeployMarkdown(doc)
+	return document.Deploy(s.Target.template(), doc)
 }
 
 // Locations are candidate siblings: a new document goes under the picked one's parent.
@@ -284,7 +333,7 @@ type Locations struct {
 // Locations lists recent deploy documents, the user's own first choice.
 func (s *Session) Locations(ctx context.Context) (*Locations, error) {
 	loc := &Locations{}
-	q := provider.LocationQuery{TitlePrefix: document.DeployTitlePrefix}
+	q := provider.LocationQuery{TitlePrefix: s.Target.template().Manifest.Prefix}
 	if me, err := s.tracker.Me(ctx); err == nil {
 		q.AuthorID = me.ID
 	} else {
@@ -320,7 +369,7 @@ func (s *Session) Publish(ctx context.Context, d *Draft, sibling *provider.DocRe
 	var err error
 	res := &Result{}
 
-	doc := provider.Document{Title: d.Title, Markdown: d.Markdown, Preserve: []string{document.ConsiderHeading}}
+	doc := provider.Document{Title: d.Title, Markdown: d.Markdown, Preserve: s.Target.template().Manifest.Preserve}
 	if d.Replaces != nil {
 		page, err = s.docs.Update(ctx, *d.Replaces, doc)
 		res.Updated = true

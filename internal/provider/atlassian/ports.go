@@ -45,6 +45,7 @@ func NewQATracker(c *Client, q *config.QAJiraConfig) *QATracker {
 		Project:           q.Project,
 		Statuses:          q.Statuses,
 		TestingStatus:     testing,
+		ObservationMarker: q.Marker(),
 		FieldCodingErrors: q.Fields.CodingErrors,
 		FieldDevReturns:   q.Fields.DevReturns,
 		FieldDevStatus:    q.Fields.DevStatus,
@@ -93,7 +94,7 @@ func (t *QATracker) HasDocumentLink(ctx context.Context, issueKey, prefix string
 }
 
 func (t *QATracker) Observations(ctx context.Context, issueKey string) (string, error) {
-	return t.c.GetNovedadComment(ctx, issueKey)
+	return t.c.GetObservations(ctx, issueKey, t.schema.ObservationMarker)
 }
 
 func (d *DocStore) FindByTitle(ctx context.Context, title string) (*provider.DocRef, error) {
