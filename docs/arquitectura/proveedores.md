@@ -117,19 +117,27 @@ type ChangeSource interface {
 enlaces, listas, listas de tareas (`- [ ]`) y tablas. `draco template validate`
 avisa lo que un destino no soporta.
 
-**Lo que Markdown no expresa y hoy está en el ADF**, con cómo lo recupera el
-adaptador de Confluence:
+**Conversión a ADF** (`atlassian.MarkdownToADF`, actividad 4a). Lo que Markdown
+no expresa y el documento necesita, con la convención que lo recupera
+(aprobadas por el autor):
 
-| Hoy en ADF | Recuperación |
-|---|---|
-| Tarjeta de enlace (inlineCard) a un issue | Un enlace cuyo texto es la propia URL se convierte en tarjeta |
-| Emoji ✔ / ✖ de los controles QA | `✔`/`✖` en el Markdown se mapean al emoji de Confluence |
-| Ancho de tablas y columnas | Valores por defecto del adaptador (configurables por plantilla en el manifiesto) |
-| Texto gris en cursiva de los marcadores | Se pierde: queda en cursiva normal |
+| Necesidad | Convención en el Markdown | En Confluence |
+|---|---|---|
+| Tarjeta de enlace a un issue | Enlace cuyo texto es la URL, o `<https://…>` | inlineCard |
+| Emoji ✔ / ✖ de los controles QA | `✔` / `✖` | Emoji de Confluence |
+| Tabla clave/valor sin fila de encabezado | Fila de encabezado con todas las celdas vacías | Se omite la fila |
+| Primera columna resaltada | Celda cuyo contenido completo está en **negrita** | Celda de encabezado, sin la marca |
+| Varias líneas en una celda | `<br>` | Salto de línea |
+| Ancho de tablas | — | Todas a todo el ancho, columnas automáticas (anchos por plantilla en la actividad 5) |
+
+Se pierden, aceptado: las viñetas dentro de celdas (pasan a líneas), las
+casillas dentro de una tabla (van debajo del título), el gris de los
+marcadores y los anchos de columna fijos. Cualquier otro HTML queda como
+texto literal, nunca se interpreta.
 
 Por eso el criterio de «documento idéntico» aplica al pasar a puertos, cuando
 el builder no cambia; desde el paso a Markdown el criterio es **contenido
-equivalente**, con las diferencias de esta tabla aceptadas.
+equivalente**, con estas diferencias aceptadas.
 
 ## 6. Secciones escritas a mano
 
