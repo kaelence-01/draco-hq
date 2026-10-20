@@ -80,21 +80,20 @@ de Windows (`cmd`) se ve más limitado.
   - `KanbanWindow(now)` recibe la fecha; se quitaron `FindQAPage` y
     `FindQAKanbanPage`, que repetían el formato del título (el flujo usa
     `FindPageByTitle` con `document.BuildQA*Title`).
+- **Flujo de exportar** en `internal/fetch`: `Resolve`, `Search` (`ErrNoPages`)
+  y `Export` (texto con `BuildIssueTxt`, nombre de archivo propuesto,
+  `Export.Save`). El nombre translitera tildes y eñes en vez de borrarlas.
 
 ### Fase 2 — siguiente
 
-1. **Flujo de exportar** (`internal/fetch`), a partir de `cmd/fetch.go`: buscar
-   páginas que mencionen el issue (`FindPagesByText`), elegir una, convertirla
-   (`GetPageWithContent` + `BuildIssueTxt`) y proponer el nombre de archivo
-   (`sanitizeFilename`). El diálogo nativo para guardar es de la UI, no del flujo.
-2. **Proyectos y configuración** como funciones puras: agregar, quitar, cambiar
+1. **Proyectos y configuración** como funciones puras: agregar, quitar, cambiar
    el default y guardar (`config.Save`), para que los usen el asistente de texto
    y los formularios de la TUI.
-3. **Convenciones de texto configurables**, con sus valores actuales por
+2. **Convenciones de texto configurables**, con sus valores actuales por
    defecto: prefijo del título del documento («Documento de Despliegue»), prefijo
    de las tareas de revisión QA («Revisión de Tarea»), marcador de observaciones
    («Novedad::»), título del consolidado QA.
-4. **`internal/git`: listar commits recientes** de un repo, para el selector de
+3. **`internal/git`: listar commits recientes** de un repo, para el selector de
    commits de la TUI.
 
 ### Fase 3 — modo comando
@@ -106,6 +105,8 @@ de Windows (`cmd`) se ve más limitado.
   `backlog scan`, `update`, `version`, `help`. Mismos flags que gtt.
 - `draco` sin argumentos: en una terminal interactiva abrirá la TUI (fase 4);
   sin TTY muestra la ayuda.
+- `fetch`: portar de gtt los diálogos nativos para guardar (zenity,
+  PowerShell también desde WSL, osascript), con la carpeta actual como respaldo.
 - Portar y adaptar de gtt: `installer` (auto-instalación al primer uso, PATH en
   Windows), `updater` (GitHub Releases de este repo, verificación SHA-256,
   aviso cacheado cada 24 h, variable `DRACO_NO_UPDATE_CHECK`), `build` (versión
