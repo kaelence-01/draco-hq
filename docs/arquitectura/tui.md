@@ -5,8 +5,9 @@ de la terminal: menús, listas, formularios y vista previa. Es otra forma de
 recorrer **los mismos flujos** que el modo comando; no tiene lógica propia de
 negocio.
 
-Estado: **diseño** (roadmap, fase 4). Se actualiza al implementar cada
-actividad.
+Estado: **en implementación** (roadmap, fase 4). Implementado: la base
+(entrada, marco, pila de pantallas, pantalla principal). Se actualiza al
+implementar cada actividad.
 
 ## 1. Alcance por fase
 
@@ -74,13 +75,15 @@ que los tests de la TUI usan los mismos dobles:
 
 ```go
 type Deps struct {
-    LoadConfig  func() (*config.Config, error)                                 // config.LoadLocal
-    LoadFile    func() (*config.Config, error)                                 // para guardar
-    SaveConfig  func(*config.Config) error
-    OpenProfile func(*config.Config, profile.Options) (*profile.Bundle, error)
-    Version     string
+    LoadConfig  func() (*config.Config, error)                                 // config.LoadLocal (base)
+    Version     string                                                         // base
+    LoadFile    func() (*config.Config, error)                                 // para guardar (Proyectos)
+    SaveConfig  func(*config.Config) error                                     // Proyectos
+    OpenProfile func(*config.Config, profile.Options) (*profile.Bundle, error) // Generar
 }
 ```
+
+Cada campo llega con la primera pantalla que lo usa.
 
 Igual que el modo comando, la TUI arma los adaptadores con `profile.Open` y
 habla con los flujos; nunca con un adaptador.

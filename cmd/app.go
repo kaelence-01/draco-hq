@@ -32,14 +32,17 @@ type App struct {
 	// when In is not a terminal.
 	secretFd int
 	// tty means a person at a terminal (input and output): only then draco
-	// offers to install itself or prints the new-version notice.
+	// opens the visual mode, offers to install itself or prints the
+	// new-version notice.
 	tty bool
+	// rawIn is In without the buffer, for the visual mode's raw terminal.
+	rawIn io.Reader
 }
 
 // New returns an App; color is on only when out is a terminal and NO_COLOR is
 // unset, so pipes, files and CI logs never get escape codes.
 func New(in io.Reader, out, err io.Writer) *App {
-	a := &App{In: bufio.NewReader(in), Out: out, Err: err, color: isTerminal(out) && os.Getenv("NO_COLOR") == "", secretFd: -1}
+	a := &App{In: bufio.NewReader(in), Out: out, Err: err, color: isTerminal(out) && os.Getenv("NO_COLOR") == "", secretFd: -1, rawIn: in}
 	if f, ok := in.(*os.File); ok && term.IsTerminal(int(f.Fd())) {
 		a.secretFd = int(f.Fd())
 	}
@@ -153,7 +156,13 @@ func usageError(format string, args ...any) error {
 // Run executes the command line and returns the exit code.
 func (a *App) Run(args []string) int {
 	if len(args) == 0 {
-		// The visual mode (phase 4) will open here on an interactive terminal.
+		if a.tty {
+			if err := runTUI(a); err != nil {
+				a.errorf("%v", err)
+				return exitError
+			}
+			return exitOK
+		}
 		a.usage()
 		return exitOK
 	}

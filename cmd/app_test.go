@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"errors"
 	"strings"
 	"testing"
 )
@@ -79,5 +80,29 @@ func TestNoColorOutsideATerminal(t *testing.T) {
 	_, out, errOut := run("nada")
 	if strings.Contains(out+errOut, "\033[") {
 		t.Errorf("sin terminal no debe haber códigos de color: %q", out+errOut)
+	}
+}
+
+func TestNoArgumentsOpensTheVisualModeOnlyOnATerminal(t *testing.T) {
+	prev := runTUI
+	t.Cleanup(func() { runTUI = prev })
+	opened := 0
+	runTUI = func(*App) error { opened++; return nil }
+
+	if code, out, _ := run(); code != exitOK || !strings.Contains(out, "Uso:") || opened != 0 {
+		t.Errorf("sin terminal: código %d, TUI abierta %d veces\n%s", code, opened, out)
+	}
+
+	var o, e bytes.Buffer
+	a := New(strings.NewReader(""), &o, &e)
+	a.tty = true
+	if code := a.Run(nil); code != exitOK || opened != 1 || o.Len() != 0 {
+		t.Errorf("en una terminal: código %d, TUI abierta %d veces, salida %q", code, opened, o.String())
+	}
+
+	runTUI = func(*App) error { return errors.New("la terminal no responde") }
+	e.Reset()
+	if code := a.Run(nil); code != exitError || !strings.Contains(e.String(), "la terminal no responde") {
+		t.Errorf("un error de la TUI sale con 1: código %d, %q", code, e.String())
 	}
 }
