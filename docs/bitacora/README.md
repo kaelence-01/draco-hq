@@ -21,6 +21,7 @@ La historia y el porqué de cada decisión van aquí, no en comentarios del cód
 | [009](./009-puertos-qa.md) | QA y cambios sobre puertos (3b) | `feature/puertos-qa` | 2026-10-19 | 2 | `QATracker`, `ChangeSource` con commits recientes, convenciones al flujo; ningún flujo importa un adaptador |
 | [010](./010-markdown-adf.md) | Conversor Markdown → ADF (4a) | `feature/markdown-adf` | 2026-10-19 | 2 | `goldmark` con las convenciones aprobadas; tests, golden y fuzzing; nada publicado cambia |
 | [011](./011-markdown.md) | Documentos en Markdown y preservación en el adaptador (4b) | `feature/markdown` | 2026-10-19 | 2 | `document` genera Markdown escapado; `Document.Preserve` y `Sections`; goldens en `.md` |
+| [012](./012-makefile.md) | Makefile para el día a día | `feature/makefile` | 2026-10-19 | 2 | `make start/sync/push/pr/finish`, tests y goldens con opciones por variables |
 
 ## Formato de cada entrada
 
