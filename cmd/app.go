@@ -31,6 +31,9 @@ type App struct {
 	// secretFd is the terminal behind In, read without echo for tokens; -1
 	// when In is not a terminal.
 	secretFd int
+	// tty means a person at a terminal (input and output): only then draco
+	// offers to install itself or prints the new-version notice.
+	tty bool
 }
 
 // New returns an App; color is on only when out is a terminal and NO_COLOR is
@@ -40,6 +43,7 @@ func New(in io.Reader, out, err io.Writer) *App {
 	if f, ok := in.(*os.File); ok && term.IsTerminal(int(f.Fd())) {
 		a.secretFd = int(f.Fd())
 	}
+	a.tty = a.secretFd >= 0 && isTerminal(out)
 	return a
 }
 

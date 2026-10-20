@@ -57,11 +57,17 @@ instalada los colaboradores y el CI.
 ## Arquitectura
 
 ```
-main.go        Entrada: cmd.New(os.Stdout, os.Stderr).Run(os.Args[1:])
+main.go        Entrada: cmd.New(os.Stdin, os.Stdout, os.Stderr).Start(os.Args[1:])
+               (Start = Run + oferta de instalación y aviso de versión nueva,
+               solo en una terminal)
 cmd/           Modo comando: router de mapa, flags por comando, ayuda en dos
                niveles, códigos de salida (0 ok, 1 error, 2 uso)
 internal/
   build/       Versión (ldflags)
+  installer/   Instalación en el primer uso: copia a ~/.local/bin o
+               %LOCALAPPDATA%\Programs\draco y agrega la carpeta al PATH
+  updater/     Releases de GitHub: última versión, descarga verificada con
+               checksums.txt (P-006), reemplazo del ejecutable, caché del aviso
   provider/    Modelo neutro y puertos (Tracker, QATracker, DocStore,
                ChangeSource)
     atlassian/ Adaptador: cliente HTTP (Basic Auth) + Jira v3 + Confluence
@@ -84,8 +90,8 @@ docs/
   security/patrones-seguros.md   Patrones P-001..P-008 (autoridad en seguridad)
 ```
 
-Planeado (ver roadmap): el resto de los comandos en `cmd/`, `internal/tui/`
-(modo visual), `internal/installer` e `internal/updater`.
+Planeado (ver roadmap): `internal/tui/` (modo visual) y el proceso de release
+(objetivos del Makefile y `checksums.txt`).
 
 ### El patrón de los flujos: preparar → revisar → publicar
 
@@ -169,7 +175,8 @@ Cada flujo vive en su propio paquete (`internal/deploy` es la referencia) y
 - Un comando recorre los pasos de su flujo y pregunta por texto donde el flujo
   deja la decisión al usuario; nunca reimplementa lógica del flujo.
 - Los tests de comandos no tocan la red ni el sistema: `loadConfig`,
-  `openProfile`, `saveDialog`, `now` y `scanRepo` son variables del paquete
+  `openProfile`, `saveDialog`, `now`, `scanRepo`, `newUpdater`, `executable`
+  e `installDir` son variables del paquete
   que los tests reemplazan (config en memoria, tracker y git simulados, adaptador Markdown
   real en una carpeta temporal). El diálogo nativo de guardar nunca se abre en
   un test: en WSL abriría una ventana de Windows.
@@ -178,10 +185,10 @@ Cada flujo vive en su propio paquete (`internal/deploy` es la referencia) y
 
 Hoy: `gopkg.in/yaml.v3`, `github.com/yuin/goldmark` (Markdown → formato de cada
 destino; solo en los adaptadores) y `golang.org/x/term` (leer el token sin
-mostrarlo en `draco init`; trae `golang.org/x/sys`). Están aprobadas para la TUI
-las librerías de Charm (Bubble Tea, Bubbles, Lip Gloss, Huh), y `golang.org/x/sys`
-directo cuando se porte el instalador de Windows. Cualquier otra se justifica
-antes de agregarla. El router de comandos es un mapa de nombre a comando, como
+mostrarlo en `draco init`) y `golang.org/x/sys` (el PATH de Windows en el
+registro, en el instalador). Están aprobadas para la TUI las librerías de Charm
+(Bubble Tea, Bubbles, Lip Gloss, Huh). Cualquier otra se justifica antes de
+agregarla. El router de comandos es un mapa de nombre a comando, como
 en gtt, sin Cobra.
 
 ## Idioma
