@@ -1,3 +1,5 @@
+// Package document builds draco's documents as Markdown; each destination
+// adapter converts it to its own format.
 package document
 
 import (
@@ -20,48 +22,46 @@ type DeployDoc struct {
 	FrontendCommit string
 	FrontendFiles  map[string][]string // dir -> []filename
 
-	// PreservedConsider, when set, replaces the checklist verbatim on update.
-	PreservedConsider []any
-
 	// Checklist comes from config; empty means defaultChecklist.
 	Checklist []string
 }
 
-// Build builds the ADF of the deploy document.
-func Build(doc DeployDoc) map[string]any {
-	content := []any{}
-
-	content = append(content, headerTable(doc.IssueKey, doc.IssueURL))
-
-	content = append(content, heading(2, "Arquitecturas e interfaces"))
-
-	if len(doc.FrontendFiles) > 0 {
-		content = append(content, heading(3, "Proyectos y formularios - Frontend:"))
-		content = append(content, filesTable(doc.FrontendRepo, doc.FrontendCommit, doc.FrontendFiles, doc.VCSHost, doc.VCSOrg))
-	}
-
-	if len(doc.BackendFiles) > 0 {
-		content = append(content, heading(3, "Proyectos y formularios - Backend:"))
-		content = append(content, filesTable(doc.BackendRepo, doc.BackendCommit, doc.BackendFiles, doc.VCSHost, doc.VCSOrg))
-	}
-
-	// The heading is always ours: it is the anchor ExtractSection looks for.
-	content = append(content, heading(2, ConsiderHeading+":"))
-	if len(doc.PreservedConsider) > 0 {
-		content = append(content, doc.PreservedConsider...)
-	} else {
-		content = append(content, considerTable(doc.Checklist))
-	}
-
-	return map[string]any{
-		"type":    "doc",
-		"version": 1,
-		"content": content,
-	}
-}
+// ConsiderHeading opens the section of the deploy document the deployment team
+// edits by hand; the destination keeps it on update.
+const ConsiderHeading = "A considerar"
 
 // DeployTitlePrefix starts every deploy document title; searches rely on it.
 const DeployTitlePrefix = "Documento de Despliegue"
+
+// DeployMarkdown builds the deploy document.
+func DeployMarkdown(doc DeployDoc) string {
+	var b strings.Builder
+	b.WriteString("|  |  |\n|---|---|\n")
+	b.WriteString("| **Épica** | _Enlace a épica o función de Jira relacionada_ |\n")
+	fmt.Fprintf(&b, "| **Tarea(s)** | %s |\n\n", card(doc.IssueURL))
+
+	b.WriteString("## Arquitecturas e interfaces\n\n")
+	if len(doc.FrontendFiles) > 0 {
+		b.WriteString("### Proyectos y formularios - Frontend:\n\n")
+		filesTable(&b, doc.FrontendRepo, doc.FrontendCommit, doc.FrontendFiles, doc.VCSHost, doc.VCSOrg)
+	}
+	if len(doc.BackendFiles) > 0 {
+		b.WriteString("### Proyectos y formularios - Backend:\n\n")
+		filesTable(&b, doc.BackendRepo, doc.BackendCommit, doc.BackendFiles, doc.VCSHost, doc.VCSOrg)
+	}
+
+	fmt.Fprintf(&b, "## %s:\n\n", ConsiderHeading)
+	checklist := doc.Checklist
+	if len(checklist) == 0 {
+		checklist = defaultChecklist
+	}
+	for _, step := range checklist {
+		if step = strings.TrimSpace(step); step != "" {
+			fmt.Fprintf(&b, "- [ ] %s\n", mdText(step))
+		}
+	}
+	return b.String()
+}
 
 // BuildTitle builds the page title, replacing characters Confluence rejects.
 func BuildTitle(issueKey, summary string) string {
@@ -76,28 +76,16 @@ func BuildTitle(issueKey, summary string) string {
 	return fmt.Sprintf("%s - %s - %s", DeployTitlePrefix, issueKey, sanitized)
 }
 
-func headerTable(issueKey, issueURL string) map[string]any {
-	return table("default", 1800, []any{
-		tableRow([]any{
-			tableHeader(63, textNode("Épica")),
-			tableCell(697, italicGrayText("Enlace a épica o función de Jira relacionada")),
-		}),
-		tableRow([]any{
-			tableHeader(63, textNode("Tarea(s)")),
-			tableCell(697, inlineCard(issueURL)),
-		}),
-	})
-}
+func filesTable(b *strings.Builder, repoName, commitHash string, files map[string][]string, vcsHost, vcsOrg string) {
+	b.WriteString("| Servidor | Aplicación web | Ubicación | Nombre del archivo | Observación |\n|---|---|---|---|---|\n")
 
-func filesTable(repoName, commitHash string, files map[string][]string, vcsHost, vcsOrg string) map[string]any {
-	rows := []any{
-		tableRow([]any{
-			tableCell(69, textNode("Servidor")),
-			tableCell(175, textNode("Aplicación web")),
-			tableCell(176, textNode("Ubicación")),
-			tableCell(188, textNode("Nombre del archivo")),
-			tableCell(152, textNode("Observación")),
-		}),
+	var repoURL string
+	if vcsHost != "" && vcsOrg != "" {
+		repoURL = fmt.Sprintf("%s/%s/%s", vcsHost, vcsOrg, repoName)
+	}
+	server := mdText(repoName)
+	if repoURL != "" {
+		server = link(repoName, repoURL)
 	}
 
 	dirs := make([]string, 0, len(files))
@@ -106,46 +94,24 @@ func filesTable(repoName, commitHash string, files map[string][]string, vcsHost,
 	}
 	sort.Strings(dirs)
 
-	var repoURL string
-	if vcsHost != "" && vcsOrg != "" {
-		repoURL = fmt.Sprintf("%s/%s/%s", vcsHost, vcsOrg, repoName)
-	}
-
 	for _, dir := range dirs {
-		fileNames := files[dir]
-
-		var serverCell map[string]any
-		if repoURL != "" {
-			serverCell = tableCell(69, linkNode(repoURL, repoName))
-		} else {
-			serverCell = tableCell(69, textNode(repoName))
-		}
-
-		fileItems := []any{}
-		linkItems := []any{}
-		for _, fname := range fileNames {
-			filePath := dir + "/" + fname
+		names := make([]string, 0, len(files[dir]))
+		links := make([]string, 0, len(files[dir]))
+		for _, name := range files[dir] {
+			path := dir + "/" + name
 			if dir == "." {
-				filePath = fname
+				path = name
 			}
-			fileItems = append(fileItems, bulletItem(textNode(fname)))
-			if commitURL := commitFileURL(vcsHost, repoURL, commitHash, filePath); commitURL != "" {
-				linkItems = append(linkItems, bulletItem(linkText("link", commitURL)))
+			names = append(names, mdText(name))
+			if u := commitFileURL(vcsHost, repoURL, commitHash, path); u != "" {
+				links = append(links, link("link", u))
 			} else {
-				linkItems = append(linkItems, bulletItem(textNode("—")))
+				links = append(links, "—")
 			}
 		}
-
-		rows = append(rows, tableRow([]any{
-			serverCell,
-			tableCell(175, textNode(repoName)),
-			tableCell(176, textNode(dir)),
-			tableCellWithList(188, fileItems),
-			tableCellWithList(152, linkItems),
-		}))
+		fmt.Fprintf(b, "| %s | %s | %s | %s | %s |\n", server, mdText(repoName), mdText(dir), strings.Join(names, "<br>"), strings.Join(links, "<br>"))
 	}
-
-	return table("default", 1800, rows)
+	b.WriteString("\n")
 }
 
 // commitFileURL links a file inside a commit, or "" for an unknown host (no
@@ -173,151 +139,4 @@ var defaultChecklist = []string{
 	"Pasar backend al servidor",
 	"Ejecutar migraciones",
 	"Pasar frontend",
-}
-
-func considerTable(checklist []string) map[string]any {
-	if len(checklist) == 0 {
-		checklist = defaultChecklist
-	}
-
-	tasks := make([]any, 0, len(checklist))
-	for i, step := range checklist {
-		if step = strings.TrimSpace(step); step != "" {
-			tasks = append(tasks, taskItem(step, i))
-		}
-	}
-
-	return table("default", 1800, []any{
-		tableRow([]any{
-			map[string]any{
-				"type":  "tableCell",
-				"attrs": map[string]any{},
-				"content": []any{
-					map[string]any{
-						"type":    "taskList",
-						"attrs":   map[string]any{"localId": "tasklist-1"},
-						"content": tasks,
-					},
-				},
-			},
-		}),
-	})
-}
-
-func heading(level int, text string) map[string]any {
-	return map[string]any{
-		"type":    "heading",
-		"attrs":   map[string]any{"level": level},
-		"content": []any{textNode(text)},
-	}
-}
-
-func table(layout string, width int, rows []any) map[string]any {
-	return map[string]any{
-		"type":    "table",
-		"attrs":   map[string]any{"layout": layout, "width": width},
-		"content": rows,
-	}
-}
-
-func tableRow(cells []any) map[string]any {
-	return map[string]any{"type": "tableRow", "content": cells}
-}
-
-func tableHeader(colwidth int, content map[string]any) map[string]any {
-	return map[string]any{
-		"type":    "tableHeader",
-		"attrs":   map[string]any{"colwidth": []int{colwidth}},
-		"content": []any{paragraph(content)},
-	}
-}
-
-func tableCell(colwidth int, content map[string]any) map[string]any {
-	return map[string]any{
-		"type":    "tableCell",
-		"attrs":   map[string]any{"colwidth": []int{colwidth}},
-		"content": []any{paragraph(content)},
-	}
-}
-
-func tableCellWithList(colwidth int, items []any) map[string]any {
-	return map[string]any{
-		"type":  "tableCell",
-		"attrs": map[string]any{"colwidth": []int{colwidth}},
-		"content": []any{
-			map[string]any{"type": "bulletList", "content": items},
-		},
-	}
-}
-
-func paragraph(content map[string]any) map[string]any {
-	return map[string]any{
-		"type":    "paragraph",
-		"content": []any{content},
-	}
-}
-
-func emptyParagraph() map[string]any {
-	return map[string]any{"type": "paragraph"}
-}
-
-func textNode(text string) map[string]any {
-	return map[string]any{"type": "text", "text": text}
-}
-
-func italicGrayText(text string) map[string]any {
-	return map[string]any{
-		"type": "text",
-		"text": text,
-		"marks": []any{
-			map[string]any{"type": "em"},
-			map[string]any{
-				"type":  "textColor",
-				"attrs": map[string]any{"color": "#97a0af"},
-			},
-		},
-	}
-}
-
-func linkNode(href, text string) map[string]any {
-	return map[string]any{
-		"type": "text",
-		"text": text,
-		"marks": []any{
-			map[string]any{
-				"type":  "link",
-				"attrs": map[string]any{"href": href},
-			},
-		},
-	}
-}
-
-func linkText(label, href string) map[string]any {
-	return linkNode(href, label)
-}
-
-func inlineCard(url string) map[string]any {
-	return map[string]any{
-		"type":  "inlineCard",
-		"attrs": map[string]any{"url": url},
-	}
-}
-
-func bulletItem(content map[string]any) map[string]any {
-	return map[string]any{
-		"type":    "listItem",
-		"content": []any{paragraph(content)},
-	}
-}
-
-// taskItem uses a positional localId: the text comes from config and can be anything.
-func taskItem(text string, idx int) map[string]any {
-	return map[string]any{
-		"type": "taskItem",
-		"attrs": map[string]any{
-			"state":   "TODO",
-			"localId": fmt.Sprintf("task-%d", idx+1),
-		},
-		"content": []any{textNode(text)},
-	}
 }

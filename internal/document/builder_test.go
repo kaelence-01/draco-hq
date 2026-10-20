@@ -4,6 +4,14 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/yuin/goldmark"
+	gast "github.com/yuin/goldmark/ast"
+	"github.com/yuin/goldmark/extension"
+	east "github.com/yuin/goldmark/extension/ast"
+	"github.com/yuin/goldmark/text"
+
+	"github.com/kaelence-01/draco-hq/internal/provider"
 )
 
 func TestBuildTitleSanitizesCharactersConfluenceRejects(t *testing.T) {
@@ -12,19 +20,19 @@ func TestBuildTitleSanitizesCharactersConfluenceRejects(t *testing.T) {
 	}{
 		{
 			"Modal para Acción y Validaciones",
-			"Documento de Despliegue - APP-1999 - Modal para Acción y Validaciones",
+			"Documento de Despliegue - OPS-1999 - Modal para Acción y Validaciones",
 		},
 		{
 			"Ajuste FAC/Pagos: revisión [urgente] | v2",
-			"Documento de Despliegue - APP-1999 - Ajuste FAC-Pagos- revisión (urgente) - v2",
+			"Documento de Despliegue - OPS-1999 - Ajuste FAC-Pagos- revisión (urgente) - v2",
 		},
 		{
 			"   espacios alrededor   ",
-			"Documento de Despliegue - APP-1999 - espacios alrededor",
+			"Documento de Despliegue - OPS-1999 - espacios alrededor",
 		},
 	}
 	for _, c := range cases {
-		if got := BuildTitle("APP-1999", c.summary); got != c.want {
+		if got := BuildTitle("OPS-1999", c.summary); got != c.want {
 			t.Errorf("BuildTitle(%q)\n  = %q\n  esperaba %q", c.summary, got, c.want)
 		}
 	}
@@ -32,7 +40,7 @@ func TestBuildTitleSanitizesCharactersConfluenceRejects(t *testing.T) {
 
 func TestBuildTitleUsesThePrefixSearchesRelyOn(t *testing.T) {
 	// FindLastDeployDoc filters by this prefix; without it the location picker is empty.
-	if got := BuildTitle("APP-1", "x"); !strings.HasPrefix(got, "Documento de Despliegue") {
+	if got := BuildTitle("OPS-1", "x"); !strings.HasPrefix(got, "Documento de Despliegue") {
 		t.Errorf("el título perdió el prefijo esperado: %q", got)
 	}
 }
@@ -88,70 +96,32 @@ func TestCommitFileURLNeedsRepoAndCommit(t *testing.T) {
 	}
 }
 
-func TestBuildOmitsEmptySides(t *testing.T) {
-	adf := Build(DeployDoc{
-		IssueKey:     "APP-1999",
+func TestDeployMarkdownOmitsEmptySides(t *testing.T) {
+	md := DeployMarkdown(DeployDoc{
+		IssueKey:     "OPS-1999",
 		BackendRepo:  "pagos-api",
 		BackendFiles: map[string][]string{"app": {"Fac.php"}},
 	})
-
-	content, ok := adf["content"].([]any)
-	if !ok {
-		t.Fatal("el documento no tiene content")
+	if strings.Contains(md, "Frontend:") {
+		t.Errorf("sin archivos de frontend no debe haber sección de Frontend:\n%s", md)
 	}
-	var headings []string
-	for _, raw := range content {
-		node, ok := raw.(map[string]any)
-		if !ok || node["type"] != "heading" {
-			continue
-		}
-		headings = append(headings, nodeText(node))
-	}
-	joined := strings.Join(headings, " | ")
-	if strings.Contains(joined, "Frontend") {
-		t.Errorf("sin archivos de frontend no debe haber encabezado de Frontend: %s", joined)
-	}
-	if !strings.Contains(joined, "Backend") {
-		t.Errorf("faltó el encabezado de Backend: %s", joined)
+	if !strings.Contains(md, "### Proyectos y formularios - Backend:") {
+		t.Errorf("faltó la sección de Backend:\n%s", md)
 	}
 }
 
-func checklistTexts(t *testing.T, adf map[string]any) []string {
-	t.Helper()
-	nodes := ExtractSection(adf, ConsiderHeading)
-	if len(nodes) == 0 {
-		t.Fatal("no se encontró la sección A considerar")
-	}
+func checklist(md string) []string {
 	var out []string
-	var walk func(any)
-	walk = func(raw any) {
-		node, ok := raw.(map[string]any)
-		if !ok {
-			return
+	for _, line := range strings.Split(md, "\n") {
+		if step, ok := strings.CutPrefix(line, "- [ ] "); ok {
+			out = append(out, step)
 		}
-		if node["type"] == "taskItem" {
-			out = append(out, nodeText(node))
-			return
-		}
-		if content, ok := node["content"].([]any); ok {
-			for _, child := range content {
-				walk(child)
-			}
-		}
-	}
-	for _, n := range nodes {
-		walk(n)
 	}
 	return out
 }
 
 func TestChecklistComesFromConfig(t *testing.T) {
-	adf := Build(DeployDoc{
-		IssueKey:  "APP-1999",
-		Checklist: []string{"Pasar API", "php artisan migrate --force", "Invalidar CDN"},
-	})
-
-	got := checklistTexts(t, adf)
+	got := checklist(DeployMarkdown(DeployDoc{Checklist: []string{"Pasar API", "php artisan migrate --force", "Invalidar CDN"}}))
 	want := []string{"Pasar API", "php artisan migrate --force", "Invalidar CDN"}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("checklist = %#v, esperaba %#v", got, want)
@@ -159,12 +129,10 @@ func TestChecklistComesFromConfig(t *testing.T) {
 }
 
 func TestChecklistFallsBackToGenericDefault(t *testing.T) {
-	got := checklistTexts(t, Build(DeployDoc{IssueKey: "APP-1999"}))
-
+	got := checklist(DeployMarkdown(DeployDoc{}))
 	if !reflect.DeepEqual(got, defaultChecklist) {
 		t.Errorf("checklist = %#v, esperaba el default %#v", got, defaultChecklist)
 	}
-	// No step tied to one stack (Laravel here) in the default.
 	for _, step := range got {
 		if strings.Contains(step, "artisan") {
 			t.Errorf("el default no debe asumir un stack: %q", step)
@@ -173,51 +141,67 @@ func TestChecklistFallsBackToGenericDefault(t *testing.T) {
 }
 
 func TestChecklistSkipsBlankSteps(t *testing.T) {
-	adf := Build(DeployDoc{
-		IssueKey:  "APP-1999",
-		Checklist: []string{"Pasar API", "   ", "", "Invalidar CDN"},
-	})
-
-	got := checklistTexts(t, adf)
-	if len(got) != 2 {
-		t.Errorf("esperaba 2 pasos, obtuve %d: %#v", len(got), got)
+	if got := checklist(DeployMarkdown(DeployDoc{Checklist: []string{"Pasar API", "   ", "", "Invalidar CDN"}})); len(got) != 2 {
+		t.Errorf("esperaba 2 pasos, obtuve %#v", got)
 	}
 }
 
-func TestTaskItemLocalIdsAreUnique(t *testing.T) {
-	adf := Build(DeployDoc{
-		IssueKey:  "APP-1999",
-		Checklist: []string{"Mismo paso", "Mismo paso", "Mismo paso"},
-	})
+func TestMDTextEscapesMarkup(t *testing.T) {
+	if got := mdText("a|b *c* <x> [d](e) &amp;\nfin"); got != `a\|b \*c\* \<x\> \[d\](e) \&amp; fin` {
+		t.Errorf("mdText = %q", got)
+	}
+}
 
-	nodes := ExtractSection(adf, ConsiderHeading)
-	seen := map[string]bool{}
-	var walk func(any)
-	walk = func(raw any) {
-		node, ok := raw.(map[string]any)
-		if !ok {
-			return
+// cells counts the cells of every table row, as goldmark parses them.
+func cells(t *testing.T, md string) []int {
+	t.Helper()
+	src := []byte(md)
+	doc := goldmark.New(goldmark.WithExtensions(extension.Table)).Parser().Parse(text.NewReader(src))
+	var out []int
+	_ = gast.Walk(doc, func(n gast.Node, entering bool) (gast.WalkStatus, error) {
+		if entering && (n.Kind() == east.KindTableRow || n.Kind() == east.KindTableHeader) {
+			out = append(out, n.ChildCount())
 		}
-		if node["type"] == "taskItem" {
-			attrs := node["attrs"].(map[string]any)
-			id := attrs["localId"].(string)
-			if seen[id] {
-				t.Errorf("localId duplicado: %q", id)
-			}
-			seen[id] = true
-			return
-		}
-		if content, ok := node["content"].([]any); ok {
-			for _, child := range content {
-				walk(child)
-			}
+		return gast.WalkContinue, nil
+	})
+	return out
+}
+
+func TestValuesCannotBreakTheFilesTable(t *testing.T) {
+	md := DeployMarkdown(DeployDoc{
+		IssueKey:     "OPS-1",
+		BackendRepo:  "pagos|api",
+		BackendFiles: map[string][]string{"app|x": {"a|b.php", "<script>.php"}},
+		VCSHost:      "https://bitbucket.org", VCSOrg: "mi-org", BackendCommit: "abc",
+	})
+	five := 0
+	for _, n := range cells(t, md) {
+		switch n {
+		case 5:
+			five++
+		case 2:
+		default:
+			t.Fatalf("una fila tiene %d celdas:\n%s", n, md)
 		}
 	}
-	for _, n := range nodes {
-		walk(n)
+	if five != 2 {
+		t.Errorf("la tabla de archivos debía tener encabezado y una fila, tiene %d filas de 5 celdas:\n%s", five, md)
 	}
-	if len(seen) != 3 {
-		t.Errorf("esperaba 3 localId distintos, obtuve %d", len(seen))
+}
+
+func TestQAMarkdownMarksAndUnknown(t *testing.T) {
+	md := QAMarkdown(QADoc{Sprint: 3, Module: "Pagos", Tasks: []provider.QAIssue{
+		{URL: "https://example.test/browse/OPS-1", HasCodingErrors: true, DeployDocUnknown: true, Observations: "monto | sin validar"},
+	}})
+	for _, want := range []string{"| ✖ | ✔ | ? | ✖ |", `monto \| sin validar`, "### Observación", "### Consideraciones", "| **Sprint** | 3 |"} {
+		if !strings.Contains(md, want) {
+			t.Errorf("falta %q en:\n%s", want, md)
+		}
+	}
+	for _, n := range cells(t, md) {
+		if n != 2 && n != 7 && n != 1 {
+			t.Errorf("fila con %d celdas:\n%s", n, md)
+		}
 	}
 }
 
