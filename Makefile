@@ -10,9 +10,12 @@ type   ?= feature
 pkg    ?= ./...
 time   ?= 20s
 BRANCH := $(shell git branch --show-current 2>/dev/null)
+# Release platforms; updater.Platforms must list the same (a test checks it).
+PLATFORMS := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64
+VERSION_PKG := github.com/kaelence-01/draco-hq/internal/build
 GOFILES = $(shell git ls-files --cached --others --exclude-standard '*.go')
 
-.PHONY: help sync start push pr finish prune build run test vet fmt lint golden fuzz check ci
+.PHONY: help sync start push pr finish prune build run test vet fmt lint golden fuzz check ci release-build release
 
 ##@ Git
 
@@ -87,9 +90,25 @@ check: ## Verificaciones antes del commit (skill cerrar-actividad)
 
 ci: lint test ## Lo que debe pasar en CI: lint + test
 
+##@ Release
+
+release-build: ## Binarios de todas las plataformas y checksums.txt en dist/: make release-build ver=v0.1.0
+	@[[ "$(ver)" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$$ ]] || { echo "ver=vMAJOR.MINOR.PATCH (ej: ver=v0.1.0)"; exit 1; }
+	@rm -rf dist && mkdir dist
+	@for p in $(PLATFORMS); do \
+		os=$${p%/*}; arch=$${p#*/}; out=dist/draco-$$os-$$arch; [ $$os = windows ] && out=$$out.exe; \
+		echo "  $$out"; \
+		CGO_ENABLED=0 GOOS=$$os GOARCH=$$arch go build -trimpath -ldflags "-s -w -X $(VERSION_PKG).Version=$(ver)" -o $$out . || exit 1; \
+	done
+	@cd dist && { if command -v sha256sum >/dev/null; then sha256sum draco-*; else shasum -a 256 draco-*; fi; } > checksums.txt
+	@echo "  dist/checksums.txt"
+
+release: ## Publica un release desde main (lo corre el autor): make release bump=patch|minor|major | ver=vX.Y.Z
+	@bash scripts/release.sh "$(bump)" "$(ver)"
+
 help: ## Muestra esta ayuda
 	@awk 'BEGIN { FS = ":.*## " } \
 	/^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } \
-	/^[a-z-]+:.*## / { printf "  \033[36m%-8s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
+	/^[a-z-]+:.*## / { printf "  \033[36m%-13s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 	@echo
-	@echo "Opciones: name= type=feature|fix|docs  pkg= run= v=1  force=1  web=1  time=  args="
+	@echo "Opciones: name= type=feature|fix|docs  pkg= run= v=1  force=1  web=1  time=  args=  ver=  bump="
