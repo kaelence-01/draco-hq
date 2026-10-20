@@ -45,11 +45,16 @@ make check                # verificaciones de cerrar-actividad
 make push [force=1]       # sube la rama actual (lo corre el autor: SSH)
 make pr [web=1]           # PR de la rama actual hacia develop
 make finish               # tras fusionar: develop al día y ramas fusionadas borradas
+make release-build ver=vX.Y.Z    # binarios de todas las plataformas + checksums.txt en dist/
+make release bump=patch|minor|major  # tag y GitHub Release desde main (lo corre el autor)
 ```
 
 `make sync` actualiza `develop` solo con *fast-forward*: si `develop` local se
-desvió de `origin/develop`, falla en vez de mezclar. Nunca hay objetivos que
-publiquen en `main`.
+desvió de `origin/develop`, falla en vez de mezclar. Ningún objetivo escribe
+commits en `main`: `make release` solo etiqueta `main` ya integrada, limpia e
+igual a `origin/main` (guía: `docs/release.md`). Las plataformas del release
+(`PLATFORMS` del Makefile) y `updater.Platforms` deben coincidir; un test lo
+verifica.
 
 Go: `go.mod` declara `go 1.26.1`. No cambiarlo sin verificar qué versión tienen
 instalada los colaboradores y el CI.
@@ -90,8 +95,7 @@ docs/
   security/patrones-seguros.md   Patrones P-001..P-008 (autoridad en seguridad)
 ```
 
-Planeado (ver roadmap): `internal/tui/` (modo visual) y el proceso de release
-(objetivos del Makefile y `checksums.txt`).
+Planeado (ver roadmap): `internal/tui/` (modo visual).
 
 ### El patrón de los flujos: preparar → revisar → publicar
 

@@ -5,12 +5,12 @@ despliegue** de una tarea a partir del issue y de sus commits, publica el
 **consolidado de QA** del sprint, **exporta** a texto la página de una tarea y
 detecta **deuda técnica** en tus repos. Sin IA.
 
-> **Estado: en desarrollo.** El núcleo está terminado y probado (fase 2); el
-> modo comando está en construcción (fase 3): hoy responde `help`, `version`,
-> `update`, `init`, `project`, `profile` y `template` (configuración), `g`
-> (documento de despliegue), `qa` (consolidado), `f` (exportar) y `backlog
-> scan` (deuda técnica); los que publican, con `--dry-run`.
-> Todavía no hay un binario para instalar. Ver [`docs/roadmap.md`](docs/roadmap.md).
+> **Estado: en desarrollo.** El núcleo (fase 2) y el modo comando (fase 3)
+> están terminados: `help`, `version`, `update`, `init`, `project`, `profile` y
+> `template` (configuración), `g` (documento de despliegue), `qa`
+> (consolidado), `f` (exportar) y `backlog scan` (deuda técnica); los que
+> publican, con `--dry-run`. El modo visual es la fase 4. Los binarios se
+> publican en Releases desde `v0.1.0`. Ver [`docs/roadmap.md`](docs/roadmap.md).
 
 ## Qué hace
 
@@ -20,6 +20,30 @@ detecta **deuda técnica** en tus repos. Sin IA.
 | **Consolidado QA** | La tabla de controles de cada tarea del sprint (o de los últimos 10 días hábiles en modo Kanban). Una consulta que falla se muestra como «?», nunca como un control fallido |
 | **Exportar** | El texto de la página que menciona una tarea, listo para guardar como `.txt` |
 | **Backlog técnico** | Hotspots, archivos grandes, código sin tests, TODO/FIXME y dependencias vulnerables de tus repos locales, propuestos como tareas. Sin red |
+
+## Instalación
+
+Descarga el binario de tu sistema desde
+[Releases](https://github.com/kaelence-01/draco-hq/releases/latest) junto con
+`checksums.txt`, verifícalo y ejecútalo: la primera vez ofrece instalarse
+(`~/.local/bin` o `%LOCALAPPDATA%\Programs\draco`) y agregarse al PATH.
+
+```bash
+# Linux (en macOS: draco-darwin-arm64 o -amd64 y shasum -a 256 -c)
+curl -LO https://github.com/kaelence-01/draco-hq/releases/latest/download/draco-linux-amd64
+curl -LO https://github.com/kaelence-01/draco-hq/releases/latest/download/checksums.txt
+sha256sum -c checksums.txt --ignore-missing
+chmod +x draco-linux-amd64 && ./draco-linux-amd64
+draco init                           # credenciales, perfil y primer proyecto
+```
+
+En Windows descarga `draco-windows-amd64.exe` y ábrelo; compara antes su hash
+(`Get-FileHash draco-windows-amd64.exe`) con `checksums.txt`. Los binarios no
+están firmados: Windows SmartScreen pide «Más información → Ejecutar de todas
+formas» y macOS puede pedir `xattr -d com.apple.quarantine <binario>`.
+
+Después, `draco update` instala cada versión nueva verificando su SHA-256, y
+draco avisa al usarlo cuando hay una.
 
 ## Dos formas de usarlo
 
@@ -86,8 +110,11 @@ internal/
     atlassian/ markdown/ git/   adaptadores
   profile/               arma los adaptadores según el perfil
   config/                config.yaml y variables de entorno
+  installer/ updater/    instalación en el primer uso y draco update
+scripts/release.sh       publica un release (make release)
 docs/
   roadmap.md             fases, estado y decisiones
+  release.md             cómo se publica una versión
   arquitectura/          diseño de proveedores y plantillas
   bitacora/fase-N/       una entrada por cambio, con su porqué
   security/              patrones de seguridad
