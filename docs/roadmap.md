@@ -129,7 +129,8 @@ y plantillas remotas, en ese orden según demanda (diseño, §9).
   Windows), `updater` (GitHub Releases de este repo, verificación SHA-256,
   aviso cacheado cada 24 h, variable `DRACO_NO_UPDATE_CHECK`), `build` (versión
   por ldflags).
-- Makefile y proceso de release con `checksums.txt` (P-006). Releases solo
+- Objetivos de release en el Makefile (ya existe para el día a día) y proceso
+  de release con `checksums.txt` (P-006). Releases solo
   desde `main` actualizado y con el árbol limpio.
 - Pendiente de decidir: si se porta la skill `backlog-tareas` para Claude Code
   que gtt trae embebida.

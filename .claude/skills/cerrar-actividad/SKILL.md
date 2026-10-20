@@ -16,7 +16,7 @@ description: Cierra una actividad de draco — verificaciones (build, vet, gofmt
 3. **Verificaciones.** Desde la raíz del repo:
 
    ```bash
-   bash .claude/skills/cerrar-actividad/check.sh
+   make check      # = bash .claude/skills/cerrar-actividad/check.sh
    ```
 
    Es de solo lectura. Interpreta cada línea:
@@ -44,9 +44,11 @@ description: Cierra una actividad de draco — verificaciones (build, vet, gofmt
 5. **Entregar al usuario:**
    - Resumen de lo hecho y de las verificaciones, con fallos si los hubo.
    - Push (lo hace el usuario, la sesión no tiene su llave SSH):
-     `! git push -u origin <rama>`
-   - PR: `<rama>` → **`develop`** (nunca a `main`).
-   - Después de fusionar, la siguiente actividad empieza con `nueva-actividad`.
+     `! make push` (sube la rama actual y fija su upstream).
+   - PR: `! make pr` crea el PR de la rama actual hacia **`develop`** (nunca a
+     `main`); `make pr web=1` lo abre en el navegador para editarlo.
+   - Después de fusionar: `! make finish` (develop al día y ramas fusionadas
+     borradas), y la siguiente actividad empieza con `nueva-actividad`.
 
 ## Lo que esta skill no hace
 
