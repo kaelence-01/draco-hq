@@ -37,6 +37,12 @@ Sin entradas: se hizo antes de que existiera la bitácora.
 | [015](./fase-2/015-plantillas.md) | Plantillas del documento | `feature/plantillas` | 2026-10-19 | Plantillas incluidas idénticas al documento anterior, personalizables por bloques; convenciones de QA a la config |
 | [016](./fase-2/016-perfiles.md) | Perfiles y cierre de la fase 2 | `feature/perfiles` | 2026-10-19 | `profiles` con migración en memoria, `profile.Open` arma los adaptadores; el space pasa del flujo al perfil |
 
+### Fase 3 — Modo comando
+
+| # | Actividad | Rama | Fecha | Resumen |
+|---|---|---|---|---|
+| [017](./fase-3/017-readme.md) | README y plan de la fase 3 | `docs/readme` | 2026-10-19 | README del repo; la fase 3 en 7 actividades con criterio de cierre |
+
 ## Formato de cada entrada
 
 Archivo `fase-N/NNN-<tema>.md`: `N` es la fase del roadmap, `NNN` el número
