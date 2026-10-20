@@ -7,8 +7,8 @@ detecta **deuda técnica** en tus repos. Sin IA.
 
 > **Estado: en desarrollo.** El núcleo está terminado y probado (fase 2); el
 > modo comando está en construcción (fase 3): hoy responde `help`, `version`,
-> `g` (documento de despliegue), `qa` (consolidado) y `f` (exportar), los que
-> publican con `--dry-run`.
+> `g` (documento de despliegue), `qa` (consolidado), `f` (exportar) y
+> `backlog scan` (deuda técnica); los que publican, con `--dry-run`.
 > Todavía no hay un binario para instalar. Ver [`docs/roadmap.md`](docs/roadmap.md).
 
 ## Qué hace

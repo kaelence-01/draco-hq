@@ -160,14 +160,14 @@ Cada flujo vive en su propio paquete (`internal/deploy` es la referencia) y
   `TestEveryCommandHasHelpAndSummary` exige las tres cosas.
 - Los flags se declaran por comando (`[]flag`) y se leen con `parseFlags`: un
   flag desconocido o sin valor es un error de uso (sale con 2), nunca se
-  ignora. `-h`/`--help` muestra la ayuda y **nunca ejecuta** el comando.
+  ignora; solo un flag `optional` (`-o` de `backlog scan`) puede ir sin valor. `-h`/`--help` muestra la ayuda y **nunca ejecuta** el comando.
 - Todo se escribe en `App.Out`/`App.Err` (los tests usan buffers); el color
   solo aparece en una terminal real y sin `NO_COLOR`.
 - Un comando recorre los pasos de su flujo y pregunta por texto donde el flujo
   deja la decisión al usuario; nunca reimplementa lógica del flujo.
 - Los tests de comandos no tocan la red ni el sistema: `loadConfig`,
-  `openProfile`, `saveDialog` y `now` son variables del paquete que los tests
-  reemplazan (config en memoria, tracker y git simulados, adaptador Markdown
+  `openProfile`, `saveDialog`, `now` y `scanRepo` son variables del paquete
+  que los tests reemplazan (config en memoria, tracker y git simulados, adaptador Markdown
   real en una carpeta temporal). El diálogo nativo de guardar nunca se abre en
   un test: en WSL abriría una ventana de Windows.
 

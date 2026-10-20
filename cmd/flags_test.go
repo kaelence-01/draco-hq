@@ -69,3 +69,22 @@ func TestShortFlagsArePerCommand(t *testing.T) {
 		t.Errorf("-s en generate es --space: %v", p.values)
 	}
 }
+
+func TestParseFlagsOptionalValue(t *testing.T) {
+	flags := []flag{{long: "--output", short: "-o", value: true, optional: true}, {long: "--repo", short: "-r", value: true}}
+	cases := []struct {
+		args []string
+		want string
+	}{
+		{[]string{"-o"}, ""},
+		{[]string{"-o", "-r", "web"}, ""},
+		{[]string{"-o", "r.json"}, "r.json"},
+		{[]string{"-o=r.json"}, "r.json"},
+	}
+	for _, c := range cases {
+		p, err := parseFlags(c.args, flags)
+		if err != nil || !p.has("--output") || p.get("--output") != c.want {
+			t.Errorf("%v → %+v %v, want %q", c.args, p, err, c.want)
+		}
+	}
+}

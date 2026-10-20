@@ -10,6 +10,9 @@ type flag struct {
 	long  string // "--issue"
 	short string // "-i"; empty when it has none
 	value bool   // takes a value
+	// optional lets a value flag go without one ("-o" alone): it only takes
+	// the next argument when that is not another flag.
+	optional bool
 }
 
 // parsed is a command line split into flags and positional arguments.
@@ -58,6 +61,12 @@ func parseFlags(args []string, flags []flag) (*parsed, error) {
 			return nil, fmt.Errorf("%s no lleva valor", name)
 		case !f.value:
 			value = ""
+		case !inline && f.optional:
+			value = ""
+			if i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
+				i++
+				value = args[i]
+			}
 		case !inline:
 			if i+1 >= len(args) {
 				return nil, fmt.Errorf("falta el valor de %s", name)
