@@ -63,6 +63,7 @@ internal/
                Markdown → ADF (markdown.go)
     git/       Adaptador: clon local (archivos de un commit, commits recientes)
     markdown/  Adaptador: carpeta local de archivos .md como destino
+  profile/     Arma los adaptadores del perfil (config.Profile) y detecta QA
   config/      Config YAML + variables de entorno (env > archivo)
   document/    Documento de despliegue y consolidado QA en Markdown, desde
                plantillas (templates/ incluidas; ver arquitectura §7)
@@ -95,8 +96,9 @@ Cada flujo vive en su propio paquete (`internal/deploy` es la referencia) y
 - Cada paso recibe un `context.Context` (la TUI cancela con él).
 - Los flujos y `document` hablan con los **puertos** de `internal/provider`,
   **nunca con un adaptador**; el llamador construye los adaptadores
-  (`atlassian.NewTracker`, `atlassian.NewQATracker`, `atlassian.NewDocStore`,
-  `git.Local{}`) y se los pasa a la `Session`. Los tests usan un doble
+  con `profile.Open` (según el perfil: Jira, Confluence, Markdown local, git)
+  y se los pasa a la `Session`. El flujo resuelve solo lo que pidió el
+  usuario; el space o la carpeta por defecto vienen del perfil. Los tests usan un doble
   (`fakeAPI`) que embebe el puerto y sobrescribe solo lo que el flujo usa.
 - Las convenciones de draco (prefijos de título, «Revisión de Tarea», ventana
   Kanban) viven en el flujo o en `document` y se pasan al adaptador como
@@ -106,7 +108,8 @@ Cada flujo vive en su propio paquete (`internal/deploy` es la referencia) y
   `Locations.TeamWide`), nunca se
   imprimen desde el flujo.
 - Los errores que el llamador debe explicar con su propia UI son centinelas
-  (`ErrNoSpace`, `ErrNoLocations`, `ErrNotQAAccount`, `ErrNoPages`).
+  (`ErrNoLocations`, `ErrNotQAAccount`, `ErrNoPages`; y en `profile`,
+  `ErrNoSpace`, `ErrNoQA`, `ErrNoCredentials`).
 
 ## Reglas que no se negocian
 

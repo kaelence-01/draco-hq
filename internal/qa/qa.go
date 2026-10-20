@@ -18,9 +18,6 @@ import (
 )
 
 var (
-	// ErrNoSpace means no space key came from the request or the global config.
-	ErrNoSpace = errors.New("Confluence space key no configurado")
-
 	// ErrNotQAAccount means the account is not qa_email, or qa_email is unset;
 	// Session.Account holds the authenticated user.
 	ErrNotQAAccount = errors.New("este comando está pensado para la cuenta de QA y no coincide con la tuya")
@@ -54,7 +51,7 @@ type Target struct {
 	Period string // display label of the window
 
 	Title    string // deterministic; the destination's uniqueness key
-	SpaceKey string // scope of the DocStore
+	SpaceKey string // destination scope from the request; empty: the profile's
 	QAEmail  string
 	Report   config.QAReportConfig
 	Date     time.Time // review date printed in the report
@@ -72,8 +69,8 @@ type Target struct {
 	Warnings []string
 }
 
-// Resolve applies config to the request; now sets the Kanban window. The space
-// key comes from the request or the global config, not from a project.
+// Resolve applies config to the request; now sets the Kanban window. The
+// destination and its default scope come from the profile.
 func Resolve(cfg *config.Config, req Request, now time.Time) (*Target, error) {
 	if req.Sprint < 0 {
 		return nil, fmt.Errorf("el sprint debe ser un número positivo: %d", req.Sprint)
@@ -112,12 +109,6 @@ func Resolve(cfg *config.Config, req Request, now time.Time) (*Target, error) {
 	t.Title = title
 
 	t.SpaceKey = req.Space
-	if t.SpaceKey == "" {
-		t.SpaceKey = cfg.ConfluenceSpaceKey
-	}
-	if t.SpaceKey == "" {
-		return nil, ErrNoSpace
-	}
 
 	if cfg.QAReport != nil {
 		t.Report = *cfg.QAReport

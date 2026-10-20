@@ -18,9 +18,6 @@ import (
 )
 
 var (
-	// ErrNoSpace means no space key came from the request, project or global config.
-	ErrNoSpace = errors.New("Confluence space key no configurado")
-
 	// ErrNoLocations means no previous deploy document exists to sit next to.
 	ErrNoLocations = errors.New("no se encontraron documentos de despliegue previos. Crea uno manualmente primero como referencia")
 )
@@ -52,7 +49,7 @@ type Repo struct {
 type Target struct {
 	Issue       string
 	ProjectName string // empty when no project applies
-	SpaceKey    string // scope of the DocStore
+	SpaceKey    string // destination scope from the request or the project; empty: the profile's
 	VCSHost     string
 	VCSOrg      string
 	Backend     Repo
@@ -67,6 +64,7 @@ type Target struct {
 }
 
 // Resolve applies config to the request: request > project > global config.
+// The destination itself, and its default scope, come from the profile.
 func Resolve(cfg *config.Config, req Request) (*Target, error) {
 	if strings.TrimSpace(req.Issue) == "" {
 		return nil, fmt.Errorf("falta la clave del issue de Jira")
@@ -104,12 +102,6 @@ func Resolve(cfg *config.Config, req Request) (*Target, error) {
 	t.SpaceKey = req.Space
 	if t.SpaceKey == "" && proj != nil {
 		t.SpaceKey = proj.ConfluenceSpaceKey
-	}
-	if t.SpaceKey == "" {
-		t.SpaceKey = cfg.ConfluenceSpaceKey
-	}
-	if t.SpaceKey == "" {
-		return nil, ErrNoSpace
 	}
 
 	if t.Template, err = loadTemplate(req.Template, t.Backend.WorkDir); err != nil {
