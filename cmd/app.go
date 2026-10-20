@@ -3,10 +3,13 @@
 package cmd
 
 import (
+	"bufio"
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"runtime"
 	"strings"
 )
@@ -18,16 +21,45 @@ const (
 	exitUsage = 2
 )
 
-// App runs commands writing to Out and Err.
+// App runs commands reading answers from In and writing to Out and Err.
 type App struct {
+	In       *bufio.Reader
 	Out, Err io.Writer
 	color    bool
 }
 
 // New returns an App; color is on only when out is a terminal and NO_COLOR is
 // unset, so pipes, files and CI logs never get escape codes.
-func New(out, err io.Writer) *App {
-	return &App{Out: out, Err: err, color: isTerminal(out) && os.Getenv("NO_COLOR") == ""}
+func New(in io.Reader, out, err io.Writer) *App {
+	return &App{In: bufio.NewReader(in), Out: out, Err: err, color: isTerminal(out) && os.Getenv("NO_COLOR") == ""}
+}
+
+// context is canceled by Ctrl+C, so a slow request stops instead of hanging.
+func (a *App) context() (context.Context, context.CancelFunc) {
+	return signal.NotifyContext(context.Background(), os.Interrupt)
+}
+
+// ask prints prompt and returns the trimmed answer; at the end of the input
+// the answer is empty, which every prompt treats as its default.
+func (a *App) ask(prompt string) string {
+	a.printf("%s", prompt)
+	line, _ := a.In.ReadString('\n')
+	return strings.TrimSpace(line)
+}
+
+// confirm asks a yes/no question; def is the answer for Enter.
+func (a *App) confirm(question string, def bool) bool {
+	hint := "[S/n]"
+	if !def {
+		hint = "[s/N]"
+	}
+	switch strings.ToLower(a.ask(question + " " + hint + ": ")) {
+	case "":
+		return def
+	case "s", "si", "sí", "y", "yes":
+		return true
+	}
+	return false
 }
 
 // command is one entry of the router.
@@ -138,6 +170,11 @@ func (a *App) errorf(format string, args ...any) {
 
 func (a *App) ok(msg string)   { a.printf("  %s %s\n", a.style(green, "✓"), msg) }
 func (a *App) warn(msg string) { a.printf("  %s %s\n", a.style(yellow, "⚠"), msg) }
+func (a *App) fail(msg string) { a.printf("  %s %s\n", a.style(red, "✗"), msg) }
+
+func (a *App) step(n, total int, msg string) {
+	a.printf("%s %s\n", a.style(cyan+bold, fmt.Sprintf("[%d/%d]", n, total)), msg)
+}
 
 func (a *App) title(name, summary string) {
 	a.printf("%s — %s\n\n", a.style(cyan+bold, name), summary)
