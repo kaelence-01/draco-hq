@@ -48,6 +48,7 @@ Sin entradas: se hizo antes de que existiera la bitácora.
 | [021](./fase-3/021-cli-backlog.md) | `draco backlog scan` | `feature/cli-backlog` | 2026-10-19 | Mismo informe y flags que gtt, sin perfil ni credenciales; flags con valor opcional (`-o`) |
 | [022](./fase-3/022-cli-init.md) | `draco init`, `project` y `profile` (6a) | `feature/cli-init` | 2026-10-19 | La config se crea sin editar YAML; token oculto con `x/term`; lo guardado nunca trae variables de entorno |
 | [023](./fase-3/023-cli-template.md) | `draco template` (6b) | `feature/cli-template` | 2026-10-19 | Copiar, listar, validar y previsualizar plantillas; la carpeta del perfil pasa a tener `deploy/` y `qa/` |
+| [024](./fase-3/024-updater.md) | Instalador, actualizador y `draco update` (7a) | `feature/updater` | 2026-10-19 | Instalación en el primer uso, actualización verificada con `checksums.txt`, aviso con caché de 24 h; probado contra un GitHub simulado |
 
 ## Formato de cada entrada
 
