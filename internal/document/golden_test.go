@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/kaelence-01/draco-hq/internal/golden"
-	"github.com/kaelence-01/draco-hq/internal/provider/atlassian"
+	"github.com/kaelence-01/draco-hq/internal/provider"
 )
 
 type rendered struct {
@@ -59,7 +59,7 @@ func TestGoldenDeploy(t *testing.T) {
 
 func TestGoldenQA(t *testing.T) {
 	review := time.Date(2026, 9, 21, 12, 0, 0, 0, time.UTC)
-	tasks := []atlassian.QAIssue{
+	tasks := []provider.QAIssue{
 		{Key: "OPS-7", URL: "https://example.test/browse/OPS-7", HasDeployDoc: true, PRMerged: true,
 			ReviewTaskKey: "OPS-20", ReviewTaskURL: "https://example.test/browse/OPS-20"},
 		{Key: "OPS-8", URL: "https://example.test/browse/OPS-8", HasCodingErrors: true, HasDevReturns: true,

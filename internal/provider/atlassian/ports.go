@@ -2,7 +2,9 @@ package atlassian
 
 import (
 	"context"
+	"strings"
 
+	"github.com/kaelence-01/draco-hq/internal/config"
 	"github.com/kaelence-01/draco-hq/internal/provider"
 )
 
@@ -16,13 +18,37 @@ type DocStore struct {
 	space string
 }
 
+// QATracker is Jira with the QA report schema (qa_jira) as a
+// provider.QATracker.
+type QATracker struct {
+	*Tracker
+	schema QASchema
+}
+
 var (
-	_ provider.Tracker  = (*Tracker)(nil)
-	_ provider.DocStore = (*DocStore)(nil)
+	_ provider.Tracker   = (*Tracker)(nil)
+	_ provider.QATracker = (*QATracker)(nil)
+	_ provider.DocStore  = (*DocStore)(nil)
 )
 
 // NewTracker returns Jira as a tracker.
 func NewTracker(c *Client) *Tracker { return &Tracker{c: c} }
+
+// NewQATracker returns Jira as a QA tracker; q must be valid (q.Validate).
+func NewQATracker(c *Client, q *config.QAJiraConfig) *QATracker {
+	testing := q.TestingStatus
+	if strings.TrimSpace(testing) == "" {
+		testing = config.DefaultTestingStatus
+	}
+	return &QATracker{Tracker: NewTracker(c), schema: QASchema{
+		Project:           q.Project,
+		Statuses:          q.Statuses,
+		TestingStatus:     testing,
+		FieldCodingErrors: q.Fields.CodingErrors,
+		FieldDevReturns:   q.Fields.DevReturns,
+		FieldDevStatus:    q.Fields.DevStatus,
+	}}
+}
 
 // NewDocStore returns a Confluence space as a document store.
 func NewDocStore(c *Client, spaceKey string) *DocStore { return &DocStore{c: c, space: spaceKey} }
@@ -45,6 +71,28 @@ func (t *Tracker) Me(ctx context.Context) (*provider.User, error) {
 
 func (t *Tracker) LinkDocument(ctx context.Context, issueKey string, doc provider.DocRef) error {
 	return t.c.CreateJiraRemoteLink(ctx, issueKey, doc.ID, doc.URL, doc.Title)
+}
+
+func (t *QATracker) ReviewTasks(ctx context.Context, sc provider.QAScope) ([]provider.QAIssue, error) {
+	if sc.SprintName != "" {
+		return t.c.GetQATasksForReview(ctx, t.schema, sc.SprintName, sc.Module)
+	}
+	return t.c.GetQATasksForReviewKanban(ctx, t.schema, sc.Since)
+}
+
+func (t *QATracker) AssignedTasks(ctx context.Context, sc provider.QAScope, email string) ([]provider.QAIssue, error) {
+	if sc.SprintName != "" {
+		return t.c.GetQATasksAsAssignee(ctx, t.schema, sc.SprintName, email)
+	}
+	return t.c.GetQATasksAsAssigneeKanban(ctx, t.schema, sc.Since, email)
+}
+
+func (t *QATracker) HasDocumentLink(ctx context.Context, issueKey, prefix string) (bool, error) {
+	return t.c.HasRemoteLink(ctx, issueKey, prefix)
+}
+
+func (t *QATracker) Observations(ctx context.Context, issueKey string) (string, error) {
+	return t.c.GetNovedadComment(ctx, issueKey)
 }
 
 func (d *DocStore) FindByTitle(ctx context.Context, title string) (*provider.DocRef, error) {
@@ -85,6 +133,14 @@ func (d *DocStore) Update(ctx context.Context, r provider.DocRef, title string, 
 
 func (d *DocStore) Search(ctx context.Context, text string) ([]provider.DocRef, error) {
 	pages, err := d.c.FindPagesByText(ctx, text, d.space)
+	if err != nil {
+		return nil, err
+	}
+	return refs(pages), nil
+}
+
+func (d *DocStore) SearchTitle(ctx context.Context, text string) ([]provider.DocRef, error) {
+	pages, err := d.c.SearchPageTitles(ctx, text, d.space)
 	if err != nil {
 		return nil, err
 	}

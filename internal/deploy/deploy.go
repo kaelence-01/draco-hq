@@ -13,13 +13,8 @@ import (
 
 	"github.com/kaelence-01/draco-hq/internal/config"
 	"github.com/kaelence-01/draco-hq/internal/document"
-	"github.com/kaelence-01/draco-hq/internal/git"
 	"github.com/kaelence-01/draco-hq/internal/provider"
 )
-
-// ChangedFilesFunc lists the files touched by the commits in the repo at
-// workDir; empty means the current directory.
-type ChangedFilesFunc func(hashes []string, workDir string) ([]string, error)
 
 var (
 	// ErrNoSpace means no space key came from the request, project or global config.
@@ -146,7 +141,7 @@ type Commits struct {
 type Session struct {
 	tracker provider.Tracker
 	docs    provider.DocStore
-	files   ChangedFilesFunc
+	changes provider.ChangeSource
 
 	Target *Target
 
@@ -158,8 +153,8 @@ type Session struct {
 }
 
 // NewSession starts a run for an already resolved target.
-func NewSession(tracker provider.Tracker, docs provider.DocStore, files ChangedFilesFunc, t *Target) *Session {
-	return &Session{tracker: tracker, docs: docs, files: files, Target: t}
+func NewSession(tracker provider.Tracker, docs provider.DocStore, changes provider.ChangeSource, t *Target) *Session {
+	return &Session{tracker: tracker, docs: docs, changes: changes, Target: t}
 }
 
 // FetchIssue reads the issue and computes the document title.
@@ -191,9 +186,9 @@ func (s *Session) FindExisting(ctx context.Context) error {
 
 // ReadCommits lists the files of every deployed side. A failed side keeps its
 // error in Commits.Err; it is an error only when every side fails.
-func (s *Session) ReadCommits() error {
-	s.Backend = s.readSide(s.Target.Backend)
-	s.Frontend = s.readSide(s.Target.Frontend)
+func (s *Session) ReadCommits(ctx context.Context) error {
+	s.Backend = s.readSide(ctx, s.Target.Backend)
+	s.Frontend = s.readSide(ctx, s.Target.Frontend)
 
 	ok := (s.Backend != nil && s.Backend.Err == nil) || (s.Frontend != nil && s.Frontend.Err == nil)
 	if !ok {
@@ -202,17 +197,17 @@ func (s *Session) ReadCommits() error {
 	return nil
 }
 
-func (s *Session) readSide(r Repo) *Commits {
+func (s *Session) readSide(ctx context.Context, r Repo) *Commits {
 	if len(r.Hashes) == 0 {
 		return nil
 	}
 	c := &Commits{Hashes: r.Hashes}
-	files, err := s.files(r.Hashes, r.WorkDir)
+	files, err := s.changes.ChangedFiles(ctx, r.WorkDir, r.Hashes)
 	if err != nil {
 		c.Err = err
 		return c
 	}
-	c.Files = git.GroupByDirectory(files)
+	c.Files = groupByDirectory(files)
 	c.Count = len(files)
 	return c
 }
@@ -381,4 +376,18 @@ func repoNameFromDir(workDir string) string {
 		return "repo"
 	}
 	return base
+}
+
+// groupByDirectory groups file names by their parent directory; root files go
+// under ".".
+func groupByDirectory(files []string) map[string][]string {
+	groups := make(map[string][]string)
+	for _, f := range files {
+		dir, name := ".", f
+		if i := strings.LastIndex(f, "/"); i >= 0 {
+			dir, name = f[:i], f[i+1:]
+		}
+		groups[dir] = append(groups[dir], name)
+	}
+	return groups
 }

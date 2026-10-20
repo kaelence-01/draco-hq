@@ -100,7 +100,7 @@ se cierra con un criterio verificable.
 | 1 | ✅ Diseño de proveedores, roadmap y decisiones | `docs/arquitectura` | Diseño publicado en el repo |
 | 2 | ✅ Snapshot (golden) del ADF actual de deploy y QA | `feature/golden` | Tests que fijan el documento de hoy byte a byte |
 | 3a | ✅ Modelo neutro, puertos `Tracker` y `DocStore`, Atlassian como adaptador (`internal/provider`), `context` en todo; `deploy` y `fetch` sobre puertos | `feature/puertos` | `deploy` y `fetch` no importan el adaptador; goldens sin regenerar |
-| 3b | Capacidad `QATracker`, `qa` y `document` sin tipos de Atlassian, puerto de cambios (`ChangeSource`, con commits recientes) | `feature/puertos-qa` | Ningún flujo importa un adaptador; goldens sin regenerar |
+| 3b | ✅ Capacidad `QATracker`, `qa` y `document` sin tipos de Atlassian, puerto de cambios (`ChangeSource`, con commits recientes) | `feature/puertos-qa` | Ningún flujo importa un adaptador; goldens sin regenerar |
 | 4 | Documento en Markdown (`goldmark`) y conversión a ADF en el adaptador, con la preservación de secciones dentro del adaptador | `feature/markdown` | Golden actualizado a **contenido equivalente**; solo las diferencias aceptadas en el diseño (§5) |
 | 5 | Plantillas (`text/template`, manifiesto, resolución por fuentes, plantilla incluida) | `feature/plantillas` | La plantilla incluida reproduce el documento; otra plantilla lo cambia sin recompilar. Absorbe las convenciones de texto («Documento de Despliegue», «Revisión de Tarea», «Novedad::», título del consolidado) |
 | 6 | Destino Markdown local (`internal/provider/markdown`) | `feature/salida-markdown` | Un documento de despliegue completo publicado sin Confluence |

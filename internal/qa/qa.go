@@ -12,27 +12,8 @@ import (
 
 	"github.com/kaelence-01/draco-hq/internal/config"
 	"github.com/kaelence-01/draco-hq/internal/document"
-	"github.com/kaelence-01/draco-hq/internal/provider/atlassian"
+	"github.com/kaelence-01/draco-hq/internal/provider"
 )
-
-// Atlassian is the part of the Jira and Confluence client the workflow uses.
-type Atlassian interface {
-	Whoami(ctx context.Context) (*atlassian.JiraUser, error)
-	GetQATasksForReview(ctx context.Context, s atlassian.QASchema, sprintName, module string) ([]atlassian.QAIssue, error)
-	GetQATasksAsAssignee(ctx context.Context, s atlassian.QASchema, sprintName, qaEmail string) ([]atlassian.QAIssue, error)
-	GetQATasksForReviewKanban(ctx context.Context, s atlassian.QASchema, sinceDate string) ([]atlassian.QAIssue, error)
-	GetQATasksAsAssigneeKanban(ctx context.Context, s atlassian.QASchema, sinceDate, qaEmail string) ([]atlassian.QAIssue, error)
-	HasDeployDocLink(ctx context.Context, issueKey string) (bool, error)
-	GetNovedadComment(ctx context.Context, issueKey string) (string, error)
-	FindPageByTitle(ctx context.Context, title, spaceKey string) (*atlassian.Page, error)
-	GetPageADF(ctx context.Context, pageID string) (*atlassian.PageADF, error)
-	FindQAPagesForModule(ctx context.Context, module, spaceKey string) ([]atlassian.Page, error)
-	GetPage(ctx context.Context, pageID string) (*atlassian.Page, error)
-	CreatePage(ctx context.Context, spaceID, parentID, title string, adfBody map[string]any) (*atlassian.Page, error)
-	UpdatePage(ctx context.Context, pageID, title string, currentVersion int, adfBody map[string]any) (*atlassian.Page, error)
-}
-
-var _ Atlassian = (*atlassian.Client)(nil)
 
 var (
 	// ErrNoSpace means no space key came from the request or the global config.
@@ -66,9 +47,8 @@ type Target struct {
 	Since  string // start of the window, YYYY-MM-DD
 	Period string // display label of the window
 
-	Title    string // deterministic; Confluence's uniqueness key
-	SpaceKey string
-	Schema   atlassian.QASchema
+	Title    string // deterministic; the destination's uniqueness key
+	SpaceKey string // scope of the DocStore
 	QAEmail  string
 	Report   config.QAReportConfig
 	Date     time.Time // review date printed in the report
@@ -92,10 +72,9 @@ func Resolve(cfg *config.Config, req Request, now time.Time) (*Target, error) {
 	if err := cfg.QAJira.Validate(); err != nil {
 		return nil, err
 	}
-	t.Schema = schema(cfg.QAJira)
 
 	if t.Kanban {
-		since, period := atlassian.KanbanWindow(now)
+		since, period := kanbanWindow(now)
 		t.Since, t.Period = since.Format("2006-01-02"), period
 		t.Title = document.BuildQAKanbanTitle(period)
 		if module != "" {
@@ -125,74 +104,59 @@ func Resolve(cfg *config.Config, req Request, now time.Time) (*Target, error) {
 
 func (t *Target) warn(msg string) { t.Warnings = append(t.Warnings, msg) }
 
-// schema converts a validated qa_jira section to what the client expects.
-func schema(q *config.QAJiraConfig) atlassian.QASchema {
-	testing := q.TestingStatus
-	if strings.TrimSpace(testing) == "" {
-		testing = config.DefaultTestingStatus
+func (t *Target) scope() provider.QAScope {
+	if t.Kanban {
+		return provider.QAScope{Since: t.Since}
 	}
-	return atlassian.QASchema{
-		Project:           q.Project,
-		Statuses:          q.Statuses,
-		TestingStatus:     testing,
-		FieldCodingErrors: q.Fields.CodingErrors,
-		FieldDevReturns:   q.Fields.DevReturns,
-		FieldDevStatus:    q.Fields.DevStatus,
-	}
+	return provider.QAScope{SprintName: t.SprintName, Module: t.Module}
 }
 
 // Session is one run of the workflow; the steps fill its exported fields.
 type Session struct {
-	api Atlassian
+	tracker provider.QATracker
+	docs    provider.DocStore
 
 	Target *Target
 
-	Account  *atlassian.JiraUser
-	Tasks    []atlassian.QAIssue // under review: the rows of the report
-	QATasks  []atlassian.QAIssue // assigned to the QA account
-	Existing *atlassian.Page
+	Account  *provider.User
+	Tasks    []provider.QAIssue // under review: the rows of the report
+	QATasks  []provider.QAIssue // assigned to the QA account
+	Existing *provider.DocRef
 }
 
 // NewSession starts a run for an already resolved target.
-func NewSession(api Atlassian, t *Target) *Session {
-	return &Session{api: api, Target: t}
+func NewSession(tracker provider.QATracker, docs provider.DocStore, t *Target) *Session {
+	return &Session{tracker: tracker, docs: docs, Target: t}
 }
 
 // CheckAccount verifies that the authenticated account is qa_email. It guards
-// against accidents, not access: authorization is Atlassian's permissions.
+// against accidents, not access: authorization is the platform's permissions.
 func (s *Session) CheckAccount(ctx context.Context) error {
-	me, err := s.api.Whoami(ctx)
+	me, err := s.tracker.Me(ctx)
 	if err != nil {
 		return err
 	}
 	s.Account = me
-	if s.Target.QAEmail == "" || !strings.EqualFold(me.EmailAddress, s.Target.QAEmail) {
+	if s.Target.QAEmail == "" || !strings.EqualFold(me.Email, s.Target.QAEmail) {
 		return ErrNotQAAccount
 	}
 	return nil
 }
 
-// Collect reads the tasks under review and the QA account's own tasks, and
+// Collect reads the dev tasks under review and the QA account's own tasks, and
 // links each task to its review task.
 func (s *Session) Collect(ctx context.Context) error {
-	t := s.Target
-	var err error
-	if t.Kanban {
-		if s.Tasks, err = s.api.GetQATasksForReviewKanban(ctx, t.Schema, t.Since); err != nil {
-			return err
-		}
-		s.QATasks, err = s.api.GetQATasksAsAssigneeKanban(ctx, t.Schema, t.Since, t.QAEmail)
-	} else {
-		if s.Tasks, err = s.api.GetQATasksForReview(ctx, t.Schema, t.SprintName, t.Module); err != nil {
-			return err
-		}
-		s.QATasks, err = s.api.GetQATasksAsAssignee(ctx, t.Schema, t.SprintName, t.QAEmail)
-	}
+	sc := s.Target.scope()
+	all, err := s.tracker.ReviewTasks(ctx, sc)
 	if err != nil {
 		return err
 	}
+	s.Tasks = devTasksOnly(all)
+	if s.QATasks, err = s.tracker.AssignedTasks(ctx, sc, s.Target.QAEmail); err != nil {
+		return err
+	}
 
-	reviews := atlassian.BuildReviewMap(s.QATasks)
+	reviews := buildReviewMap(s.QATasks)
 	for i := range s.Tasks {
 		if r, ok := reviews[s.Tasks[i].Key]; ok {
 			s.Tasks[i].ReviewTaskKey = r.Key
@@ -208,7 +172,7 @@ func (s *Session) EvaluateTask(ctx context.Context, i int) []string {
 	t := &s.Tasks[i]
 	var warnings []string
 
-	hasDoc, err := s.api.HasDeployDocLink(ctx, t.Key)
+	hasDoc, err := s.tracker.HasDocumentLink(ctx, t.Key, document.DeployTitlePrefix)
 	t.HasDeployDoc = err == nil && hasDoc
 	t.DeployDocUnknown = err != nil
 	if err != nil {
@@ -216,7 +180,7 @@ func (s *Session) EvaluateTask(ctx context.Context, i int) []string {
 	}
 
 	if t.HasCodingErrors {
-		obs, err := s.api.GetNovedadComment(ctx, t.Key)
+		obs, err := s.tracker.Observations(ctx, t.Key)
 		if err != nil {
 			obs = "(no se pudieron leer las observaciones)"
 			warnings = append(warnings, fmt.Sprintf("%s: %v", t.Key, err))
@@ -228,7 +192,7 @@ func (s *Session) EvaluateTask(ctx context.Context, i int) []string {
 
 // FindExisting looks for a report already published with this exact title.
 func (s *Session) FindExisting(ctx context.Context) error {
-	page, err := s.api.FindPageByTitle(ctx, s.Target.Title, s.Target.SpaceKey)
+	page, err := s.docs.FindByTitle(ctx, s.Target.Title)
 	if err != nil {
 		return err
 	}
@@ -242,7 +206,7 @@ type Draft struct {
 	ADF   map[string]any
 
 	// Replaces is the page an update overwrites; nil for a new report.
-	Replaces *atlassian.PageADF
+	Replaces *provider.Doc
 
 	// NotPreserved names hand-written parts that were not read back and go out
 	// empty; when set, the caller must ask before going on.
@@ -268,17 +232,17 @@ func (s *Session) DraftUpdate(ctx context.Context) (*Draft, error) {
 	if s.Existing == nil {
 		return nil, fmt.Errorf("no hay un consolidado existente que actualizar")
 	}
-	current, err := s.api.GetPageADF(ctx, s.Existing.ID)
+	current, err := s.docs.Read(ctx, *s.Existing)
 	if err != nil {
 		return nil, fmt.Errorf("no se pudo leer el consolidado actual; se cancela la actualización para no sobrescribir lo escrito a mano: %w", err)
 	}
 
 	d := &Draft{Title: s.Target.Title, Replaces: current}
 	var kept document.QAPreserved
-	if current.ADF == nil {
+	if current.Body == nil {
 		d.Warnings = append(d.Warnings, "el consolidado actual no está en formato ADF; no se pudo leer lo escrito a mano.")
 	} else {
-		kept = document.ExtractQAPreserved(current.ADF)
+		kept = document.ExtractQAPreserved(current.Body)
 	}
 	if kept.Observation == nil {
 		d.NotPreserved = append(d.NotPreserved, PartObservation)
@@ -311,8 +275,12 @@ func (s *Session) build(kept document.QAPreserved) map[string]any {
 
 // Locations lists recent consolidated reports as candidate siblings for a new
 // one: the module's in Sprint mode, any in Kanban mode.
-func (s *Session) Locations(ctx context.Context) ([]atlassian.Page, error) {
-	pages, err := s.api.FindQAPagesForModule(ctx, s.Target.Module, s.Target.SpaceKey)
+func (s *Session) Locations(ctx context.Context) ([]provider.DocRef, error) {
+	title := document.QATitlePrefix
+	if s.Target.Module != "" {
+		title += " - " + s.Target.Module
+	}
+	pages, err := s.docs.SearchTitle(ctx, title)
 	if err != nil {
 		return nil, err
 	}
@@ -324,15 +292,15 @@ func (s *Session) Locations(ctx context.Context) ([]atlassian.Page, error) {
 
 // Result is a published report.
 type Result struct {
-	Page    *atlassian.Page
+	Page    *provider.DocRef
 	Updated bool
 }
 
-// Publish creates or updates the page. sibling is the page picked from
+// Publish creates or updates the report. sibling is the document picked from
 // Locations; it is ignored for an update.
-func (s *Session) Publish(ctx context.Context, d *Draft, sibling *atlassian.Page) (*Result, error) {
+func (s *Session) Publish(ctx context.Context, d *Draft, sibling *provider.DocRef) (*Result, error) {
 	if d.Replaces != nil {
-		page, err := s.api.UpdatePage(ctx, d.Replaces.ID, d.Title, d.Replaces.Version, d.ADF)
+		page, err := s.docs.Update(ctx, d.Replaces.DocRef, d.Title, d.ADF)
 		if err != nil {
 			return nil, err
 		}
@@ -342,11 +310,7 @@ func (s *Session) Publish(ctx context.Context, d *Draft, sibling *atlassian.Page
 	if sibling == nil {
 		return nil, fmt.Errorf("falta elegir la ubicación del consolidado nuevo")
 	}
-	ref, err := s.api.GetPage(ctx, sibling.ID)
-	if err != nil {
-		return nil, err
-	}
-	page, err := s.api.CreatePage(ctx, ref.SpaceID, ref.ParentID, d.Title, d.ADF)
+	page, err := s.docs.Create(ctx, *sibling, d.Title, d.ADF)
 	if err != nil {
 		return nil, err
 	}

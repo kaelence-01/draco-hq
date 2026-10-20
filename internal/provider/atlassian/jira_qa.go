@@ -7,7 +7,8 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
-	"time"
+
+	"github.com/kaelence-01/draco-hq/internal/provider"
 )
 
 // QASchema maps the QA report onto one Jira instance. It comes from config
@@ -38,24 +39,6 @@ func (s QASchema) statusList() string {
 
 var numericRe = regexp.MustCompile(`^\d+$`)
 
-// QAIssue is one task of the QA report with its evaluation.
-type QAIssue struct {
-	Key             string
-	URL             string
-	Summary         string
-	HasCodingErrors bool   // FieldCodingErrors > 0
-	HasDevReturns   bool   // FieldDevReturns > 0
-	HasDeployDoc    bool   // has a remote link titled "Documento de Despliegue..."
-	PRMerged        bool   // PR state = MERGED (FieldDevStatus)
-	Observations    string // text after "::" in comments matching "Novedad::"
-	ReviewTaskKey   string // QA review task key (e.g. APP-2160)
-	ReviewTaskURL   string // QA review task URL
-
-	// DeployDocUnknown is set when the lookup failed: the report is evidence,
-	// so an error must never render as a missing document.
-	DeployDocUnknown bool
-}
-
 type jiraSearchResponse struct {
 	Issues []struct {
 		Key    string         `json:"key"`
@@ -63,14 +46,9 @@ type jiraSearchResponse struct {
 	} `json:"issues"`
 }
 
-// GetQATasksForReview returns the module's sprint dev tasks that reached QA,
-// excluding the QA review tasks themselves.
-func (c *Client) GetQATasksForReview(ctx context.Context, s QASchema, sprintName, module string) ([]QAIssue, error) {
-	all, err := c.searchQAIssues(ctx, s, sprintReviewJQL(s, sprintName, module))
-	if err != nil {
-		return nil, err
-	}
-	return devTasksOnly(all), nil
+// GetQATasksForReview returns the module's sprint tasks that reached QA.
+func (c *Client) GetQATasksForReview(ctx context.Context, s QASchema, sprintName, module string) ([]provider.QAIssue, error) {
+	return c.searchQAIssues(ctx, s, sprintReviewJQL(s, sprintName, module))
 }
 
 func sprintReviewJQL(s QASchema, sprintName, module string) string {
@@ -80,23 +58,9 @@ func sprintReviewJQL(s QASchema, sprintName, module string) string {
 	)
 }
 
-// devTasksOnly drops the QA review tasks ("Revisión de Tarea - …", "QA …").
-func devTasksOnly(all []QAIssue) []QAIssue {
-	dev := make([]QAIssue, 0, len(all))
-	for _, t := range all {
-		lower := strings.ToLower(t.Summary)
-		if !strings.HasPrefix(lower, "revisión de tarea") &&
-			!strings.HasPrefix(lower, "revision de tarea") &&
-			!strings.HasPrefix(lower, "qa") {
-			dev = append(dev, t)
-		}
-	}
-	return dev
-}
-
 // GetQATasksAsAssignee returns the sprint tasks assigned to qaEmail, or to
 // currentUser() when it is empty or cannot be resolved.
-func (c *Client) GetQATasksAsAssignee(ctx context.Context, s QASchema, sprintName, qaEmail string) ([]QAIssue, error) {
+func (c *Client) GetQATasksAsAssignee(ctx context.Context, s QASchema, sprintName, qaEmail string) ([]provider.QAIssue, error) {
 	return c.searchQAIssues(ctx, s, sprintAssigneeJQL(s, sprintName, c.assigneeClause(ctx, qaEmail)))
 }
 
@@ -118,26 +82,6 @@ func (c *Client) assigneeClause(ctx context.Context, qaEmail string) string {
 	return "currentUser()"
 }
 
-// BuildReviewMap maps each dev task key to its QA review task
-// ("Revisión de Tarea - OPS-7").
-func BuildReviewMap(qaTasks []QAIssue) map[string]QAIssue {
-	m := make(map[string]QAIssue, len(qaTasks))
-	for _, t := range qaTasks {
-		if key := parseDevTaskKey(t.Summary); key != "" {
-			m[key] = t
-		}
-	}
-	return m
-}
-
-var issueKeyRe = regexp.MustCompile(`[A-Z][A-Z0-9]*-\d+`)
-
-// parseDevTaskKey returns the first issue key in a review task summary: the
-// prefix never has one, and a trailing note may mention another key.
-func parseDevTaskKey(summary string) string {
-	return issueKeyRe.FindString(strings.ToUpper(summary))
-}
-
 func (c *Client) resolveAccountID(ctx context.Context, email string) (string, error) {
 	body, err := c.Get(ctx, "/rest/api/3/user/search?query="+url.QueryEscape(email))
 	if err != nil {
@@ -152,7 +96,7 @@ func (c *Client) resolveAccountID(ctx context.Context, email string) (string, er
 	return users[0].AccountID, nil
 }
 
-func (c *Client) searchQAIssues(ctx context.Context, s QASchema, jql string) ([]QAIssue, error) {
+func (c *Client) searchQAIssues(ctx context.Context, s QASchema, jql string) ([]provider.QAIssue, error) {
 	payload := map[string]any{
 		"jql":        jql,
 		"fields":     []string{"key", "summary", s.FieldCodingErrors, s.FieldDevReturns, s.FieldDevStatus},
@@ -169,9 +113,9 @@ func (c *Client) searchQAIssues(ctx context.Context, s QASchema, jql string) ([]
 		return nil, fmt.Errorf("error parseando respuesta: %w", err)
 	}
 
-	issues := make([]QAIssue, 0, len(resp.Issues))
+	issues := make([]provider.QAIssue, 0, len(resp.Issues))
 	for _, raw := range resp.Issues {
-		qi := QAIssue{
+		qi := provider.QAIssue{
 			Key: raw.Key,
 			URL: fmt.Sprintf("%s/browse/%s", c.BaseURL, raw.Key),
 		}
@@ -247,34 +191,10 @@ func adfExtractText(node map[string]any) string {
 	return sb.String()
 }
 
-// businessDaysAgo returns the date n weekdays before from.
-func businessDaysAgo(n int, from time.Time) time.Time {
-	d := from
-	for count := 0; count < n; {
-		d = d.AddDate(0, 0, -1)
-		if d.Weekday() != time.Saturday && d.Weekday() != time.Sunday {
-			count++
-		}
-	}
-	return d
-}
-
-// KanbanWindow returns the start date (10 business days before now) and a
-// display label like "08/05 al 22/05/2026".
-func KanbanWindow(now time.Time) (since time.Time, period string) {
-	since = businessDaysAgo(10, now)
-	period = fmt.Sprintf("%s al %s", since.Format("02/01"), now.Format("02/01/2006"))
-	return
-}
-
-// GetQATasksForReviewKanban returns the dev tasks of any module that moved to
-// the testing status after sinceDate (YYYY-MM-DD).
-func (c *Client) GetQATasksForReviewKanban(ctx context.Context, s QASchema, sinceDate string) ([]QAIssue, error) {
-	all, err := c.searchQAIssues(ctx, s, kanbanReviewJQL(s, sinceDate))
-	if err != nil {
-		return nil, err
-	}
-	return devTasksOnly(all), nil
+// GetQATasksForReviewKanban returns the tasks of any module that moved to the
+// testing status after sinceDate (YYYY-MM-DD).
+func (c *Client) GetQATasksForReviewKanban(ctx context.Context, s QASchema, sinceDate string) ([]provider.QAIssue, error) {
+	return c.searchQAIssues(ctx, s, kanbanReviewJQL(s, sinceDate))
 }
 
 func kanbanReviewJQL(s QASchema, sinceDate string) string {
@@ -285,7 +205,7 @@ func kanbanReviewJQL(s QASchema, sinceDate string) string {
 }
 
 // GetQATasksAsAssigneeKanban returns the QA user's tasks updated since sinceDate.
-func (c *Client) GetQATasksAsAssigneeKanban(ctx context.Context, s QASchema, sinceDate, qaEmail string) ([]QAIssue, error) {
+func (c *Client) GetQATasksAsAssigneeKanban(ctx context.Context, s QASchema, sinceDate, qaEmail string) ([]provider.QAIssue, error) {
 	return c.searchQAIssues(ctx, s, kanbanAssigneeJQL(s, sinceDate, c.assigneeClause(ctx, qaEmail)))
 }
 
@@ -296,9 +216,9 @@ func kanbanAssigneeJQL(s QASchema, sinceDate, assignee string) string {
 	)
 }
 
-// HasDeployDocLink reports whether the issue links a deploy document. An error
-// means "could not check", not "no document".
-func (c *Client) HasDeployDocLink(ctx context.Context, issueKey string) (bool, error) {
+// HasRemoteLink reports whether the issue has a remote link whose title starts
+// with prefix. An error means "could not check", not "no link".
+func (c *Client) HasRemoteLink(ctx context.Context, issueKey, prefix string) (bool, error) {
 	body, err := c.Get(ctx, fmt.Sprintf("/rest/api/3/issue/%s/remotelink", issueKey))
 	if err != nil {
 		return false, fmt.Errorf("error leyendo enlaces remotos de %s: %w", issueKey, err)
@@ -314,7 +234,7 @@ func (c *Client) HasDeployDocLink(ctx context.Context, issueKey string) (bool, e
 	}
 
 	for _, l := range links {
-		if strings.HasPrefix(l.Object.Title, "Documento de Despliegue") {
+		if strings.HasPrefix(l.Object.Title, prefix) {
 			return true, nil
 		}
 	}

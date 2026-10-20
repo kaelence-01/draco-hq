@@ -73,7 +73,18 @@ func (f *fakeAPI) Update(_ context.Context, r provider.DocRef, _ string, _ map[s
 
 var ctx = context.Background()
 
-func newSession(api *fakeAPI, files ChangedFilesFunc, t *Target) *Session {
+// changesFunc is a ChangeSource whose ChangedFiles is the function itself.
+type changesFunc func(hashes []string, workDir string) ([]string, error)
+
+func (f changesFunc) ChangedFiles(_ context.Context, workDir string, hashes []string) ([]string, error) {
+	return f(hashes, workDir)
+}
+
+func (changesFunc) RecentCommits(context.Context, string, int) ([]provider.Commit, error) {
+	panic("no usado por el flujo")
+}
+
+func newSession(api *fakeAPI, files changesFunc, t *Target) *Session {
 	return NewSession(api, api, files, t)
 }
 
@@ -94,7 +105,7 @@ func readySession(api *fakeAPI) *Session {
 	if err := s.FetchIssue(ctx); err != nil {
 		panic(err)
 	}
-	if err := s.ReadCommits(); err != nil {
+	if err := s.ReadCommits(ctx); err != nil {
 		panic(err)
 	}
 	return s
@@ -224,7 +235,7 @@ func TestReadCommitsKeepsGoingWhenOneSideFails(t *testing.T) {
 		return filesOK(h, dir)
 	}
 	s := newSession(newAPI(), files, tg)
-	if err := s.ReadCommits(); err != nil {
+	if err := s.ReadCommits(ctx); err != nil {
 		t.Fatalf("con un lado bueno no debe fallar: %v", err)
 	}
 	if !s.PartialFailure() || s.Frontend.Err == nil {
@@ -237,7 +248,7 @@ func TestReadCommitsKeepsGoingWhenOneSideFails(t *testing.T) {
 
 func TestReadCommitsFailsWhenEverySideFails(t *testing.T) {
 	files := func([]string, string) ([]string, error) { return nil, errors.New("x") }
-	if err := newSession(newAPI(), files, target()).ReadCommits(); err == nil {
+	if err := newSession(newAPI(), files, target()).ReadCommits(ctx); err == nil {
 		t.Error("sin ningún commit legible debe fallar")
 	}
 }
@@ -368,5 +379,25 @@ func TestSplitHashes(t *testing.T) {
 	}
 	if SplitHashes("") != nil {
 		t.Error("cadena vacía debe dar nil")
+	}
+}
+
+func TestGroupByDirectory(t *testing.T) {
+	got := groupByDirectory([]string{
+		"app/Http/Controllers/PagoController.php",
+		"app/Http/Controllers/FacturaController.php",
+		"app/Models/Factura.php",
+		"README.md",
+	})
+	want := map[string][]string{
+		"app/Http/Controllers": {"PagoController.php", "FacturaController.php"},
+		"app/Models":           {"Factura.php"},
+		".":                    {"README.md"},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("groupByDirectory =\n%#v\nesperaba\n%#v", got, want)
+	}
+	if got := groupByDirectory(nil); len(got) != 0 {
+		t.Errorf("esperaba mapa vacío, obtuve %#v", got)
 	}
 }

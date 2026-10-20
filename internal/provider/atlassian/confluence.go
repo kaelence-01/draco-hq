@@ -358,14 +358,10 @@ func (c *Client) UpdatePage(ctx context.Context, pageID, title string, currentVe
 	}, nil
 }
 
-// FindQAPagesForModule returns recent QA reports of a module, or of any module
-// when module is empty. An empty spaceKey searches all spaces.
-func (c *Client) FindQAPagesForModule(ctx context.Context, module, spaceKey string) ([]Page, error) {
-	title := "Consolidado de Pruebas QA"
-	if module != "" {
-		title += " - " + module
-	}
-	titleFilter := quoteLiteral(title)
+// SearchPageTitles returns the newest pages whose title matches text, with CQL
+// (subject to index lag). An empty spaceKey searches all spaces.
+func (c *Client) SearchPageTitles(ctx context.Context, text, spaceKey string) ([]Page, error) {
+	titleFilter := quoteLiteral(text)
 	cqlBase := fmt.Sprintf(`title ~ %s ORDER BY created DESC`, titleFilter)
 	if spaceKey != "" {
 		cqlBase = fmt.Sprintf(`title ~ %s AND space = %s ORDER BY created DESC`,
@@ -375,7 +371,7 @@ func (c *Client) FindQAPagesForModule(ctx context.Context, module, spaceKey stri
 
 	body, err := c.Get(ctx, path)
 	if err != nil {
-		return nil, fmt.Errorf("error buscando páginas QA de referencia: %w", err)
+		return nil, fmt.Errorf("error buscando páginas de referencia: %w", err)
 	}
 
 	var result searchResponse

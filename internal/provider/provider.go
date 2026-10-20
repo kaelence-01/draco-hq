@@ -3,7 +3,10 @@
 // Design: docs/arquitectura/proveedores.md.
 package provider
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 // Issue is a task in a tracker.
 type Issue struct {
@@ -84,5 +87,69 @@ type DocStore interface {
 	// Update replaces the whole body; ref.Version is the version read.
 	Update(ctx context.Context, ref DocRef, title string, body map[string]any) (*DocRef, error)
 	Search(ctx context.Context, text string) ([]DocRef, error)
+	// SearchTitle finds documents whose title matches text, newest first,
+	// across the whole destination; it may lag behind recent changes.
+	SearchTitle(ctx context.Context, text string) ([]DocRef, error)
 	Export(ctx context.Context, ref DocRef) (*Exported, error)
+}
+
+// QAIssue is one task evaluated in the QA consolidated report.
+type QAIssue struct {
+	Key             string
+	URL             string
+	Summary         string
+	HasCodingErrors bool
+	HasDevReturns   bool
+	HasDeployDoc    bool
+	PRMerged        bool
+	Observations    string
+	ReviewTaskKey   string // the QA review task of this one
+	ReviewTaskURL   string
+
+	// DeployDocUnknown means the link lookup failed: the report says
+	// "unverified" instead of a failed check, because it is QA evidence.
+	DeployDocUnknown bool
+}
+
+// QAScope selects the tasks of one report: a sprint of a module, or (Kanban)
+// everything that reached testing since a date.
+type QAScope struct {
+	SprintName string
+	Module     string
+	Since      string // YYYY-MM-DD; used when SprintName is empty
+}
+
+// QATracker is the optional tracker capability behind the QA consolidated
+// report. Its schema (project, statuses, fields) is given to the adapter when
+// it is built, never by the flow.
+type QATracker interface {
+	Tracker
+	// ReviewTasks returns the tasks of the scope that reached QA or passed it.
+	ReviewTasks(ctx context.Context, scope QAScope) ([]QAIssue, error)
+	// AssignedTasks returns the tasks of the scope assigned to email.
+	AssignedTasks(ctx context.Context, scope QAScope, email string) ([]QAIssue, error)
+	// HasDocumentLink reports a link from the issue whose title starts with
+	// prefix. An error means "could not check", never "no link".
+	HasDocumentLink(ctx context.Context, issueKey, prefix string) (bool, error)
+	// Observations joins the text after "Novedad::" in the issue's comments;
+	// empty with a nil error means there are none.
+	Observations(ctx context.Context, issueKey string) (string, error)
+}
+
+// Commit is one commit of a repository.
+type Commit struct {
+	Hash      string
+	ShortHash string
+	Subject   string
+	Author    string
+	Date      time.Time
+}
+
+// ChangeSource is where the changes of a deploy come from. workDir is the
+// local clone; empty is the current directory.
+type ChangeSource interface {
+	// ChangedFiles returns the deduplicated files of the commits, in order of
+	// first appearance.
+	ChangedFiles(ctx context.Context, workDir string, hashes []string) ([]string, error)
+	RecentCommits(ctx context.Context, workDir string, n int) ([]Commit, error)
 }
