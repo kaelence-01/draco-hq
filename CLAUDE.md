@@ -71,7 +71,7 @@ internal/
 docs/
   roadmap.md                 Visión, fases, estado y decisiones
   arquitectura/proveedores.md    Puertos, adaptadores y plantillas (diseño)
-  bitacora/                  Una entrada por actividad
+  bitacora/fase-N/           Una entrada por actividad, en la carpeta de su fase
   security/patrones-seguros.md   Patrones P-001..P-008 (autoridad en seguridad)
 ```
 
@@ -181,7 +181,8 @@ main ── develop ── feature/<tema>   (PR → develop, nunca a main)
 - Toda actividad nace de `develop` actualizada en `feature/<tema>` (o `fix/`,
   `docs/`), termina en **un solo commit** y llega a `develop` por PR. El push y
   el PR los hace el autor.
-- Toda actividad lleva su entrada en **`docs/bitacora/NNN-<tema>.md`** en ese
+- Toda actividad lleva su entrada en **`docs/bitacora/fase-N/NNN-<tema>.md`**
+  (N: fase del roadmap; NNN: número global) en ese
   mismo commit, y su fila en el índice. Las entradas de actividades ya
   fusionadas no se reescriben.
 - La historia y el porqué de las decisiones van a la bitácora, **no a
