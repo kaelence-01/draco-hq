@@ -88,24 +88,28 @@ else
 fi
 
 section "4. Bitácora"
-changed=$(git diff --name-only "$base" -- docs/bitacora/; git ls-files -o --exclude-standard docs/bitacora/)
-entry=$(echo "$changed" | grep -E '^docs/bitacora/[0-9]{3}-[a-z0-9-]+\.md$' | sort -u)
+added=$(git diff --name-only --diff-filter=A -M "$base" -- docs/bitacora/; git ls-files -o --exclude-standard docs/bitacora/)
+entry=$(echo "$added" | grep -E '^docs/bitacora/fase-[0-9]+/[0-9]{3}-[a-z0-9-]+\.md$' | sort -u)
+stray=$(echo "$added" | grep -E '\.md$' | grep -vE '^docs/bitacora/(fase-[0-9]+/[0-9]{3}-[a-z0-9-]+|README)\.md$' || true)
+for f in $stray; do fail "$f: las entradas van en docs/bitacora/fase-N/NNN-<tema>.md"; done
 if [ -z "$entry" ]; then
-	fail "falta la entrada docs/bitacora/NNN-<tema>.md de esta actividad"
+	fail "falta la entrada docs/bitacora/fase-N/NNN-<tema>.md de esta actividad"
 else
 	for e in $entry; do
-		if git cat-file -e "$base:$e" 2>/dev/null; then
-			warn "$e ya existía en $base: solo se permiten notas aclaratorias"
-		else
-			ok "entrada $e"
-		fi
-		name=$(basename "$e")
-		grep -q "($name)\|(\./$name)" docs/bitacora/README.md && ok "$name está en el índice" || fail "$name no está en docs/bitacora/README.md"
+		ok "entrada $e"
+		dir_phase=$(echo "$e" | sed -E 's#^docs/bitacora/fase-([0-9]+)/.*#\1#')
+		head_phase=$(grep -m1 -E '^\*\*Fase del roadmap:\*\*' "$e" | sed -E 's/^\*\*Fase del roadmap:\*\* *([0-9]+).*/\1/')
+		[ "$dir_phase" = "$head_phase" ] && ok "fase $dir_phase en carpeta y encabezado" || fail "$e: la carpeta dice fase $dir_phase y el encabezado «${head_phase:-sin fase}»"
+		rel=${e#docs/bitacora/}
+		grep -qF "(./$rel)" docs/bitacora/README.md && ok "$rel está en el índice" || fail "$rel no está en docs/bitacora/README.md"
 		for s in '## 1. Solicitud' '## 2. Motivación' '## 3. Diseño técnico' '## 4. Archivos' '## 5. Cómo verificar'; do
-			grep -qF "$s" "$e" || fail "$name: falta la sección «${s#\#\# }»"
+			grep -qF "$s" "$e" || fail "$rel: falta la sección «${s#\#\# }»"
 		done
 	done
 fi
+for m in $(git diff --name-only --diff-filter=M "$base" -- 'docs/bitacora/fase-*/*.md'); do
+	warn "$m ya estaba en $base: solo se permiten notas aclaratorias"
+done
 
 section "Resultado"
 if [ "$failures" -gt 0 ]; then
