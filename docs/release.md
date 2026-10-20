@@ -17,9 +17,10 @@ confían en ese archivo (P-006): un binario que no coincide no se instala.
 
 ## Pasos
 
-1. **Llevar `develop` a `main`** con un PR. Fusiónalo con *merge commit*, no
-   con *squash*: así `main` y `develop` comparten historia y el siguiente PR
-   no arrastra diferencias.
+1. **Llevar `develop` a `main`** con un PR. Fusiónalo con *merge commit*,
+   nunca con *rebase and merge* ni *squash*: esos copian los commits con otros
+   hashes, las ramas dejan de compartir historia y el siguiente PR choca en
+   cada archivo (bitácora 026).
 
    ```bash
    gh pr create --base main --head develop --title "Release v0.1.0" --fill

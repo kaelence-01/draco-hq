@@ -226,6 +226,10 @@ main ── develop ── feature/<tema>   (PR → develop, nunca a main)
 - Toda actividad nace de `develop` actualizada en `feature/<tema>` (o `fix/`,
   `docs/`), termina en **un solo commit** y llega a `develop` por PR. El push y
   el PR los hace el autor.
+- **`develop` → `main` siempre con *merge commit***, nunca con *rebase and
+  merge* ni *squash*: esos copian los commits con otros hashes, `main` y
+  `develop` dejan de compartir historia y el siguiente PR choca en cada
+  archivo (bitácora 026).
 - Toda actividad lleva su entrada en **`docs/bitacora/fase-N/NNN-<tema>.md`**
   (N: fase del roadmap; NNN: número global) en ese
   mismo commit, y su fila en el índice. Las entradas de actividades ya

@@ -50,6 +50,7 @@ Sin entradas: se hizo antes de que existiera la bitácora.
 | [023](./fase-3/023-cli-template.md) | `draco template` (6b) | `feature/cli-template` | 2026-10-19 | Copiar, listar, validar y previsualizar plantillas; la carpeta del perfil pasa a tener `deploy/` y `qa/` |
 | [024](./fase-3/024-updater.md) | Instalador, actualizador y `draco update` (7a) | `feature/updater` | 2026-10-19 | Instalación en el primer uso, actualización verificada con `checksums.txt`, aviso con caché de 24 h; probado contra un GitHub simulado |
 | [025](./fase-3/025-release.md) | Proceso de release (7b) | `feature/release` | 2026-10-19 | `make release-build` y `make release` desde `main` sin commits automáticos; 5 binarios con `checksums.txt`; guía e instalación en el README |
+| [026](./fase-3/026-historia-main.md) | Unir la historia de `main` y `develop` | `fix/historia-main` | 2026-10-19 | `main` recibió la fase 2 por *rebase and merge*; merge `ours` sin cambiar código y regla de *merge commit* hacia `main` |
 
 ## Formato de cada entrada
 
