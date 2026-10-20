@@ -52,12 +52,13 @@ internal/
   backlog/     Detectores de deuda técnica (sin red)
   deploy/      Flujo del documento de despliegue, sin E/S de terminal
   qa/          Flujo del consolidado de QA, sin E/S de terminal
+  fetch/       Flujo de exportar una página a texto, sin E/S de terminal
 docs/
   roadmap.md                 Visión, fases, estado y decisiones
   security/patrones-seguros.md   Patrones P-001..P-008 (autoridad en seguridad)
 ```
 
-Planeado (ver roadmap): `internal/fetch` (flujo), `cmd/` (modo
+Planeado (ver roadmap): `cmd/` (modo
 comando), `internal/tui/` (modo visual), `internal/installer`,
 `internal/updater`, `main.go`, `Makefile`.
 
@@ -80,7 +81,7 @@ Cada flujo vive en su propio paquete (`internal/deploy` es la referencia) y
   `Locations.TeamWide`), nunca se
   imprimen desde el flujo.
 - Los errores que el llamador debe explicar con su propia UI son centinelas
-  (`ErrNoSpace`, `ErrNoLocations`, `ErrNotQAAccount`).
+  (`ErrNoSpace`, `ErrNoLocations`, `ErrNotQAAccount`, `ErrNoPages`).
 
 ## Reglas que no se negocian
 
