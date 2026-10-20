@@ -53,6 +53,12 @@ Sin entradas: se hizo antes de que existiera la bitácora.
 | [026](./fase-3/026-historia-main.md) | Unir la historia de `main` y `develop` | `fix/historia-main` | 2026-10-19 | `main` recibió la fase 2 por *rebase and merge*; merge `ours` sin cambiar código y regla de *merge commit* hacia `main` |
 | [027](./fase-3/027-cierre-fase-3.md) | Cierre de la fase 3 | `docs/cierre-fase-3` | 2026-10-19 | `v0.1.0` instalado desde el release; pie de la ayuda al repo; actualización a verificar con `v0.1.1` |
 
+### Fase 4 — Modo visual mínimo
+
+| # | Actividad | Rama | Fecha | Resumen |
+|---|---|---|---|---|
+| [028](./fase-4/028-plan-fase-4.md) | Diseño de la TUI y plan de la fase 4 | `docs/plan-fase-4` | 2026-10-20 | `docs/arquitectura/tui.md` (Charm v2, pila de pantallas, pasos como comandos, tests sin terminal); la fase 4 en 5 actividades |
+
 ## Formato de cada entrada
 
 Archivo `fase-N/NNN-<tema>.md`: `N` es la fase del roadmap, `NNN` el número
