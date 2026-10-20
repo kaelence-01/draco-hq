@@ -219,56 +219,45 @@ func (s *Session) PartialFailure() bool {
 
 // Draft is a document ready to publish, for the user to review first.
 type Draft struct {
-	Title string
-	ADF   map[string]any
+	Title    string
+	Markdown string
 
-	// Replaces is the page an update overwrites; nil for a new document.
-	Replaces *provider.Doc
+	// Replaces is the document an update overwrites; nil for a new one.
+	Replaces *provider.DocRef
 
-	// Preserved reports that "A considerar" was read back; when false on an
-	// update the section resets to the template, so the caller must ask.
+	// Preserved reports that the current document has "A considerar"; when
+	// false on an update the section resets to the template, so the caller
+	// must ask.
 	Preserved bool
-
-	Warnings []string
 }
 
 // DraftCreate builds a new document with the configured checklist.
 func (s *Session) DraftCreate() *Draft {
-	return &Draft{Title: s.Title, ADF: s.build(nil)}
+	return &Draft{Title: s.Title, Markdown: s.build()}
 }
 
-// DraftUpdate builds the replacement for s.Existing, carrying "A considerar"
-// over. It fails if the current page cannot be read, rather than overwrite it.
+// DraftUpdate builds the replacement for s.Existing; the destination carries
+// "A considerar" over when publishing. It fails if the current document cannot
+// be read, rather than overwrite it.
 func (s *Session) DraftUpdate(ctx context.Context) (*Draft, error) {
 	if s.Existing == nil {
 		return nil, fmt.Errorf("no hay un documento existente que actualizar")
 	}
-	current, err := s.docs.Read(ctx, *s.Existing)
+	found, err := s.docs.Sections(ctx, *s.Existing, []string{document.ConsiderHeading})
 	if err != nil {
 		return nil, fmt.Errorf("no se pudo leer el documento actual; se cancela la actualización para no sobrescribir su contenido: %w", err)
 	}
-
-	d := &Draft{Title: s.Title, Replaces: current}
-	var preserved []any
-	if current.Body == nil {
-		d.Warnings = append(d.Warnings, "el documento actual no está en formato ADF; no se pudo leer la sección \"A considerar\".")
-	} else {
-		preserved = document.ExtractSection(current.Body, document.ConsiderHeading)
-	}
-	d.Preserved = len(preserved) > 0
-	d.ADF = s.build(preserved)
-	return d, nil
+	return &Draft{Title: s.Title, Markdown: s.build(), Replaces: s.Existing, Preserved: len(found) > 0}, nil
 }
 
-func (s *Session) build(preserved []any) map[string]any {
+func (s *Session) build() string {
 	doc := document.DeployDoc{
-		IssueKey:          s.Issue.Key,
-		IssueSummary:      s.Issue.Summary,
-		IssueURL:          s.Issue.URL,
-		VCSHost:           s.Target.VCSHost,
-		VCSOrg:            s.Target.VCSOrg,
-		PreservedConsider: preserved,
-		Checklist:         s.Target.Checklist,
+		IssueKey:     s.Issue.Key,
+		IssueSummary: s.Issue.Summary,
+		IssueURL:     s.Issue.URL,
+		VCSHost:      s.Target.VCSHost,
+		VCSOrg:       s.Target.VCSOrg,
+		Checklist:    s.Target.Checklist,
 	}
 	if s.Backend != nil && s.Backend.Err == nil {
 		doc.BackendRepo = s.Target.Backend.Name
@@ -280,7 +269,7 @@ func (s *Session) build(preserved []any) map[string]any {
 		doc.FrontendCommit = s.Frontend.Hashes[0]
 		doc.FrontendFiles = s.Frontend.Files
 	}
-	return document.Build(doc)
+	return document.DeployMarkdown(doc)
 }
 
 // Locations are candidate siblings: a new document goes under the picked one's parent.
@@ -331,14 +320,15 @@ func (s *Session) Publish(ctx context.Context, d *Draft, sibling *provider.DocRe
 	var err error
 	res := &Result{}
 
+	doc := provider.Document{Title: d.Title, Markdown: d.Markdown, Preserve: []string{document.ConsiderHeading}}
 	if d.Replaces != nil {
-		page, err = s.docs.Update(ctx, d.Replaces.DocRef, d.Title, d.ADF)
+		page, err = s.docs.Update(ctx, *d.Replaces, doc)
 		res.Updated = true
 	} else {
 		if sibling == nil {
 			return nil, fmt.Errorf("falta elegir la ubicación del documento nuevo")
 		}
-		page, err = s.docs.Create(ctx, *sibling, d.Title, d.ADF)
+		page, err = s.docs.Create(ctx, *sibling, doc)
 	}
 	if err != nil {
 		return nil, err

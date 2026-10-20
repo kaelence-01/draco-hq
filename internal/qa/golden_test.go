@@ -31,5 +31,5 @@ func TestGoldenDraftCreateSprint(t *testing.T) {
 	}
 
 	d := s.DraftCreate()
-	golden.Assert(t, "draft-create-sprint", map[string]any{"title": d.Title, "adf": d.ADF})
+	golden.AssertText(t, "draft-create-sprint.golden.md", "# "+d.Title+"\n\n"+d.Markdown)
 }

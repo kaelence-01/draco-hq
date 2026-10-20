@@ -2,7 +2,6 @@ package qa
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"reflect"
 	"strings"
@@ -18,19 +17,19 @@ type fakeAPI struct {
 	provider.QATracker
 	provider.DocStore
 
-	me         *provider.User
-	meErr      error
-	review     []provider.QAIssue
-	reviewErr  error
-	assigned   []provider.QAIssue
-	docLinks   map[string]bool
-	docErr     map[string]error
-	novedad    map[string]string
-	novedadErr error
-	byTitle    *provider.DocRef
-	current    *provider.Doc
-	currentErr error
-	qaPages    []provider.DocRef
+	me          *provider.User
+	meErr       error
+	review      []provider.QAIssue
+	reviewErr   error
+	assigned    []provider.QAIssue
+	docLinks    map[string]bool
+	docErr      map[string]error
+	novedad     map[string]string
+	novedadErr  error
+	byTitle     *provider.DocRef
+	sections    []string
+	sectionsErr error
+	qaPages     []provider.DocRef
 
 	gotScope       provider.QAScope
 	gotQAEmail     string
@@ -39,8 +38,8 @@ type fakeAPI struct {
 	commentsRead   []string
 	created        struct{ near, title string }
 	updated        struct {
-		id      string
-		version int
+		id  string
+		doc provider.Document
 	}
 }
 
@@ -70,8 +69,8 @@ func (f *fakeAPI) FindByTitle(context.Context, string) (*provider.DocRef, error)
 	return f.byTitle, nil
 }
 
-func (f *fakeAPI) Read(context.Context, provider.DocRef) (*provider.Doc, error) {
-	return f.current, f.currentErr
+func (f *fakeAPI) Sections(context.Context, provider.DocRef, []string) ([]string, error) {
+	return f.sections, f.sectionsErr
 }
 
 func (f *fakeAPI) SearchTitle(_ context.Context, text string) ([]provider.DocRef, error) {
@@ -79,13 +78,13 @@ func (f *fakeAPI) SearchTitle(_ context.Context, text string) ([]provider.DocRef
 	return f.qaPages, nil
 }
 
-func (f *fakeAPI) Create(_ context.Context, near provider.DocRef, title string, _ map[string]any) (*provider.DocRef, error) {
-	f.created.near, f.created.title = near.ID, title
+func (f *fakeAPI) Create(_ context.Context, near provider.DocRef, doc provider.Document) (*provider.DocRef, error) {
+	f.created.near, f.created.title = near.ID, doc.Title
 	return &provider.DocRef{ID: "new", URL: "https://example.test/new"}, nil
 }
 
-func (f *fakeAPI) Update(_ context.Context, r provider.DocRef, _ string, _ map[string]any) (*provider.DocRef, error) {
-	f.updated.id, f.updated.version = r.ID, r.Version
+func (f *fakeAPI) Update(_ context.Context, r provider.DocRef, doc provider.Document) (*provider.DocRef, error) {
+	f.updated.id, f.updated.doc = r.ID, doc
 	return &provider.DocRef{ID: r.ID, URL: "https://example.test/" + r.ID}, nil
 }
 
@@ -322,29 +321,8 @@ func TestEvaluateTaskObservations(t *testing.T) {
 	}
 }
 
-// roundTrip passes a document through JSON, as it comes back from Confluence.
-func roundTrip(t *testing.T, doc map[string]any) map[string]any {
-	t.Helper()
-	raw, err := json.Marshal(doc)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var out map[string]any
-	if err := json.Unmarshal(raw, &out); err != nil {
-		t.Fatal(err)
-	}
-	return out
-}
-
-func publishedReport(t *testing.T, kept document.QAPreserved) map[string]any {
-	t.Helper()
-	return roundTrip(t, document.BuildQA(document.QADoc{Sprint: 12, Module: "Pagos", Preserved: kept}))
-}
-
-func TestDraftUpdatePreservesHandWrittenParts(t *testing.T) {
-	note := []any{map[string]any{"type": "paragraph", "content": []any{map[string]any{"type": "text", "text": "Sin bloqueos"}}}}
-	consider := []any{map[string]any{"type": "paragraph", "content": []any{map[string]any{"type": "text", "text": "Reprobar en staging"}}}}
-	api := &fakeAPI{current: &provider.Doc{DocRef: provider.DocRef{ID: "p1", Version: 4}, Body: publishedReport(t, document.QAPreserved{Observation: note, Considerations: consider})}}
+func TestDraftUpdateKeepsWhatTheReportHas(t *testing.T) {
+	api := &fakeAPI{sections: []string{document.QAObservationHeading, document.QAConsiderationsHeading}}
 	s := newSession(api, sprintTarget(t))
 	s.Existing = &provider.DocRef{ID: "p1"}
 
@@ -352,25 +330,21 @@ func TestDraftUpdatePreservesHandWrittenParts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(d.NotPreserved) != 0 {
-		t.Errorf("todo se pudo leer, NotPreserved = %v", d.NotPreserved)
-	}
-	kept := document.ExtractQAPreserved(roundTrip(t, d.ADF))
-	if len(kept.Observation) != 1 || len(kept.Considerations) != 1 {
-		t.Errorf("el borrador perdió lo escrito a mano: %#v", kept)
+	if len(d.NotPreserved) != 0 || d.Replaces.ID != "p1" {
+		t.Errorf("borrador = %+v", d)
 	}
 }
 
 func TestDraftUpdateRefusesWhenPageUnreadable(t *testing.T) {
-	s := newSession(&fakeAPI{currentErr: errors.New("timeout")}, sprintTarget(t))
+	s := newSession(&fakeAPI{sectionsErr: errors.New("timeout")}, sprintTarget(t))
 	s.Existing = &provider.DocRef{ID: "p1"}
 	if d, err := s.DraftUpdate(ctx); err == nil || d != nil {
 		t.Error("sin leer la página actual no se arma un reemplazo")
 	}
 }
 
-func TestDraftUpdateReportsLostParts(t *testing.T) {
-	api := &fakeAPI{current: &provider.Doc{DocRef: provider.DocRef{ID: "p1"}}} // not ADF
+func TestDraftUpdateReportsMissingSections(t *testing.T) {
+	api := &fakeAPI{sections: []string{document.QAConsiderationsHeading}}
 	s := newSession(api, sprintTarget(t))
 	s.Existing = &provider.DocRef{ID: "p1"}
 
@@ -378,11 +352,8 @@ func TestDraftUpdateReportsLostParts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(d.NotPreserved, []string{PartObservation, PartConsiderations}) {
+	if !reflect.DeepEqual(d.NotPreserved, []string{document.QAObservationHeading}) {
 		t.Errorf("NotPreserved = %v", d.NotPreserved)
-	}
-	if len(d.Warnings) != 1 {
-		t.Errorf("esperaba un aviso por el formato: %v", d.Warnings)
 	}
 }
 
@@ -402,15 +373,18 @@ func TestLocations(t *testing.T) {
 	}
 }
 
-func TestPublishUpdateUsesCurrentVersion(t *testing.T) {
+func TestPublishUpdateKeepsHandWritten(t *testing.T) {
 	api := &fakeAPI{}
 	s := newSession(api, sprintTarget(t))
-	res, err := s.Publish(ctx, &Draft{Title: "T", Replaces: &provider.Doc{DocRef: provider.DocRef{ID: "p1", Version: 4}}}, nil)
+	res, err := s.Publish(ctx, &Draft{Title: "T", Markdown: "md", Replaces: &provider.DocRef{ID: "p1"}}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !res.Updated || api.updated.id != "p1" || api.updated.version != 4 {
+	if !res.Updated || api.updated.id != "p1" || api.updated.doc.Markdown != "md" {
 		t.Errorf("update mal hecho: %+v %+v", res, api.updated)
+	}
+	if !reflect.DeepEqual(api.updated.doc.Preserve, []string{document.QAObservationHeading, document.QAConsiderationsHeading}) {
+		t.Errorf("el destino debe conservar lo escrito a mano: %v", api.updated.doc.Preserve)
 	}
 }
 

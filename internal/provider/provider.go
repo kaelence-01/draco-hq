@@ -27,15 +27,17 @@ type DocRef struct {
 	ID      string
 	Title   string
 	URL     string
-	Version int // as last read; Update needs it where the destination checks it
+	Version int
 }
 
-// Doc is a document read back with its body.
-type Doc struct {
-	DocRef
-	// Body is the destination's native body (ADF for Confluence) until documents
-	// move to Markdown; nil when the page uses a format draco cannot read.
-	Body map[string]any
+// Document is what a flow publishes.
+type Document struct {
+	Title    string
+	Markdown string
+	// Preserve names the sections, by heading, that people edit by hand: on
+	// Update the destination keeps their current content instead of the
+	// template's.
+	Preserve []string
 }
 
 // LocationQuery selects the documents a new one can be created next to.
@@ -80,12 +82,14 @@ type DocStore interface {
 	// FindByTitleKey finds a document whose title has both prefix and key; it
 	// may lag behind recent changes, unlike FindByTitle.
 	FindByTitleKey(ctx context.Context, prefix, key string) (*DocRef, error)
-	Read(ctx context.Context, ref DocRef) (*Doc, error)
+	// Sections reports which of the named sections the current document has.
+	Sections(ctx context.Context, ref DocRef, names []string) ([]string, error)
 	Locations(ctx context.Context, q LocationQuery) (*Locations, error)
 	// Create places the document next to near (same parent).
-	Create(ctx context.Context, near DocRef, title string, body map[string]any) (*DocRef, error)
-	// Update replaces the whole body; ref.Version is the version read.
-	Update(ctx context.Context, ref DocRef, title string, body map[string]any) (*DocRef, error)
+	Create(ctx context.Context, near DocRef, doc Document) (*DocRef, error)
+	// Update replaces the document, keeping doc.Preserve. It fails without
+	// writing anything when the current document cannot be read.
+	Update(ctx context.Context, ref DocRef, doc Document) (*DocRef, error)
 	Search(ctx context.Context, text string) ([]DocRef, error)
 	// SearchTitle finds documents whose title matches text, newest first,
 	// across the whole destination; it may lag behind recent changes.

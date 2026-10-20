@@ -8,11 +8,6 @@ import (
 	"github.com/kaelence-01/draco-hq/internal/provider"
 )
 
-type rendered struct {
-	Title string         `json:"title"`
-	ADF   map[string]any `json:"adf"`
-}
-
 func TestGoldenDeploy(t *testing.T) {
 	cases := map[string]DeployDoc{
 		"deploy-completo": {
@@ -39,21 +34,17 @@ func TestGoldenDeploy(t *testing.T) {
 			FrontendCommit: "0f1e2d3",
 			FrontendFiles:  map[string][]string{"src": {"main.ts"}},
 		},
-		"deploy-sin-vcs-preservado": {
+		"deploy-sin-vcs": {
 			IssueKey:      "OPS-9",
 			IssueSummary:  "Corrección de redondeo",
 			IssueURL:      "https://example.test/browse/OPS-9",
 			BackendRepo:   "pagos-api",
 			BackendCommit: "9a8b7c6",
 			BackendFiles:  map[string][]string{"app": {"Redondeo.php"}},
-			PreservedConsider: []any{
-				paragraph(textNode("Coordinar con el equipo de soporte")),
-				considerTable([]string{"Paso agregado a mano"}),
-			},
 		},
 	}
 	for name, doc := range cases {
-		golden.Assert(t, name, rendered{Title: BuildTitle(doc.IssueKey, doc.IssueSummary), ADF: Build(doc)})
+		golden.AssertText(t, name+".golden.md", "# "+BuildTitle(doc.IssueKey, doc.IssueSummary)+"\n\n"+DeployMarkdown(doc))
 	}
 }
 
@@ -67,22 +58,11 @@ func TestGoldenQA(t *testing.T) {
 		{Key: "OPS-9", URL: "https://example.test/browse/OPS-9", DeployDocUnknown: true, PRMerged: true},
 	}
 
-	golden.Assert(t, "qa-sprint", rendered{
-		Title: BuildQATitle("Pagos", 12),
-		ADF: BuildQA(QADoc{
-			Sprint: 12, Module: "Pagos", Tasks: tasks, Date: review,
-			LiderTecnico: "Líder de ejemplo", PMO: "PMO de ejemplo", QA: "QA de ejemplo",
-		}),
-	})
-
-	golden.Assert(t, "qa-kanban-preservado", rendered{
-		Title: BuildQAKanbanTitle("07/09 al 21/09/2026"),
-		ADF: BuildQA(QADoc{
-			Period: "07/09 al 21/09/2026", Tasks: tasks[:1], Date: review,
-			Preserved: QAPreserved{
-				Observation:    []any{paragraph(textNode("Sin bloqueos"))},
-				Considerations: []any{paragraph(textNode("Ventana de despliegue el viernes"))},
-			},
-		}),
-	})
+	golden.AssertText(t, "qa-sprint.golden.md", "# "+BuildQATitle("Pagos", 12)+"\n\n"+QAMarkdown(QADoc{
+		Sprint: 12, Module: "Pagos", Tasks: tasks, Date: review,
+		LiderTecnico: "Líder de ejemplo", PMO: "PMO de ejemplo", QA: "QA de ejemplo",
+	}))
+	golden.AssertText(t, "qa-kanban.golden.md", "# "+BuildQAKanbanTitle("07/09 al 21/09/2026")+"\n\n"+QAMarkdown(QADoc{
+		Period: "07/09 al 21/09/2026", Tasks: tasks[:1], Date: review,
+	}))
 }

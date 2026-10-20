@@ -38,14 +38,10 @@ dentro del binario y se eligen por nombre desde la config.
 ## 3. Modelo neutro
 
 Implementado en `internal/provider/provider.go` (actividades 3a y 3b): `Issue`,
-`User`, `DocRef` (con la versión leída), `Doc` (referencia + cuerpo),
-`LocationQuery` / `Locations` y `Exported` (texto + metadatos, con `Source`, el
-nombre de la plataforma), `QAIssue` / `QAScope` y `Commit`.
-
-**Transición:** `Doc.Body` y el cuerpo que reciben `Create` y `Update` son el
-formato nativo del destino (ADF en Confluence) hasta que el documento pase a
-Markdown (actividad 4); la preservación de secciones sigue en los flujos hasta
-entonces. Así los goldens se mantienen idénticos en el cambio a puertos.
+`User`, `DocRef`, `Document` (título, Markdown y secciones a conservar),
+`LocationQuery` / `Locations`, `Exported` (texto + metadatos, con `Source`, el
+nombre de la plataforma), `QAIssue` / `QAScope` y `Commit`. Desde la actividad
+4b el flujo nunca ve el formato nativo del destino.
 
 ## 4. Puertos
 
@@ -59,10 +55,10 @@ type Tracker interface {
 type DocStore interface {
     FindByTitle(ctx context.Context, title string) (*DocRef, error)
     FindByTitleKey(ctx context.Context, prefix, key string) (*DocRef, error)
-    Read(ctx context.Context, ref DocRef) (*Doc, error)
+    Sections(ctx context.Context, ref DocRef, names []string) ([]string, error)
     Locations(ctx context.Context, q LocationQuery) (*Locations, error)
-    Create(ctx context.Context, near DocRef, title string, body map[string]any) (*DocRef, error)
-    Update(ctx context.Context, ref DocRef, title string, body map[string]any) (*DocRef, error)
+    Create(ctx context.Context, near DocRef, doc Document) (*DocRef, error)
+    Update(ctx context.Context, ref DocRef, doc Document) (*DocRef, error)
     Search(ctx context.Context, text string) ([]DocRef, error)
     SearchTitle(ctx context.Context, text string) ([]DocRef, error)
     Export(ctx context.Context, ref DocRef) (*Exported, error)
@@ -101,8 +97,9 @@ type ChangeSource interface {
 - **`DocStore.SearchTitle`** busca por título en todo el destino (CQL en
   Confluence). Lo usa el consolidado QA para sus ubicaciones: `Locations` solo
   revisa las páginas más nuevas, y un consolidado se crea una vez por sprint.
-- **Pendiente (4):** `Sections` para preguntar qué secciones escritas a mano
-  encuentra el destino, y cuerpo en Markdown.
+- **`Document` y `Sections`** (actividad 4b): el flujo publica Markdown y
+  declara en `Preserve` las secciones escritas a mano; `Sections` le dice antes
+  cuáles tiene el documento actual (§6).
 - Tests: el adaptador se prueba con `httptest` (sin red). La batería común de
   contrato llega con el segundo adaptador (actividad 6).
 
@@ -147,13 +144,22 @@ preservación es **responsabilidad del adaptador de destino**, en su formato
 nativo: así el estado de las tareas marcadas y el formato se copian tal cual,
 sin pasar por Markdown.
 
-- La plantilla declara qué secciones son del usuario (`preserve:` en el
-  manifiesto).
-- Antes de actualizar, el flujo pregunta al destino cuáles encuentra
+Implementado en la actividad 4b:
+
+- El flujo declara qué secciones son del usuario (`Document.Preserve`); con
+  las plantillas lo hará el manifiesto (`preserve:`).
+- Antes de actualizar, el flujo pregunta al destino cuáles tiene
   (`Sections`) y, si falta alguna, la UI pregunta.
-- En `Update`, el adaptador lee la página actual, extrae esas secciones en su
-  formato y las inserta en el cuerpo nuevo. Si no puede leer la página, no
-  actualiza.
+- Una sección existe cuando existe su título, aunque esté vacía: una
+  «Observación» recién creada no hace preguntar en cada actualización, y si QA
+  la dejó vacía, se conserva vacía.
+- En `Update`, el adaptador de Confluence lee la página actual, extrae esas
+  secciones en ADF (hasta el siguiente título del mismo nivel o superior) y
+  las pone en lugar de las de la plantilla, sobre la versión que leyó. Si no
+  puede leer la página, no actualiza.
+- Migración: en los consolidados publicados antes de 4b la «Observación» era
+  una celda de la tabla Resumen; si no hay sección, el adaptador lee esa
+  celda.
 
 ## 7. Plantillas
 

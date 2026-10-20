@@ -5,8 +5,11 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/kaelence-01/draco-hq/internal/document"
 	"github.com/kaelence-01/draco-hq/internal/golden"
+	"github.com/kaelence-01/draco-hq/internal/provider"
 )
 
 func content(t *testing.T, md string) []any {
@@ -174,8 +177,26 @@ const deploySample = `|  |  |
 - [ ] Desplegar backend
 `
 
-func TestGoldenDeploySample(t *testing.T) {
-	golden.Assert(t, "markdown-deploy", MarkdownToADF(deploySample))
+// TestGoldenPublishedADF fixes what Confluence receives for draco's real
+// documents: the Markdown of internal/document through this converter.
+func TestGoldenPublishedADF(t *testing.T) {
+	deploy := document.DeployMarkdown(document.DeployDoc{
+		IssueKey: "OPS-7", IssueURL: "https://example.test/browse/OPS-7",
+		VCSHost: "https://bitbucket.org", VCSOrg: "mi-org",
+		BackendRepo: "pagos-api", BackendCommit: "a1b2c3d",
+		BackendFiles: map[string][]string{"app/Http/Pagos": {"FiltroController.php", "Rango.php"}},
+		Checklist:    []string{"Respaldar base de datos", "Desplegar backend"},
+	})
+	golden.Assert(t, "adf-deploy", MarkdownToADF(deploy))
+
+	qa := document.QAMarkdown(document.QADoc{
+		Sprint: 12, Module: "Pagos", Date: time.Date(2026, 9, 21, 12, 0, 0, 0, time.UTC),
+		Tasks: []provider.QAIssue{
+			{URL: "https://example.test/browse/OPS-7", HasDeployDoc: true, PRMerged: true, ReviewTaskURL: "https://example.test/browse/OPS-20"},
+			{URL: "https://example.test/browse/OPS-8", HasCodingErrors: true, DeployDocUnknown: true, Observations: "falta validar el monto"},
+		},
+	})
+	golden.Assert(t, "adf-qa", MarkdownToADF(qa))
 }
 
 func FuzzMarkdownToADF(f *testing.F) {

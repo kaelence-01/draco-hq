@@ -53,7 +53,7 @@ internal/
                Markdown → ADF (markdown.go)
     git/       Adaptador: clon local (archivos de un commit, commits recientes)
   config/      Config YAML + variables de entorno (env > archivo)
-  document/    Construcción del ADF (deploy doc y QA) y preservación de secciones
+  document/    Documento de despliegue y consolidado QA en Markdown
   backlog/     Detectores de deuda técnica (sin red)
   deploy/      Flujo del documento de despliegue, sin E/S de terminal
   qa/          Flujo del consolidado de QA, sin E/S de terminal
@@ -110,13 +110,19 @@ Cada flujo vive en su propio paquete (`internal/deploy` es la referencia) y
 - **Confluence v2 filtra spaces por `space-id` numérico, nunca por `space-key`.**
   Un parámetro desconocido se ignora en silencio y el filtro deja de filtrar.
   Resolver claves con `ResolveSpaceID`.
-- **El ADF es `map[string]any` crudo**, sin structs tipados. Se envía como
-  `body.value` (string JSON) con `representation: atlas_doc_format`.
-- **Actualizar una página reemplaza todo su cuerpo.** Lo que el usuario edita a
-  mano (la sección «A considerar») se lee y se vuelve a emitir
-  (`document.ExtractSection`); en el consolidado QA, la «Observación» del
-  Resumen y «Consideraciones» (`document.ExtractQAPreserved`). Si la página
-  actual no se puede leer, no se sobrescribe: `DraftUpdate` devuelve error.
+- **Los documentos son Markdown** (`internal/document`); cada adaptador de
+  destino lo convierte a su formato. Todo valor interpolado pasa por `mdText` /
+  `mdURL`: un `|` o un `<` en un nombre de archivo no puede romper una tabla ni
+  abrir HTML.
+- **El ADF es `map[string]any` crudo**, sin structs tipados, y solo existe en el
+  adaptador de Atlassian. Se envía como `body.value` (string JSON) con
+  `representation: atlas_doc_format`.
+- **Actualizar un documento reemplaza todo su cuerpo.** Lo que la gente edita a
+  mano («A considerar»; «Observación» y «Consideraciones» del consolidado) lo
+  declara el flujo en `Document.Preserve` y lo conserva el adaptador en su
+  formato nativo. Antes, el flujo pregunta con `DocStore.Sections` y la UI
+  avisa si falta alguna. Si el documento actual no se puede leer, no se
+  sobrescribe.
 - **Una consulta fallida nunca se publica como un control fallido** en el
   reporte de QA: es evidencia. Se usa el estado desconocido
   (`QAIssue.DeployDocUnknown`).
