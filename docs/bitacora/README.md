@@ -19,6 +19,7 @@ La historia y el porqué de cada decisión van aquí, no en comentarios del cód
 | [007](./007-golden.md) | Goldens del documento actual | `feature/golden` | 2026-10-19 | 2 | 7 goldens (builder y flujos) como criterio de «documento idéntico»; fecha del consolidado fijable |
 | [008](./008-puertos.md) | Puertos y Atlassian como adaptador (3a) | `feature/puertos` | 2026-10-19 | 2 | `internal/provider`, `context` en todo, `deploy` y `fetch` sobre puertos; goldens sin regenerar |
 | [009](./009-puertos-qa.md) | QA y cambios sobre puertos (3b) | `feature/puertos-qa` | 2026-10-19 | 2 | `QATracker`, `ChangeSource` con commits recientes, convenciones al flujo; ningún flujo importa un adaptador |
+| [010](./010-markdown-adf.md) | Conversor Markdown → ADF (4a) | `feature/markdown-adf` | 2026-10-19 | 2 | `goldmark` con las convenciones aprobadas; tests, golden y fuzzing; nada publicado cambia |
 
 ## Formato de cada entrada
 
