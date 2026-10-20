@@ -128,7 +128,8 @@ instancia propia, empezando por `--dry-run`.
 | 3 | ✅ `draco g` (falta la prueba manual del autor contra Confluence): despliegue sobre el flujo, ubicación y secciones no conservadas preguntadas por texto, `--dry-run`, `--profile`, `--space`, `--template` | `feature/cli-generate` | `--dry-run` muestra el Markdown; prueba manual contra Confluence y contra Markdown local |
 | 4 | ✅ `draco qa` y `draco f` (falta la prueba manual del autor contra Jira y Confluence) (con los diálogos nativos para guardar) | `feature/cli-qa-fetch` | `--dry-run` del consolidado; exportar a un `.txt` |
 | 5 | ✅ `draco backlog scan` | `feature/cli-backlog` | Mismo informe y flags que gtt |
-| 6 | `draco init`, `draco project`, `draco profile` y `draco template` sobre las funciones puras de `config` y el motor de plantillas | `feature/cli-init` | Una config nueva se crea sin editar YAML |
+| 6a | ✅ `draco init`, `draco project` y `draco profile` sobre las funciones puras de `config`; token oculto con `golang.org/x/term` | `feature/cli-init` | Una config nueva se crea sin editar YAML |
+| 6b | `draco template init/list/validate/preview` sobre el motor de plantillas | `feature/cli-template` | Una plantilla se copia, se edita y se previsualiza sin publicar |
 | 7 | Instalador, updater, objetivos de release del Makefile y `checksums.txt` | `feature/release` | Un release de prueba se instala y se actualiza |
 
 Detalle:

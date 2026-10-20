@@ -36,14 +36,7 @@ const defaultBacklogLimit = 10
 var scanRepo = backlog.Scan
 
 func runBacklog(a *App, args []string) error {
-	if len(args) == 0 {
-		backlogHelp(a)
-		return nil
-	}
-	if args[0] != "scan" {
-		return usageError("subcomando desconocido: backlog %s", args[0])
-	}
-	return runBacklogScan(a, args[1:])
+	return a.subcommand("backlog", map[string]func(*App, []string) error{"scan": runBacklogScan}, backlogHelp, args)
 }
 
 // runBacklogScan only reads the repos: it needs no credentials and no profile.

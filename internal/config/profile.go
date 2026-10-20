@@ -64,7 +64,7 @@ func (c *Config) ProjectNames() []string { return sortedKeys(c.Projects) }
 
 // SetProject adds or replaces a project.
 func (c *Config) SetProject(name string, p *ProjectConfig) error {
-	if err := validName("proyecto", name); err != nil {
+	if err := ValidName("proyecto", name); err != nil {
 		return err
 	}
 	if c.Projects == nil {
@@ -98,7 +98,7 @@ func (c *Config) SetDefaultProject(name string) error {
 
 // SetProfile adds or replaces a profile.
 func (c *Config) SetProfile(name string, p *Profile) error {
-	if err := validName("perfil", name); err != nil {
+	if err := ValidName("perfil", name); err != nil {
 		return err
 	}
 	if c.Profiles == nil {
@@ -130,7 +130,8 @@ func (c *Config) SetDefaultProfile(name string) error {
 	return nil
 }
 
-func validName(kind, name string) error {
+// ValidName checks a project or profile name; kind names it in the error.
+func ValidName(kind, name string) error {
 	if strings.TrimSpace(name) == "" || strings.ContainsAny(name, " \t\n/") {
 		return fmt.Errorf("nombre de %s inválido %q: sin espacios ni /", kind, name)
 	}

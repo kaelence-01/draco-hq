@@ -161,6 +161,9 @@ Cada flujo vive en su propio paquete (`internal/deploy` es la referencia) y
 - Los flags se declaran por comando (`[]flag`) y se leen con `parseFlags`: un
   flag desconocido o sin valor es un error de uso (sale con 2), nunca se
   ignora; solo un flag `optional` (`-o` de `backlog scan`) puede ir sin valor. `-h`/`--help` muestra la ayuda y **nunca ejecuta** el comando.
+- Los comandos que **guardan** la config la leen con `config.LoadFile` (solo
+  el archivo), nunca con `LoadLocal`: este mezcla las variables `ATLASSIAN_*`
+  y un token del entorno terminaría escrito en el disco.
 - Todo se escribe en `App.Out`/`App.Err` (los tests usan buffers); el color
   solo aparece en una terminal real y sin `NO_COLOR`.
 - Un comando recorre los pasos de su flujo y pregunta por texto donde el flujo
@@ -173,11 +176,13 @@ Cada flujo vive en su propio paquete (`internal/deploy` es la referencia) y
 
 ## Dependencias
 
-Hoy: `gopkg.in/yaml.v3` y `github.com/yuin/goldmark` (Markdown → formato de cada
-destino; solo en los adaptadores). Están aprobadas para la TUI las librerías de
-Charm (Bubble Tea, Bubbles, Lip Gloss, Huh), y `golang.org/x/sys` cuando se
-porte el instalador de Windows. Cualquier otra se justifica antes de agregarla. El router
-de comandos será un `map[string]func([]string) error` como en gtt, sin Cobra.
+Hoy: `gopkg.in/yaml.v3`, `github.com/yuin/goldmark` (Markdown → formato de cada
+destino; solo en los adaptadores) y `golang.org/x/term` (leer el token sin
+mostrarlo en `draco init`; trae `golang.org/x/sys`). Están aprobadas para la TUI
+las librerías de Charm (Bubble Tea, Bubbles, Lip Gloss, Huh), y `golang.org/x/sys`
+directo cuando se porte el instalador de Windows. Cualquier otra se justifica
+antes de agregarla. El router de comandos es un mapa de nombre a comando, como
+en gtt, sin Cobra.
 
 ## Idioma
 
