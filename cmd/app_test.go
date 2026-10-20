@@ -7,8 +7,13 @@ import (
 )
 
 func run(args ...string) (code int, out, errOut string) {
+	return runWith("", args...)
+}
+
+// runWith runs a command answering its prompts with input, one answer per line.
+func runWith(input string, args ...string) (code int, out, errOut string) {
 	var o, e bytes.Buffer
-	code = New(&o, &e).Run(args)
+	code = New(strings.NewReader(input), &o, &e).Run(args)
 	return code, o.String(), e.String()
 }
 

@@ -125,7 +125,7 @@ instancia propia, empezando por `--dry-run`.
 |---|---|---|---|
 | 1 | ✅ README | `docs/readme` | El repo explica qué es draco, su estado y cómo se trabaja |
 | 2 | ✅ Base del comando: `main.go`, router `cmd/`, flags cortos y largos (portar `parseFlagsWithShorts` y sus tests), ayuda en dos niveles, `version` por ldflags | `feature/cli-base` | `go run . help` y `go run . help <cmd>`; `-h` nunca ejecuta |
-| 3 | `draco g`: despliegue sobre el flujo, ubicación y secciones no conservadas preguntadas por texto, `--dry-run`, `--profile`, `--space`, `--template` | `feature/cli-generate` | `--dry-run` muestra el Markdown; prueba manual contra Confluence y contra Markdown local |
+| 3 | ✅ `draco g` (falta la prueba manual del autor contra Confluence): despliegue sobre el flujo, ubicación y secciones no conservadas preguntadas por texto, `--dry-run`, `--profile`, `--space`, `--template` | `feature/cli-generate` | `--dry-run` muestra el Markdown; prueba manual contra Confluence y contra Markdown local |
 | 4 | `draco qa` y `draco f` (con los diálogos nativos para guardar) | `feature/cli-qa-fetch` | `--dry-run` del consolidado; exportar a un `.txt` |
 | 5 | `draco backlog scan` | `feature/cli-backlog` | Mismo informe y flags que gtt |
 | 6 | `draco init`, `draco project`, `draco profile` y `draco template` sobre las funciones puras de `config` y el motor de plantillas | `feature/cli-init` | Una config nueva se crea sin editar YAML |
