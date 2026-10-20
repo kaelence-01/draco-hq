@@ -46,12 +46,13 @@ instalada los colaboradores y el CI.
 
 ```
 internal/
-  provider/    Modelo neutro y puertos (Tracker, DocStore)
+  provider/    Modelo neutro y puertos (Tracker, QATracker, DocStore,
+               ChangeSource)
     atlassian/ Adaptador: cliente HTTP (Basic Auth) + Jira v3 + Confluence
                v1/v2, escapado JQL/CQL (query.go), conversión storage → texto
+    git/       Adaptador: clon local (archivos de un commit, commits recientes)
   config/      Config YAML + variables de entorno (env > archivo)
   document/    Construcción del ADF (deploy doc y QA) y preservación de secciones
-  git/         git show, agrupación por carpeta, errores accionables
   backlog/     Detectores de deuda técnica (sin red)
   deploy/      Flujo del documento de despliegue, sin E/S de terminal
   qa/          Flujo del consolidado de QA, sin E/S de terminal
@@ -79,12 +80,14 @@ Cada flujo vive en su propio paquete (`internal/deploy` es la referencia) y
   y paso decide quien llama: el modo comando pregunta por texto y la TUI con
   listas y formularios, sobre los mismos pasos.
 - Cada paso recibe un `context.Context` (la TUI cancela con él).
-- Los flujos hablan con los **puertos** de `internal/provider` (`Tracker`,
-  `DocStore`), **nunca con un adaptador**; el llamador construye el adaptador
-  (`atlassian.NewTracker`, `atlassian.NewDocStore`) y se lo pasa a la
-  `Session`. Los tests usan un doble (`fakeAPI`) que embebe el puerto y
-  sobrescribe solo lo que el flujo usa. `qa` todavía usa una interfaz propia
-  sobre `*atlassian.Client`: pasa a puertos en la actividad 3b del roadmap.
+- Los flujos y `document` hablan con los **puertos** de `internal/provider`,
+  **nunca con un adaptador**; el llamador construye los adaptadores
+  (`atlassian.NewTracker`, `atlassian.NewQATracker`, `atlassian.NewDocStore`,
+  `git.Local{}`) y se los pasa a la `Session`. Los tests usan un doble
+  (`fakeAPI`) que embebe el puerto y sobrescribe solo lo que el flujo usa.
+- Las convenciones de draco (prefijos de título, «Revisión de Tarea», ventana
+  Kanban) viven en el flujo o en `document` y se pasan al adaptador como
+  parámetro; el adaptador no las conoce.
 - Las situaciones degradadas pero viables se devuelven como `Warnings` o como
   campos (`Draft.Preserved`, `Draft.NotPreserved`, `Result.LinkErr`,
   `Locations.TeamWide`), nunca se

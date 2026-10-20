@@ -37,10 +37,10 @@ dentro del binario y se eligen por nombre desde la config.
 
 ## 3. Modelo neutro
 
-Implementado en `internal/provider/provider.go` (actividad 3a): `Issue`,
+Implementado en `internal/provider/provider.go` (actividades 3a y 3b): `Issue`,
 `User`, `DocRef` (con la versión leída), `Doc` (referencia + cuerpo),
 `LocationQuery` / `Locations` y `Exported` (texto + metadatos, con `Source`, el
-nombre de la plataforma).
+nombre de la plataforma), `QAIssue` / `QAScope` y `Commit`.
 
 **Transición:** `Doc.Body` y el cuerpo que reciben `Create` y `Update` son el
 formato nativo del destino (ADF en Confluence) hasta que el documento pase a
@@ -64,7 +64,21 @@ type DocStore interface {
     Create(ctx context.Context, near DocRef, title string, body map[string]any) (*DocRef, error)
     Update(ctx context.Context, ref DocRef, title string, body map[string]any) (*DocRef, error)
     Search(ctx context.Context, text string) ([]DocRef, error)
+    SearchTitle(ctx context.Context, text string) ([]DocRef, error)
     Export(ctx context.Context, ref DocRef) (*Exported, error)
+}
+
+type QATracker interface {
+    Tracker
+    ReviewTasks(ctx context.Context, scope QAScope) ([]QAIssue, error)
+    AssignedTasks(ctx context.Context, scope QAScope, email string) ([]QAIssue, error)
+    HasDocumentLink(ctx context.Context, issueKey, prefix string) (bool, error)
+    Observations(ctx context.Context, issueKey string) (string, error)
+}
+
+type ChangeSource interface {
+    ChangedFiles(ctx context.Context, workDir string, hashes []string) ([]string, error)
+    RecentCommits(ctx context.Context, workDir string, n int) ([]Commit, error)
 }
 ```
 
@@ -76,9 +90,17 @@ type DocStore interface {
 - Las convenciones de draco (prefijo «Documento de Despliegue») las pasa el
   flujo como parámetro (`FindByTitleKey`, `LocationQuery.TitlePrefix`); el
   adaptador no las conoce. Pasarán a la plantilla en la actividad 5.
-- **Pendiente (3b):** capacidad opcional `QATracker` (consultas del
-  consolidado, observaciones, enlace al documento), detectada con una aserción
-  de tipo, y `ChangeSource` (archivos de un commit, commits recientes).
+- **`QATracker`** amplía `Tracker` con lo que necesita el consolidado QA
+  (`ReviewTasks`, `AssignedTasks` por `QAScope`, `HasDocumentLink`,
+  `Observations`). El esquema de Jira se le da al construirlo
+  (`atlassian.NewQATracker(c, qa_jira)`). Hoy el llamador construye el
+  adaptador directamente; detectar la capacidad con una aserción de tipo sobre
+  un `Tracker` cualquiera llega con los perfiles (actividad 7).
+- **`ChangeSource`** (`ChangedFiles`, `RecentCommits`); `git.Local` es el clon
+  local.
+- **`DocStore.SearchTitle`** busca por título en todo el destino (CQL en
+  Confluence). Lo usa el consolidado QA para sus ubicaciones: `Locations` solo
+  revisa las páginas más nuevas, y un consolidado se crea una vez por sprint.
 - **Pendiente (4):** `Sections` para preguntar qué secciones escritas a mano
   encuentra el destino, y cuerpo en Markdown.
 - Tests: el adaptador se prueba con `httptest` (sin red). La batería común de

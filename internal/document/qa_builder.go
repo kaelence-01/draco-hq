@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kaelence-01/draco-hq/internal/provider/atlassian"
+	"github.com/kaelence-01/draco-hq/internal/provider"
 )
 
 // QADoc is the data of the QA report. Sprint 0 with Period set is Kanban mode.
@@ -13,8 +13,8 @@ type QADoc struct {
 	Sprint  int
 	Period  string // used in Kanban mode, e.g. "08/05 al 22/05/2026"
 	Module  string
-	Tasks   []atlassian.QAIssue // Tabla Consolidada (Testing / En Revisión)
-	QATasks []atlassian.QAIssue // Resumen — tasks assigned to the QA user
+	Tasks   []provider.QAIssue // Tabla Consolidada (Testing / En Revisión)
+	QATasks []provider.QAIssue // Resumen — tasks assigned to the QA user
 
 	// Header names from qa_report; empty renders as "—".
 	LiderTecnico string
@@ -103,14 +103,17 @@ func qaConsiderations(preserved []any) []any {
 	return []any{qaEmptyBullet()}
 }
 
+// QATitlePrefix starts every QA consolidated report title.
+const QATitlePrefix = "Consolidado de Pruebas QA"
+
 // BuildQATitle returns "Consolidado de Pruebas QA - Pagos - Sprint 17".
 func BuildQATitle(module string, sprint int) string {
-	return fmt.Sprintf("Consolidado de Pruebas QA - %s - Sprint %d", module, sprint)
+	return fmt.Sprintf("%s - %s - Sprint %d", QATitlePrefix, module, sprint)
 }
 
 // BuildQAKanbanTitle returns "Consolidado de Pruebas QA - 08/05 al 22/05/2026".
 func BuildQAKanbanTitle(period string) string {
-	return fmt.Sprintf("Consolidado de Pruebas QA - %s", period)
+	return fmt.Sprintf("%s - %s", QATitlePrefix, period)
 }
 
 func qaInfoTable(periodHeader, periodValue string, doc QADoc) map[string]any {
@@ -150,7 +153,7 @@ func orDash(s string) string {
 	return s
 }
 
-func qaConsolidatedTable(tasks []atlassian.QAIssue) map[string]any {
+func qaConsolidatedTable(tasks []provider.QAIssue) map[string]any {
 	rows := []any{
 		tableRow([]any{
 			tableHeader(150, textNode("Tarea")),
