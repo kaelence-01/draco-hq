@@ -185,7 +185,7 @@ func TestBarSuggestsAndCompletes(t *testing.T) {
 	}
 }
 
-func TestBarRunsHelpAndExplainsTheRest(t *testing.T) {
+func TestBarRunsHelpAndVersion(t *testing.T) {
 	m := newBarApp(t)
 	typeText(m, "/g --x")
 	send(m, keyEnter)
@@ -220,12 +220,6 @@ func TestBarRunsHelpAndExplainsTheRest(t *testing.T) {
 		if !strings.Contains(out, want) {
 			t.Errorf("falta %q en la ayuda general:\n%s", want, out)
 		}
-	}
-	send(m, keyEsc)
-	typeText(m, "/g -i OPS-7")
-	send(m, keyEnter)
-	if out := view(m); !strings.Contains(out, "todavía no abre «generate»") {
-		t.Errorf("un comando válido sin pantalla desde la barra lo explica:\n%s", out)
 	}
 }
 

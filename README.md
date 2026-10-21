@@ -12,9 +12,9 @@ detecta **deuda técnica** en tus repos. Sin IA.
 > publican, con `--dry-run`. El modo visual también: `draco` sin argumentos
 > abre la pantalla principal, Proyectos, Generar y Consolidado QA (hasta la
 > publicación), Exportar, Backlog y Configuración (conexión, perfiles y QA).
-> También avisa si hay una versión nueva, y tiene una barra de comandos con
-> sugerencias (`/`) y ayuda. En curso, la fase 6: abrir cada pantalla desde
-> la barra y temas. Los binarios se publican en Releases desde `v0.1.0`. Ver
+> También avisa si hay una versión nueva, y tiene una barra de comandos (`/`)
+> con sugerencias que abre cada pantalla con los datos de la línea, y ayuda.
+> En curso, la fase 6: temas. Los binarios se publican en Releases desde `v0.1.0`. Ver
 > [`docs/roadmap.md`](docs/roadmap.md).
 
 ## Qué hace

@@ -10,8 +10,8 @@ versión nueva, barra de comandos, ayuda y temas, diseñados en el §6).
 Implementado: la base (entrada, marco, pila de pantallas, pantalla
 principal), Proyectos, Generar y QA completos, de la tarea o el sprint a la
 publicación, Exportar, Backlog, Configuración (conexión, perfiles y QA), el
-aviso de versión nueva, la barra de comandos (sugerencias y lectura de la
-línea) y la Ayuda. Se
+aviso de versión nueva, la barra de comandos (que abre cada pantalla con los
+datos de la línea) y la Ayuda. Se
 actualiza al implementar cada actividad. Las reglas para escribir una
 pantalla están en el §10 y son obligatorias.
 
@@ -93,6 +93,7 @@ internal/tui/
   profileform.go  formulario de Huh para crear y editar un perfil
   qaconfig.go   Configuración: qa_email, qa_report y qa_jira, en páginas
   cmdbar.go     barra de comandos de la principal: sugerencias y lectura de la línea
+  barrun.go     barra de comandos: cada comando abre su pantalla con los datos
   helpscreen.go Ayuda: la general y la de cada comando
 ```
 
@@ -513,36 +514,48 @@ formularios.
   final y se borra con retroceso, sin mover el cursor dentro de la línea.
   Las palabras se separan por espacios; un valor con espacios no se puede
   escribir entre comillas.
-- **Antes de ejecutar** (actividad 5a): `enter` lee la línea con
-  `readLine`, con el mismo parser y los mismos flags que el modo comando.
-  Un flag desconocido o sin valor, un comando o un subcomando desconocidos
-  son un error en la barra. `help [comando]` abre la Ayuda y `version`
-  responde en la línea. Los demás comandos todavía dicen que la línea es
-  válida y que se elijan en el menú, hasta la actividad 5b.
-- **Ejecutar es abrir la pantalla con los datos cargados** (actividad 5b).
+- **Leer la línea:** `enter` la lee con `readLine`, con el mismo parser y
+  los mismos flags que el modo comando. Un flag desconocido o sin valor, un
+  comando o un subcomando desconocidos son un error en la barra, igual que
+  en el comando salen con 2.
+- **Ejecutar es abrir la pantalla con los datos cargados** (`barrun.go`).
   Se abre la pantalla del comando en el primer paso que el usuario debe
-  revisar:
+  revisar. Un formulario con lo necesario se envía, y la pila queda como si
+  el usuario lo hubiera llenado: `esc` vuelve al formulario con los
+  valores.
 
   | Comando | Abre |
   |---|---|
-  | `g -i OPS-7 [-b …] [-f …] [-p …]` | Generar con el formulario enviado; en Commits, los hashes dados quedan marcados, o agregados a mano si no están en la lista |
-  | `qa [-s 12 -m Pagos]` | QA con el formulario enviado: la evaluación |
+  | `g -i OPS-7 [-b …] [-f …] [-p …]` | Generar con el formulario enviado; en Commits, los hashes dados quedan marcados (por prefijo) o agregados a mano si no están en la lista |
+  | `qa [-s 12 -m Pagos]` | QA con el formulario enviado: la evaluación (sin `-s`, Kanban, como el comando) |
   | `f -i OPS-7 [-s …]` | Exportar, ya buscando |
-  | `backlog scan […]` | Backlog, con el formulario lleno |
+  | `backlog scan […]` | Backlog: el análisis con las opciones de la línea |
+  | `backlog` | Backlog: el formulario, sin analizar (el comando muestra su ayuda) |
   | `project` (`list`, `add`) | Proyectos, o su formulario nuevo |
-  | `init`, `profile …` | Configuración: Conexión o Perfiles |
+  | `init`, `profile …` (`add`) | Configuración: Conexión, Perfiles o su formulario nuevo |
   | `help [comando]` | Ayuda |
   | `version` | La versión, en la línea de la barra |
 
-  - Si falta un dato obligatorio (`g` sin `-i`), se abre el formulario con
-    lo que se dio.
-  - Los flags que la TUI no tiene (`--dry-run`, `--template`, `--vcs-host`,
-    `--vcs-org`, `--profile`, `-o`, `--json`, `-l`) no abren nada. La barra
-    explica que se usan fuera del modo visual. `--dry-run` sobra porque la
-    vista previa no publica.
+  - Si falta un dato obligatorio (`g` o `f` sin `-i`), se abre el
+    formulario con lo que se dio. Un error del paso (un sprint inválido, un
+    repo que no es backend ni frontend) queda sobre el formulario, como si
+    se hubiera enviado.
+  - **Un `-p` que no existe es un error en la barra** (`cfg.GetProject`,
+    como en el modo comando). La lista de proyectos del formulario lo
+    reemplazaría por el primero, y Backlog analizaría otra cosa. Por lo
+    mismo, Generar y Backlog leen los valores de la línea antes de
+    reconstruir su formulario.
+  - Un `-b` o `-f` para un lado que el proyecto no tiene se ignora con un
+    aviso en Commits.
+  - Los flags que cada pantalla no toma (`barFlags`: `--dry-run`,
+    `--template`, `--space` de Generar, `--vcs-host`, `--vcs-org`,
+    `--profile`, `-o`, `--json`, `-l`) no abren nada. La barra explica que
+    se usan en la terminal; `--dry-run` sobra porque la vista previa no
+    publica. Con varios, se explica el primero en orden alfabético.
   - Los comandos sin pantalla (`update`, `template`) se explican igual: se
     corren fuera del modo visual.
-- Los ejemplos del panel de la principal funcionan tal cual en la barra.
+- **Los ejemplos del panel de la principal funcionan tal cual en la barra**
+  (un test lo comprueba).
 
 ### Ayuda
 
@@ -678,7 +691,9 @@ Obligatorias para toda pantalla nueva o modificada (las resume `CLAUDE.md`):
    `config` + `SaveConfig`. Nunca se guarda lo leído con `LoadLocal`.
 8. **Menú y panel:** toda función nueva entra en el menú de la principal con
    su descripción y un ejemplo del comando equivalente (datos genéricos:
-   `OPS-7`, `pagos`, `mi-org`). Sin pantalla, queda atenuada.
+   `OPS-7`, `pagos`, `mi-org`). Sin pantalla, queda atenuada. Si tiene
+   comando, la barra la abre (`openFromBar`, con sus flags en `barFlags`),
+   y su ejemplo funciona en la barra.
 9. **Estilos solo de `styles.go`**, con colores ANSI básicos. Sin emojis;
    símbolos de un ancho (`▸ ✓ ⚠ ✗ ●`). Cada vista funciona en 80 columnas y
    aprovecha las anchas (como el panel desde 96). Un texto que no cabe

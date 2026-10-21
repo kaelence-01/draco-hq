@@ -223,7 +223,8 @@ esencial:
   nunca lo leído con `LoadLocal`.
 - Toda función entra en el menú de la principal con su descripción y un
   ejemplo del comando equivalente, que el **panel** muestra; sin pantalla,
-  atenuada.
+  atenuada. Si tiene comando, la **barra** (`/`) abre su pantalla con los
+  datos de la línea (`openFromBar`, `barFlags`) y el ejemplo funciona ahí.
 - Estilos solo de `styles.go` (ANSI básicos), sin emojis, símbolos de un
   ancho; cada vista funciona en 80 columnas, y un texto largo (error, URL)
   pasa a la línea siguiente, nunca se corta.
