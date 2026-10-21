@@ -196,7 +196,7 @@ y `View` con dobles) y a mano en Windows Terminal y en Linux o WSL.
 | 2 | ✅ Base: `internal/tui` (Bubble Tea, Bubbles, Lip Gloss), entrada desde `draco` sin argumentos, pantalla principal (DRACO en letras grandes, menú, cabecera con perfil y proyecto, pie de teclas), pila de pantallas, salida limpia | `feature/tui-base` | `draco` abre y cierra limpio; `draco \| cat` muestra la ayuda; tests del modelo sin terminal |
 | 3 | ✅ Proyectos: lista con filtro, proyecto activo de la sesión, por defecto, crear, editar y borrar con formulario (Huh) | `feature/tui-proyectos` | Un proyecto se crea y edita sin tocar el YAML; lo guardado nunca trae variables `ATLASSIAN_*` |
 | 4a | ✅ Generar (1): tarea y proyecto, repos del proyecto como función pura de `deploy`, selector de commits (multi-selección, hash a mano), pasos con progreso y cancelación con `esc` | `feature/tui-generar` | De la tarea a los archivos leídos, con dobles; `esc` cancela un paso en curso |
-| 4b | Generar (2): vista previa (archivos y Markdown), documento existente, secciones no conservadas, ubicación con búsqueda, confirmación y resultado (`LinkErr`) | `feature/tui-publicar` | Un documento publicado de punta a punta en una carpeta Markdown (test y a mano); prueba manual contra Confluence |
+| 4b | ✅ Generar (2): vista previa (archivos y Markdown), documento existente, secciones no conservadas, ubicación con búsqueda, confirmación y resultado (`LinkErr`) | `feature/tui-publicar` | Un documento publicado de punta a punta en una carpeta Markdown (test y a mano); prueba manual contra Confluence |
 | 5 | Cierre de la fase 4 y release `v0.2.0` | `docs/cierre-fase-4` | `v0.2.0` instalado con `draco update` y la TUI abierta desde el binario instalado |
 
 ### v1.0

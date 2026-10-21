@@ -35,6 +35,7 @@ var (
 	updateKey  = key.NewBinding(key.WithKeys("1"), key.WithHelp("1", "actualizar"))
 	createKey  = key.NewBinding(key.WithKeys("2"), key.WithHelp("2", "crear otro"))
 	discardKey = key.NewBinding(key.WithKeys("3"), key.WithHelp("3", "cancelar"))
+	previewKey = key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "vista previa"))
 )
 
 // progress runs the steps of deploy.Session up to the files of the commits.
@@ -68,8 +69,12 @@ func newProgress(st *state, bundle *profile.Bundle, project, issue string, back,
 func (p *progress) title() string { return "Preparar documento" }
 
 func (p *progress) keys() []key.Binding {
-	if p.step == stepChoose && p.err == nil {
+	switch {
+	case p.err != nil:
+	case p.step == stepChoose:
 		return []key.Binding{updateKey, createKey, discardKey}
+	case p.step == stepDone:
+		return []key.Binding{previewKey}
 	}
 	return nil
 }
@@ -141,6 +146,9 @@ func (p *progress) update(msg tea.Msg) (screen, tea.Cmd) {
 		p.spinner, cmd = p.spinner.Update(msg)
 		return p, cmd
 	case tea.KeyPressMsg:
+		if p.step == stepDone && key.Matches(msg, previewKey) {
+			return p, open(newPreview(&genRun{st: p.st, bundle: p.bundle, session: p.session, replace: p.replace, command: p.command()}))
+		}
 		if p.step != stepChoose || p.err != nil {
 			return p, nil
 		}
@@ -195,14 +203,14 @@ func (p *progress) view(width, height int) string {
 	}
 	if p.step == stepDone {
 		lines = append(lines, "")
-		lines = append(lines, p.files()...)
-		lines = append(lines, "", faintStyle.Render("La vista previa y la publicación todavía no están en el modo visual. Mientras tanto:"), "$ "+p.command())
+		lines = append(lines, readFiles(p.session)...)
+		lines = append(lines, "", faintStyle.Render("enter abre la vista previa; nada se publica hasta que lo confirmes."))
 	}
 	return p.frame(width, lines)
 }
 
 func (p *progress) frame(width int, lines []string) string {
-	return lipgloss.NewStyle().Padding(1, 1, 0).MaxWidth(width).Render(lipgloss.JoinVertical(lipgloss.Left, lines...))
+	return lipgloss.NewStyle().Padding(1, 1, 0).Width(width).Render(lipgloss.JoinVertical(lipgloss.Left, lines...))
 }
 
 // line is a step: running, failed or done with what it found.
@@ -217,20 +225,20 @@ func (p *progress) line(st step, running string, done func() string) string {
 	}
 }
 
-// files lists what each side read, by folder.
-func (p *progress) files() []string {
+// readFiles lists what each side read, by folder.
+func readFiles(s *deploy.Session) []string {
 	var out []string
 	for _, sd := range []struct {
 		label string
 		repo  deploy.Repo
 		c     *deploy.Commits
-	}{{"Backend", p.target.Backend, p.session.Backend}, {"Frontend", p.target.Frontend, p.session.Frontend}} {
+	}{{"Backend", s.Target.Backend, s.Backend}, {"Frontend", s.Target.Frontend, s.Frontend}} {
 		switch {
 		case sd.c == nil:
 		case sd.c.Err != nil:
 			out = append(out, errStyle.Render("✗ "+sd.label+" ["+strings.Join(sd.c.Hashes, ", ")+"]: ")+sd.c.Err.Error())
 		default:
-			out = append(out, accentStyle.Render(sd.label+" · "+sd.repo.Name)+faintStyle.Render("  "+strings.Join(sd.c.Hashes, ", ")+" · "+strconv.Itoa(sd.c.Count)+" archivos"))
+			out = append(out, accentStyle.Render(sd.label+" · "+sd.repo.Name)+faintStyle.Render("  "+strings.Join(sd.c.Hashes, ", ")+" · "+plural(sd.c.Count, "archivo", "archivos")))
 			dirs := make([]string, 0, len(sd.c.Files))
 			for d := range sd.c.Files {
 				dirs = append(dirs, d)
@@ -241,7 +249,7 @@ func (p *progress) files() []string {
 			}
 		}
 	}
-	if p.session.PartialFailure() {
+	if s.PartialFailure() {
 		out = append(out, warnStyle.Render("⚠ Uno de los lados falló: el documento se arma con lo que se pudo leer."))
 	}
 	return out
@@ -259,5 +267,12 @@ func (p *progress) command() string {
 	if p.project != "" {
 		parts = append(parts, "-p "+p.project)
 	}
-	return strings.Join(parts, " ") + " --dry-run"
+	return strings.Join(parts, " ")
+}
+
+func plural(n int, one, many string) string {
+	if n == 1 {
+		return "1 " + one
+	}
+	return strconv.Itoa(n) + " " + many
 }

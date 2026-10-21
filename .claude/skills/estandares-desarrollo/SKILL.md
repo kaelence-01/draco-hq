@@ -59,7 +59,8 @@ Normas en `docs/arquitectura/tui.md` §10. Al escribir o revisar una pantalla:
 - ¿Guarda? Solo `state.save`; el test comprueba que el token del entorno no
   llega al archivo.
 - ¿Función nueva? Entrada en el menú con descripción y ejemplo del comando.
-- Estilos de `styles.go`, sin emojis, usable en 80 columnas.
+- Estilos de `styles.go`, sin emojis, usable en 80 columnas; errores y URLs
+  se ajustan a la línea siguiente, no se cortan.
 
 ## Seguridad y datos
 

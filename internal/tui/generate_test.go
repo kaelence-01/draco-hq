@@ -17,8 +17,14 @@ import (
 	"github.com/kaelence-01/draco-hq/internal/provider/markdown"
 )
 
-// fakeTracker knows OPS-7; OPS-9 waits until its step is canceled.
-type fakeTracker struct{ canceled chan struct{} }
+// fakeTracker knows OPS-7; OPS-9 waits until its step is canceled. With
+// linkWait, linking waits until it is closed.
+type fakeTracker struct {
+	canceled chan struct{}
+	linked   []string
+	linkErr  error
+	linkWait chan struct{}
+}
 
 func (t *fakeTracker) Issue(ctx context.Context, key string) (*provider.Issue, error) {
 	switch key {
@@ -31,8 +37,14 @@ func (t *fakeTracker) Issue(ctx context.Context, key string) (*provider.Issue, e
 	}
 	return nil, errors.New("recurso no encontrado (404)")
 }
-func (*fakeTracker) Me(context.Context) (*provider.User, error)                  { return &provider.User{ID: "yo"}, nil }
-func (*fakeTracker) LinkDocument(context.Context, string, provider.DocRef) error { return nil }
+func (*fakeTracker) Me(context.Context) (*provider.User, error) { return &provider.User{ID: "yo"}, nil }
+func (t *fakeTracker) LinkDocument(_ context.Context, key string, d provider.DocRef) error {
+	if t.linkWait != nil {
+		<-t.linkWait
+	}
+	t.linked = append(t.linked, key+" → "+d.Title)
+	return t.linkErr
+}
 
 // fakeGit has a backend and a frontend clone; the hash "malo" does not exist.
 type fakeGit struct{ read map[string][]string }
@@ -69,6 +81,7 @@ type generateEnv struct {
 	tracker *fakeTracker
 	git     fakeGit
 	docs    *markdown.Store
+	store   provider.DocStore // what the profile publishes to; docs unless a test replaces it
 	opened  []profile.Options
 }
 
@@ -80,7 +93,7 @@ func newGenerateApp(t *testing.T, openErr error) *generateEnv {
 	if err != nil {
 		t.Fatal(err)
 	}
-	e := &generateEnv{tracker: &fakeTracker{canceled: make(chan struct{})}, git: fakeGit{read: map[string][]string{}}, docs: docs}
+	e := &generateEnv{tracker: &fakeTracker{canceled: make(chan struct{})}, git: fakeGit{read: map[string][]string{}}, docs: docs, store: docs}
 	cfg := &config.Config{
 		DefaultProject: "pagos",
 		Projects: map[string]*config.ProjectConfig{
@@ -102,7 +115,7 @@ func newGenerateApp(t *testing.T, openErr error) *generateEnv {
 			if openErr != nil {
 				return nil, openErr
 			}
-			return &profile.Bundle{Name: "local", Profile: *c.Profiles["local"], Tracker: e.tracker, Docs: e.docs, Changes: e.git}, nil
+			return &profile.Bundle{Name: "local", Profile: *c.Profiles["local"], Tracker: e.tracker, Docs: e.store, Changes: e.git}, nil
 		},
 	})
 	e.m.Update(tea.WindowSizeMsg{Width: 110, Height: 34})
@@ -203,7 +216,7 @@ func TestGenerateReadsTheMarkedCommitsInListOrder(t *testing.T) {
 	for _, want := range []string{
 		"Inicio › Generar documento › Commits de OPS-7 › Preparar documento", "✓ OPS-7 — Filtro de pagos", "se creará uno nuevo",
 		"Backend · pagos-api", "2 archivos", "app/Http/Pagos/ FiltroController.php", "Frontend · pagos-web",
-		"$ draco g -i OPS-7 -b a1b2c3d,9f8e7d6,f1e2d3c -f e4f5a6b -p pagos --dry-run",
+		"1 archivo", "enter abre la vista previa",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("falta %q:\n%s", want, out)
@@ -232,6 +245,17 @@ func TestGenerateShowsATrackerError(t *testing.T) {
 	send(e.m, keyEnter)
 	if out := view(e.m); !strings.Contains(out, "✗ Buscando la tarea OPS-404") || !strings.Contains(out, "recurso no encontrado (404)") {
 		t.Errorf("el error del paso se muestra:\n%s", out)
+	}
+}
+
+func TestLongErrorsWrap(t *testing.T) {
+	e := newGenerateApp(t, nil)
+	e.toCommits(t, "OPS-404")
+	send(e.m, keySpace)
+	send(e.m, keyEnter)
+	e.m.Update(tea.WindowSizeMsg{Width: 24, Height: 30})
+	if out := view(e.m); !strings.Contains(out, "(404)") {
+		t.Errorf("un error largo pasa a la línea siguiente, no se corta:\n%s", out)
 	}
 }
 
