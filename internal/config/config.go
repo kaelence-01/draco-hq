@@ -52,6 +52,32 @@ type BacklogRepoConfig struct {
 	Modules     []string `yaml:"modules,omitempty"`
 }
 
+// ErrNoProjectPaths means a project with neither a backend nor a frontend path.
+var ErrNoProjectPaths = errors.New("sin rutas de backend ni de frontend")
+
+// Complete applies the rules every project editor shares: at least one path,
+// and a repo name only next to its path, by default DefaultRepoName.
+func (p *ProjectConfig) Complete() error {
+	if p.BackendPath == "" && p.FrontendPath == "" {
+		return ErrNoProjectPaths
+	}
+	for _, side := range []struct {
+		path string
+		repo *string
+	}{{p.BackendPath, &p.BackendRepo}, {p.FrontendPath, &p.FrontendRepo}} {
+		switch {
+		case side.path == "":
+			*side.repo = ""
+		case *side.repo == "":
+			*side.repo = DefaultRepoName(side.path)
+		}
+	}
+	return nil
+}
+
+// DefaultRepoName is the VCS name of a repo nobody named: its folder's.
+func DefaultRepoName(path string) string { return filepath.Base(filepath.Clean(path)) }
+
 // BacklogFor returns the settings of repo ("backend" or "frontend"), or nil.
 func (p *ProjectConfig) BacklogFor(repo string) *BacklogRepoConfig {
 	if p == nil || p.Backlog == nil {

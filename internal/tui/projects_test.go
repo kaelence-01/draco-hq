@@ -231,7 +231,7 @@ func TestFormWithoutPathsIsNotSaved(t *testing.T) {
 	for range 8 {
 		send(m, keyEnter)
 	}
-	if f.saves != 0 || !strings.Contains(view(m), "el proyecto no se guardó") {
+	if f.saves != 0 || !strings.Contains(view(m), "El proyecto no se guardó: sin rutas de backend ni de frontend") {
 		t.Errorf("sin rutas no se guarda: %d escrituras\n%s", f.saves, view(m))
 	}
 }

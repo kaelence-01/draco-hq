@@ -1,11 +1,34 @@
 package config
 
 import (
+	"errors"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
 )
+
+func TestProjectComplete(t *testing.T) {
+	cases := []struct {
+		name     string
+		in, want ProjectConfig
+		err      error
+	}{
+		{"sin rutas", ProjectConfig{BackendRepo: "pagos-api"}, ProjectConfig{BackendRepo: "pagos-api"}, ErrNoProjectPaths},
+		{"repo desde la carpeta", ProjectConfig{BackendPath: "/src/pagos-api/"}, ProjectConfig{BackendPath: "/src/pagos-api/", BackendRepo: "pagos-api"}, nil},
+		{"repo escrito se respeta", ProjectConfig{FrontendPath: "/src/web", FrontendRepo: "pagos-web"}, ProjectConfig{FrontendPath: "/src/web", FrontendRepo: "pagos-web"}, nil},
+		{"repo sin ruta se borra", ProjectConfig{BackendPath: "/src/api", FrontendRepo: "pagos-web"}, ProjectConfig{BackendPath: "/src/api", BackendRepo: "api"}, nil},
+	}
+	for _, c := range cases {
+		got := c.in
+		if err := got.Complete(); !errors.Is(err, c.err) {
+			t.Errorf("%s: error %v, se esperaba %v", c.name, err, c.err)
+		}
+		if !reflect.DeepEqual(got, c.want) {
+			t.Errorf("%s: %+v, se esperaba %+v", c.name, got, c.want)
+		}
+	}
+}
 
 func TestExpandHome(t *testing.T) {
 	home := t.TempDir()

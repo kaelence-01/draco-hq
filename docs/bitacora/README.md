@@ -93,6 +93,7 @@ Sin entradas: se hizo antes de que existiera la bitácora.
 | [051](./fase-6/051-config-gtt-primero.md) | La configuración de gtt primero | `feature/config-gtt-primero` | 2026-10-21 | Configuración separa lo necesario (Conexión con el space, Proyectos) de lo opcional (Perfiles, QA, Tema); el asistente y `draco init` ya no crean un perfil: siguen con el primer proyecto |
 | [052](./fase-6/052-proyecto-backlog.md) | Backlog técnico en el formulario de proyecto | `feature/proyecto-backlog` | 2026-10-21 | Página opcional por repo con `class_globs` y `modules`, validados antes de guardar (`backlog.CheckPatterns`); el resto del backlog se conserva |
 | [053](./fase-6/053-rutas-config.md) | `~` en las rutas y space del proyecto con perfil Markdown | `fix/rutas-config` | 2026-10-21 | `config.ExpandHome` donde se usan las rutas de la config; el space del proyecto viaja aparte (`profile.Options.ProjectSpace`) y un destino Markdown lo ignora |
+| [054](./fase-6/054-regla-proyecto.md) | La regla del proyecto en `config` | `feature/regla-proyecto` | 2026-10-21 | `ProjectConfig.Complete` (rescatada de un borrador de la 030) reemplaza la regla duplicada en `draco project add` y en el formulario de la TUI |
 
 ## Formato de cada entrada
 

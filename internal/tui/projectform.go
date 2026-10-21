@@ -2,7 +2,6 @@ package tui
 
 import (
 	"fmt"
-	"path/filepath"
 	"strings"
 
 	"charm.land/bubbles/v2/key"
@@ -112,16 +111,8 @@ func (f *projectForm) update(msg tea.Msg) (screen, tea.Cmd) {
 
 func (f *projectForm) save() {
 	p := f.parent
-	for _, side := range []struct{ path, repo *string }{{&f.v.BackendPath, &f.v.BackendRepo}, {&f.v.FrontendPath, &f.v.FrontendRepo}} {
-		switch {
-		case *side.path == "":
-			*side.repo = ""
-		case *side.repo == "":
-			*side.repo = filepath.Base(filepath.Clean(*side.path))
-		}
-	}
-	if f.v.BackendPath == "" && f.v.FrontendPath == "" {
-		p.note, p.failed = "Sin rutas de backend ni de frontend: el proyecto no se guardó", true
+	if err := f.v.Complete(); err != nil {
+		p.note, p.failed = "El proyecto no se guardó: "+err.Error(), true
 		return
 	}
 	err := p.st.save(func(c *config.Config) error {
