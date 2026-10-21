@@ -88,6 +88,7 @@ Sin entradas: se hizo antes de que existiera la bitácora.
 | [046](./fase-6/046-tui-barra-ejecutar.md) | Barra de comandos (2): cada comando abre su pantalla | `feature/tui-barra-ejecutar` | 2026-10-21 | `openFromBar`: formularios enviados con los datos de la línea, hashes marcados en Commits, flags sin pantalla explicados; un `-p` desconocido es un error, como en el modo comando |
 | [047](./fase-6/047-tui-temas.md) | Temas del modo visual | `feature/tui-temas` | 2026-10-21 | `ansi`, `alto-contraste` y `mono` con `applyTheme` (estilos, pie y formularios); `theme` en la config; Configuración › Tema con vista previa en vivo; `mono` sin códigos de color |
 | [048](./fase-6/048-cierre-fase-6.md) | Cierre de la fase 6 | `docs/cierre-fase-6` | 2026-10-21 | Fase 6 cerrada; pruebas manuales pendientes reunidas; release `v0.2.2` (primer uso de `make promote`) a cargo del autor |
+| [049](./fase-6/049-version-v0-3-0.md) | La fase 6 salió como `v0.3.0` | `docs/version-v0-3-0` | 2026-10-21 | El autor publicó *minor* en vez del *patch* planeado; roadmap, `CLAUDE.md` y la guía de release al día; numeración hasta la v1.0, pendiente |
 
 ## Formato de cada entrada
 

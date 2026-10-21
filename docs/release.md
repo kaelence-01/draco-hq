@@ -42,11 +42,12 @@ confían en ese archivo (P-006): un binario que no coincide no se instala.
 2. **Publicar desde `main` al día** (`make promote` ya te deja ahí):
 
    ```bash
-   make release bump=patch       # o minor / major, o ver=vX.Y.Z
+   make release bump=minor       # o patch / major, o ver=vX.Y.Z
    ```
 
-   Las fases 5 y 6 se publican como *patch* de `v0.2.x` (roadmap,
-   «Decisiones tomadas»): `bump=minor` solo cuando el autor lo decida.
+   El `bump` lo decide el autor: la fase 5 salió como *patch* (`v0.2.1`) y
+   la 6 como *minor* (`v0.3.0`). La regla hasta la v1.0 está en «Decisiones
+   pendientes» del roadmap.
 
    `scripts/release.sh`:
    - se detiene si `gh` no está autenticado, si no estás en `main`, si hay
