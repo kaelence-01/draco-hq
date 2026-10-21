@@ -2,6 +2,7 @@ package backlog
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -59,6 +60,16 @@ func TestParseModulePatternsRejectsAmbiguousEntries(t *testing.T) {
 		if _, errs := parseModulePatterns([]string{bad}); len(errs) != 1 {
 			t.Errorf("%q debe ser inválido", bad)
 		}
+	}
+}
+
+func TestCheckPatternsReportsEveryBadEntry(t *testing.T) {
+	if err := CheckPatterns([]string{"app/**/Services/**/*.php"}, []string{"app/Http/{modulo}/**", "FAC=app/Facturacion/**"}); err != nil {
+		t.Errorf("patrones válidos: %v", err)
+	}
+	err := CheckPatterns([]string{"app/[Services/*.php", "src/**/*.ts"}, []string{"app/**/{modulo}/x"})
+	if err == nil || !strings.Contains(err.Error(), "app/[Services/*.php") || !strings.Contains(err.Error(), "app/**/{modulo}/x") {
+		t.Errorf("reporta el glob mal formado y el módulo ambiguo a la vez: %v", err)
 	}
 }
 

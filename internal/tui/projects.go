@@ -209,6 +209,17 @@ func (p *projects) detail() string {
 		field("vcs_host", pc.VCSHost), field("vcs_org", pc.VCSOrg),
 		field("space", pc.ConfluenceSpaceKey),
 	}
+	for _, repo := range []string{"backend", "frontend"} {
+		if b := pc.BacklogFor(repo); b != nil && len(b.ClassGlobs)+len(b.Modules) > 0 {
+			lines = append(lines, "", faintStyle.Render("backlog "+repo))
+			for _, g := range b.ClassGlobs {
+				lines = append(lines, "- clases: "+g)
+			}
+			for _, m := range b.Modules {
+				lines = append(lines, "- módulos: "+m)
+			}
+		}
+	}
 	if checklist := p.st.cfg.ResolveDeployChecklist(pc); len(checklist) > 0 {
 		lines = append(lines, "", faintStyle.Render("deploy_checklist"))
 		for _, c := range checklist {
