@@ -51,7 +51,7 @@ de Windows (`cmd`) se ve más limitado.
 | 3 | Modo comando (`cmd/`, `main.go`), instalador, updater, releases | ✅ `v0.1.0` |
 | 4 | Modo visual mínimo: pantalla principal, proyectos, generar documento | ✅ `v0.2.0` |
 | 5 | Resto de pantallas: backlog, QA, exportar | ✅ `v0.2.1` |
-| 6 | Configuración en formularios, aviso de versión nueva, barra de comandos con autocompletado, ayuda, temas | 🔄 (`v0.2.2`) |
+| 6 | Configuración en formularios, aviso de versión nueva, barra de comandos con autocompletado, ayuda, temas | ✅ (`v0.2.2`: lo publica el autor) |
 | v1.0 | Instaladores, checksums, migración desde gtt, README completo | ⬜ |
 
 ### Fase 2 — hecho
@@ -242,7 +242,7 @@ contra Jira y Confluence reales, ni Generar de punta a punta después de la
 038. Quedan a cargo del autor el release `v0.2.1` (`docs/release.md`) y su
 verificación con `draco update` desde `v0.2.0`.
 
-### Fase 6 — configuración, barra de comandos y temas (en curso)
+### Fase 6 — configuración, barra de comandos y temas (cerrada)
 
 Configuración deja de estar atenuada en el menú, y el modo visual suma lo
 que no es una función nueva sino una forma de usar las que ya tiene: la
@@ -261,7 +261,7 @@ su parser. El release de la fase es `v0.2.2` (ver decisiones).
 | 5a | ✅ Barra (1): descripción de los comandos y parser de `cmd` a un paquete neutro, flags con descripción; barra con autocompletado y pantalla Ayuda | `feature/tui-barra` | `draco help` y los tests de `cmd` sin cambios; cada flag en la ayuda de su comando; sugerencias de comandos, flags y valores probadas con tablas |
 | 5b | ✅ Barra (2): cada comando abre su pantalla con los datos cargados | `feature/tui-barra-ejecutar` | `/g -i OPS-7 -b a1b2c3d` llega a Commits con el hash marcado (test); un flag sin pantalla se explica; los ejemplos del panel funcionan en la barra |
 | 6 | ✅ Temas: `ansi`, `alto-contraste` y `mono`, elegidos en Configuración | `feature/tui-temas` | El tema se guarda en `config.yaml` y se aplica al abrir; cada tema funciona en 80 columnas; `mono` sin color |
-| 7 | ⬜ Cierre de la fase 6 y release `v0.2.2` | `docs/cierre-fase-6` | `v0.2.2` instalado con `draco update`; Configuración y la barra abiertas desde el binario instalado |
+| 7 | ✅ Cierre de la fase 6 y release `v0.2.2` | `docs/cierre-fase-6` | `v0.2.2` instalado con `draco update`; Configuración y la barra abiertas desde el binario instalado |
 
 Configuración va primero: es la única entrada atenuada del menú, y sin ella
 quien instala draco tiene que salir a `draco init`. El aviso de versión
@@ -269,6 +269,22 @@ nueva es corto y no depende de nada. La barra va después porque abre todas
 las pantallas, Configuración incluida, y se divide como Generar y QA:
 primero escribir y sugerir, después ejecutar. Los temas van al final porque
 son lo de menor valor.
+
+**Cierre (bitácora 048):** el modo visual cubre todo draco. Configuración
+(conexión con verificación de la cuenta, perfiles, QA y tema) reemplaza a
+`draco init` y `draco profile` dentro de la TUI, con un asistente cuando no
+hay configuración. La barra de comandos (`/`) sugiere y lee la línea como el
+modo comando, y abre cada pantalla con los datos de la línea. La Ayuda
+muestra el mismo texto que `draco help`, y la TUI avisa de una versión
+nueva. Para eso salieron de `cmd` las reglas de `init` y `profile`
+(funciones puras de `config` y `profile`) y la descripción de los comandos
+con su parser (`internal/cli`). Fuera del plan se sumó `make promote`
+(bitácora 040). Quedan a cargo del autor:
+- el release `v0.2.2` (`make promote` y `make release bump=patch`, según
+  `docs/release.md`), con su verificación con `draco update` desde
+  `v0.2.1`;
+- las pruebas manuales de las bitácoras 042 a 047, que se suman a las de
+  las fases 4 y 5 (029 a 032 y 035 a 038).
 
 ### v1.0
 

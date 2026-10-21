@@ -14,7 +14,8 @@ detecta **deuda técnica** en tus repos. Sin IA.
 > publicación), Exportar, Backlog y Configuración (conexión, perfiles y QA).
 > También avisa si hay una versión nueva, y tiene una barra de comandos (`/`)
 > con sugerencias que abre cada pantalla con los datos de la línea, ayuda y
-> tres temas (`ansi`, `alto-contraste`, `mono`). La fase 6, por cerrar. Los binarios se publican en Releases desde `v0.1.0`. Ver
+> tres temas (`ansi`, `alto-contraste`, `mono`) (fases 4 a 6). Lo siguiente
+> es la v1.0. Los binarios se publican en Releases desde `v0.1.0`. Ver
 > [`docs/roadmap.md`](docs/roadmap.md).
 
 ## Qué hace
