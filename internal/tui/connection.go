@@ -17,16 +17,17 @@ import (
 	"github.com/kaelence-01/draco-hq/internal/provider"
 )
 
-// connection is the Atlassian account, as draco init asks it. The form starts
-// from the file, never from the environment, so a token from ATLASSIAN_TOKEN
-// is not saved.
+// connection is the Atlassian account and, without profiles, the default
+// space, as draco init asks them. The form starts from the file, never from
+// the environment, so a token from ATLASSIAN_TOKEN is not saved.
 type connection struct {
-	parent            *settings
-	email, token, url string
-	hasToken          bool
-	env               []string // variables that win over the file
-	form              *huh.Form
-	err               string
+	parent                   *settings
+	email, token, url, space string
+	hasToken                 bool
+	withSpace                bool     // with profiles, each one has its space
+	env                      []string // variables that win over the file
+	form                     *huh.Form
+	err                      string
 }
 
 func newConnection(parent *settings) *connection {
@@ -36,11 +37,13 @@ func newConnection(parent *settings) *connection {
 		c.err, file = err.Error(), &config.Config{}
 	}
 	c.email, c.url, c.hasToken = file.AtlassianEmail, file.BaseURL, file.AtlassianToken != ""
+	c.space, c.withSpace = file.ConfluenceSpaceKey, len(file.Profiles) == 0
 	eff := parent.st.cfg
 	for _, v := range []struct{ name, eff, file string }{
 		{"ATLASSIAN_EMAIL", eff.AtlassianEmail, file.AtlassianEmail},
 		{"ATLASSIAN_TOKEN", eff.AtlassianToken, file.AtlassianToken},
 		{"ATLASSIAN_BASE_URL", eff.BaseURL, file.BaseURL},
+		{"CONFLUENCE_SPACE_KEY", eff.ConfluenceSpaceKey, file.ConfluenceSpaceKey},
 	} {
 		if v.eff != "" && v.eff != v.file {
 			c.env = append(c.env, v.name)
@@ -55,7 +58,7 @@ func (c *connection) build() *huh.Form {
 	if c.hasToken {
 		tokenHelp = "Vacío conserva el actual. No se muestra al escribirlo."
 	}
-	return newForm(
+	fields := []huh.Field{
 		huh.NewInput().Title("Email").Placeholder("tu@example.test").Value(&c.email).Validate(func(s string) error {
 			if strings.TrimSpace(s) == "" {
 				return errors.New("falta el email")
@@ -72,7 +75,12 @@ func (c *connection) build() *huh.Form {
 			_, err := config.NormalizeBaseURL(s)
 			return err
 		}),
-	)
+	}
+	if c.withSpace {
+		fields = append(fields, huh.NewInput().Title("Space de Confluence").Placeholder("DEV").
+			Description("Donde se publican los documentos. Un proyecto puede usar otro").Value(&c.space))
+	}
+	return newForm(fields...)
 }
 
 func (c *connection) title() string       { return "Conexión" }
@@ -93,13 +101,16 @@ func (c *connection) update(msg tea.Msg) (screen, tea.Cmd) {
 	if c.form.State != huh.StateCompleted {
 		return c, cmd
 	}
-	email, token := strings.TrimSpace(c.email), strings.TrimSpace(c.token)
+	email, token, space := strings.TrimSpace(c.email), strings.TrimSpace(c.token), strings.TrimSpace(c.space)
 	url, _ := config.NormalizeBaseURL(c.url)
 	c.token = ""
 	err := c.parent.st.save(func(cfg *config.Config) error {
 		cfg.AtlassianEmail, cfg.BaseURL = email, url
 		if token != "" {
 			cfg.AtlassianToken = token
+		}
+		if c.withSpace {
+			cfg.ConfluenceSpaceKey = space
 		}
 		return nil
 	})
@@ -128,7 +139,7 @@ type checkedMsg struct {
 	owner        *accountCheck
 	user         *provider.User
 	email        string // the one saved
-	firstProfile bool   // the file has no profiles yet
+	firstProject bool   // the file has no projects yet
 	err          error
 }
 
@@ -182,7 +193,7 @@ func (a *accountCheck) init() tea.Cmd {
 			msg.err = err
 			return msg
 		}
-		msg.email, msg.firstProfile = file.AtlassianEmail, len(file.Profiles) == 0
+		msg.email, msg.firstProject = file.AtlassianEmail, len(file.Projects) == 0
 		bundle, err := d.OpenProfile(file, profile.Options{AnyScope: true})
 		if err != nil {
 			msg.err = explainProfile(err)
@@ -219,9 +230,9 @@ func (a *accountCheck) update(msg tea.Msg) (screen, tea.Cmd) {
 			if a.saveErr = a.parent.st.save(func(c *config.Config) error { c.AtlassianEmail = email; return nil }); a.saveErr == nil {
 				a.fixed = email
 			}
-		case key.Matches(msg, continueKey) && a.result.err == nil && a.result.firstProfile:
-			p := a.parent
-			return a, open(newProfileForm(p.st, "", profileFirst, p.firstProfile, backTo(p)))
+		case key.Matches(msg, continueKey) && a.result.err == nil && a.result.firstProject:
+			ps := newProjects(a.parent.st)
+			return a, tea.Sequence(back, open(ps), open(newProjectForm(ps, "")))
 		case key.Matches(msg, continueKey):
 			return a, back
 		}
@@ -251,8 +262,8 @@ func (a *accountCheck) view(width, height int) string {
 		lines = append(lines, "", warnStyle.Render(fmt.Sprintf("⚠ El email guardado (%s) no es el de la cuenta autenticada (%s): las búsquedas por autor volverían vacías. s usa el de la cuenta.", r.email, r.user.Email)))
 	}
 	next := "enter vuelve a Configuración"
-	if r.firstProfile {
-		next = "enter sigue con el primer perfil: a dónde van los documentos"
+	if r.firstProject {
+		next = "enter sigue con el primer proyecto: dónde están tus repos"
 	}
 	lines = append(lines, "", faintStyle.Render(next))
 	return pad(text.Render(lipgloss.JoinVertical(lipgloss.Left, lines...)))

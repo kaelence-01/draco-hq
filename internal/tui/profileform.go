@@ -16,9 +16,8 @@ import (
 type profileMode int
 
 const (
-	profileNew   profileMode = iota // draco profile add: the implicit profile is kept
-	profileEdit                     // draco profile add over an existing one
-	profileFirst                    // draco init without profiles: it becomes the default
+	profileNew  profileMode = iota // draco profile add: the implicit profile is kept
+	profileEdit                    // draco profile add over an existing one
 )
 
 // profileForm creates or edits a profile. The tracker is Jira, the only one.
@@ -38,9 +37,6 @@ type profileForm struct {
 
 func newProfileForm(st *state, name string, mode profileMode, report func(string, error), finish tea.Cmd) *profileForm {
 	f := &profileForm{st: st, mode: mode, name: name, docs: "confluence", space: st.cfg.ConfluenceSpaceKey, report: report, finish: finish}
-	if mode == profileFirst {
-		f.name = "equipo"
-	}
 	if old, ok := st.cfg.Profiles[name]; ok && mode == profileEdit {
 		f.docs, f.space, f.path, f.template = old.Docs.Provider, old.Docs.Space, old.Docs.Path, old.Template
 	}
@@ -74,22 +70,16 @@ func (f *profileForm) build() *huh.Form {
 			return nil
 		})).WithHideFunc(func() bool { return f.docs != "markdown" }),
 	}
-	if f.mode != profileFirst {
-		last := []huh.Field{huh.NewInput().Title("Carpeta de plantillas del perfil").Description("Con deploy/ y qa/ dentro. Vacío: las de siempre").Value(&f.template)}
-		if f.st.cfg.DefaultProfile != f.name || f.mode == profileNew {
-			last = append(last, huh.NewConfirm().Title("¿Usarlo como perfil por defecto?").Affirmative("Sí").Negative("No").Value(&f.setDefault))
-		}
-		pages = append(pages, huh.NewGroup(last...))
+	last := []huh.Field{huh.NewInput().Title("Carpeta de plantillas del perfil").Description("Opcional, con deploy/ y qa/ dentro. Vacío: la plantilla incluida").Value(&f.template)}
+	if f.st.cfg.DefaultProfile != f.name || f.mode == profileNew {
+		last = append(last, huh.NewConfirm().Title("¿Usarlo como perfil por defecto?").Affirmative("Sí").Negative("No").Value(&f.setDefault))
 	}
-	return newPagedForm(pages...)
+	return newPagedForm(append(pages, huh.NewGroup(last...))...)
 }
 
 func (f *profileForm) title() string {
-	switch f.mode {
-	case profileEdit:
+	if f.mode == profileEdit {
 		return "Editar " + f.name
-	case profileFirst:
-		return "Primer perfil"
 	}
 	return "Nuevo perfil"
 }
@@ -130,14 +120,11 @@ func (f *profileForm) save() (string, error) {
 		if old, ok := c.Profiles[name]; ok {
 			*p = *old
 		}
-		p.Tracker, p.Docs = config.ProviderConfig{Provider: "jira"}, docs
-		if f.mode != profileFirst {
-			p.Template = strings.TrimSpace(f.template)
-		}
+		p.Tracker, p.Docs, p.Template = config.ProviderConfig{Provider: "jira"}, docs, strings.TrimSpace(f.template)
 		if err := c.SetProfile(name, p); err != nil {
 			return err
 		}
-		if c.DefaultProfile == "" || f.setDefault || f.mode == profileFirst {
+		if c.DefaultProfile == "" || f.setDefault {
 			c.DefaultProfile = name
 		}
 		return nil

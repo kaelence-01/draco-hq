@@ -58,20 +58,20 @@ func fakeAccount(t *testing.T, trk provider.Tracker) {
 	}
 }
 
-func TestInitCreatesConfigProfileAndProject(t *testing.T) {
+func TestInitCreatesConfigSpaceAndProject(t *testing.T) {
 	path := configHome(t)
 	fakeAccount(t, &meTracker{user: &provider.User{Name: "Dev", Email: "dev@example.test"}})
 
 	input := strings.Join([]string{
 		"dev@example.test", "secreto", "example.test", "https://example.test/", // the first URL is rejected
-		"", "2", "./docs/despliegues", // profile: name by default, Markdown
+		"DEV",
 		"s", "pagos", "/repos/pagos-api", "", "", "", "mi-org", "", // project
 	}, "\n") + "\n"
 	code, out, errOut := runWith(input, "init")
 	if code != exitOK {
 		t.Fatalf("código %d\n%s\n%s", code, out, errOut)
 	}
-	for _, want := range []string{"debe empezar con https://", "Configuración guardada", "Autenticado como Dev (dev@example.test)", "Proyecto 'pagos' guardado", "Listo."} {
+	for _, want := range []string{"debe empezar con https://", "Configuración guardada", "Autenticado como Dev (dev@example.test)", "Generar un documento necesita un proyecto", "Proyecto 'pagos' guardado", "Listo."} {
 		if !strings.Contains(out, want) {
 			t.Errorf("falta %q en:\n%s", want, out)
 		}
@@ -81,10 +81,11 @@ func TestInitCreatesConfigProfileAndProject(t *testing.T) {
 	}
 
 	cfg := readConfig(t)
-	p := cfg.Profiles["equipo"]
-	if cfg.AtlassianToken != "secreto" || cfg.BaseURL != "https://example.test" || cfg.DefaultProfile != "equipo" ||
-		p == nil || p.Docs.Provider != "markdown" || p.Docs.Path != "./docs/despliegues" || p.Tracker.Provider != "jira" {
-		t.Errorf("config guardada: %+v %+v", cfg, p)
+	if cfg.AtlassianToken != "secreto" || cfg.BaseURL != "https://example.test" || cfg.ConfluenceSpaceKey != "DEV" {
+		t.Errorf("config guardada: %+v", cfg)
+	}
+	if len(cfg.Profiles) != 0 || cfg.DefaultProfile != "" {
+		t.Errorf("draco init no crea perfiles: la config sin perfiles es Jira → Confluence: %v %q", cfg.ProfileNames(), cfg.DefaultProfile)
 	}
 	proj := cfg.Projects["pagos"]
 	if cfg.DefaultProject != "pagos" || proj == nil || proj.BackendRepo != "pagos-api" || proj.VCSOrg != "mi-org" || proj.FrontendPath != "" {
@@ -122,7 +123,7 @@ func TestInitOnExistingConfigKeepsTheRest(t *testing.T) {
 func TestInitReportsBadCredentialsAndEndOfInput(t *testing.T) {
 	configHome(t)
 	fakeAccount(t, &meTracker{err: errors.New("no autorizado (401)")})
-	code, _, errOut := runWith("dev@example.test\nmalo\nhttps://example.test\n\n1\nDEV\n", "init")
+	code, _, errOut := runWith("dev@example.test\nmalo\nhttps://example.test\nDEV\n", "init")
 	if code != exitError || !strings.Contains(errOut, "401") || !strings.Contains(errOut, "vuelve a correr draco init") {
 		t.Errorf("credenciales inválidas: %d %s", code, errOut)
 	}

@@ -14,8 +14,9 @@ import (
 
 func (e *settingsEnv) toQA(t *testing.T) {
 	t.Helper()
-	send(e.m, keyDown)
-	send(e.m, keyDown)
+	for range 3 {
+		send(e.m, keyDown)
+	}
 	send(e.m, keyEnter)
 	if out := view(e.m); !strings.Contains(out, "Configuración › QA") || !strings.Contains(out, "Email de la cuenta de QA") {
 		t.Fatalf("enter en QA abre su formulario:\n%s", out)

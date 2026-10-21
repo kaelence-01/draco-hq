@@ -16,7 +16,7 @@ func resetTheme(t *testing.T) { t.Cleanup(func() { applyTheme(defaultTheme) }) }
 
 func (e *settingsEnv) toThemes(t *testing.T) {
 	t.Helper()
-	for range 3 {
+	for range 4 {
 		send(e.m, keyDown)
 	}
 	send(e.m, keyEnter)
@@ -71,7 +71,7 @@ func TestDefaultThemeIsSavedEmpty(t *testing.T) {
 	if theme != "mono" {
 		t.Fatalf("el tema de la config se aplica al abrir: %q", theme)
 	}
-	for range 3 {
+	for range 4 {
 		send(e.m, keyDown)
 	}
 	send(e.m, keyEnter)
