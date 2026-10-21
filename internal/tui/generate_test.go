@@ -153,8 +153,17 @@ func TestGenerateFormAsksTaskAndProject(t *testing.T) {
 func TestGenerateOpensTheProfileWithTheProjectSpace(t *testing.T) {
 	e := newGenerateApp(t, nil)
 	e.toCommits(t, "OPS-7")
-	if len(e.opened) != 1 || e.opened[0].ProjectSpace != "PAG" || e.opened[0].Scope != "" || e.opened[0].Name != "local" {
+	if len(e.opened) != 1 || e.opened[0].ProjectSpace != "PAG" || e.opened[0].Scope != "" || e.opened[0].Name != "" {
 		t.Errorf("el perfil se abre con el space del proyecto: %+v", e.opened)
+	}
+}
+
+func TestGenerateUsesTheProjectProfile(t *testing.T) {
+	e := newGenerateApp(t, nil)
+	e.m.st.cfg.Projects["pagos"].Profile = "local"
+	e.toCommits(t, "OPS-7")
+	if len(e.opened) != 1 || e.opened[0].Name != "local" {
+		t.Errorf("el perfil del proyecto se usa al generar: %+v", e.opened)
 	}
 }
 

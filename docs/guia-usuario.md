@@ -149,10 +149,16 @@ documento lo necesita:
 - `backend_repo` y `frontend_repo`: sus nombres en el VCS (si se dejan
   vacíos, el nombre de la carpeta);
 - `vcs_host` y `vcs_org`: el host y la organización o workspace del VCS;
-- `confluence_space_key`: el space de sus documentos, si no es el general.
+- `confluence_space_key`: el space de sus documentos, si no es el general;
+- `profile`: su perfil, si no es el por defecto (ver abajo).
 
 El proyecto por defecto lo usan Generar y Backlog cuando no indicas otro con
 `-p`.
+
+Si trabajas en varios proyectos (un sistema grande y servicios sueltos, en
+otros workspaces y spaces), crea un proyecto por cada uno: cada uno lleva sus
+repos, su workspace, su space y, si hace falta, su perfil. Cambiar de
+proyecto (`-p`, o elegirlo en Proyectos) cambia todo junto.
 
 ### Perfil (opcional)
 
@@ -164,7 +170,14 @@ Opcionalmente, también qué plantillas usar.
   `atlassian`: Jira y Confluence con `confluence_space_key`, como gtt.
 - Sirve cuando necesitas otro destino (una carpeta Markdown para revisar
   antes de publicar), otro space para todo un equipo u otra plantilla.
-- Los comandos usan el perfil por defecto, u otro con `--profile`.
+- Al generar, el perfil sale de `--profile`, si no del proyecto
+  (`profile:`) y si no del perfil por defecto. Así un proyecto puede
+  documentarse con otra plantilla u otro destino sin pasar `--profile`
+  cada vez.
+- El consolidado QA y Exportar no trabajan sobre un proyecto: usan el
+  perfil por defecto, u otro con `--profile`.
+- Un perfil que usa algún proyecto no se puede eliminar: primero cámbiale
+  el perfil a esos proyectos.
 - Al agregar el primer perfil, el implícito también se guarda, para que
   nada cambie. Con perfiles, el space sale de cada perfil y
   `confluence_space_key` del nivel principal deja de usarse.
@@ -192,6 +205,7 @@ projects:
     frontend_repo: pagos-web
     vcs_host: https://github.com
     vcs_org: mi-org
+    profile: equipo                      # opcional: su perfil; si no, el por defecto
     deploy_checklist:                    # opcional: reemplaza al global
       - Ejecutar migraciones
     backlog:                             # opcional: ajusta draco backlog scan
@@ -362,15 +376,16 @@ la principal o desde Configuración.
 
 | Tecla | Acción |
 |---|---|
-| `enter` | Lo usa en esta sesión (no cambia la config) |
+| `enter` | Lo usa en esta sesión, con su perfil, que la cabecera muestra (no cambia la config) |
 | `d` | Lo guarda como proyecto por defecto |
 | `n` | Crea un proyecto |
 | `e` | Edita el proyecto (conserva el checklist y el resto del backlog) |
 | `x` | Elimina el proyecto (pide `s`) |
 | `/` | Filtra la lista |
 
-El formulario termina con una página opcional por repo con ruta, **Backlog
-técnico**: las clases que deben tener tests (`class_globs`) y los módulos
+Si tienes dos o más perfiles, el formulario pregunta el **perfil del
+proyecto** («El perfil por defecto» o uno de la lista). Termina con una
+página opcional por repo con ruta, **Backlog técnico**: las clases que deben tener tests (`class_globs`) y los módulos
 (`modules`), separados por comas. `enter` en blanco la salta. Un patrón mal
 escrito se marca ahí mismo y no se guarda. El resto del backlog (`since`,
 `exclude`, `max_lines`…) se edita en el YAML y se conserva.
@@ -434,7 +449,8 @@ draco g -i OPS-7 -b a1b2c3d --dry-run               # vista previa sin publicar
 Hace falta al menos uno de `-b` o `-f`. El space sale de `--space`, si no del
 proyecto y si no del perfil. Con un perfil Markdown, la carpeta sale de
 `--space` o del perfil: el space del proyecto es solo para Confluence. Si el
-documento existe, pregunta si actualizarlo.
+documento existe, pregunta si actualizarlo. El perfil sale de `--profile`,
+si no del proyecto y si no del perfil por defecto.
 
 ### Consolidado QA
 

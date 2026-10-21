@@ -67,6 +67,33 @@ profiles:
 	}
 }
 
+func TestProfileForAProject(t *testing.T) {
+	cfg := &Config{
+		DefaultProfile: "equipo", DefaultProject: "pagos",
+		Profiles: map[string]*Profile{"equipo": {}, "servicios": {}},
+		Projects: map[string]*ProjectConfig{"pagos": {}, "api-pagos": {Profile: "servicios"}},
+	}
+	for _, c := range []struct{ flag, project, want string }{
+		{"equipo", "api-pagos", "equipo"},
+		{"", "api-pagos", "servicios"},
+		{"", "pagos", ""},
+		{"", "", ""},
+		{"", "no-existe", ""},
+	} {
+		if got := cfg.ProfileFor(c.flag, c.project); got != c.want {
+			t.Errorf("ProfileFor(%q, %q) = %q, esperaba %q", c.flag, c.project, got, c.want)
+		}
+	}
+	cfg.DefaultProject = "api-pagos"
+	if got := cfg.ProfileFor("", ""); got != "servicios" {
+		t.Errorf("sin -p, el perfil del proyecto por defecto: %q", got)
+	}
+
+	if err := cfg.RemoveProfile("servicios"); err == nil || !strings.Contains(err.Error(), "api-pagos") || cfg.Profiles["servicios"] == nil {
+		t.Errorf("un perfil en uso no se elimina y dice qué proyectos lo usan: %v", err)
+	}
+}
+
 func TestProjectAndProfileEditing(t *testing.T) {
 	cfg := &Config{}
 	if err := cfg.SetProject("pagos", &ProjectConfig{BackendRepo: "pagos-api"}); err != nil {

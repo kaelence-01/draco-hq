@@ -36,6 +36,18 @@ func (p *Profile) TemplateDir(kind string) string {
 // LegacyProfile names the profile a config without profiles reads as.
 const LegacyProfile = "atlassian"
 
+// ProfileFor is the profile name a deploy of project uses (project empty:
+// default_project): flag, else the project's, else "" for Profile to resolve.
+func (c *Config) ProfileFor(flag, project string) string {
+	if flag != "" {
+		return flag
+	}
+	if p, _, err := c.GetProject(project); err == nil && p != nil {
+		return p.Profile
+	}
+	return ""
+}
+
 // Profile returns the profile to use: name, else default_profile, else the
 // only one. A config without profiles reads as LegacyProfile (Jira +
 // Confluence with confluence_space_key) without rewriting the file.
@@ -143,6 +155,15 @@ func (c *Config) KeepImplicitProfile(name string) (*Profile, error) {
 func (c *Config) RemoveProfile(name string) error {
 	if _, ok := c.Profiles[name]; !ok {
 		return fmt.Errorf("perfil '%s' no encontrado", name)
+	}
+	var users []string
+	for _, n := range c.ProjectNames() {
+		if c.Projects[n].Profile == name {
+			users = append(users, n)
+		}
+	}
+	if len(users) > 0 {
+		return fmt.Errorf("el perfil '%s' lo usan los proyectos %s: cámbiales el perfil antes de eliminarlo", name, strings.Join(users, ", "))
 	}
 	delete(c.Profiles, name)
 	if c.DefaultProfile == name {

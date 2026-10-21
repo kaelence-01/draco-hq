@@ -49,7 +49,7 @@ type state struct {
 	deps Deps
 
 	cfg           *config.Config // nil when it could not be read
-	profile       string
+	profile       string         // the active project's, or the default
 	tracker, docs string
 	project       string // active project of this session, never saved
 	notice        string // a problem with the config, shown on the home screen
@@ -73,17 +73,23 @@ func (st *state) load() {
 	}
 	st.cfg = cfg
 	applyTheme(cfg.Theme)
-	_, st.project, _ = cfg.GetProject("")
+	_, project, _ := cfg.GetProject("")
 	if _, ok := cfg.Projects[active]; ok {
-		st.project = active
+		project = active
 	}
-	p, name, err := cfg.Profile("")
+	st.useProject(project)
+}
+
+// useProject makes name the session's project, with its profile.
+func (st *state) useProject(name string) {
+	st.project, st.profile, st.tracker, st.docs, st.notice = name, "", "", "", ""
+	p, profName, err := st.cfg.Profile(st.cfg.ProfileFor("", name))
 	if err != nil {
 		st.notice = err.Error()
 		return
 	}
-	st.profile, st.tracker, st.docs = name, p.Tracker.Provider, p.Docs.Provider
-	if (st.tracker == "jira" || st.docs == "confluence") && !cfg.HasAtlassianCredentials() {
+	st.profile, st.tracker, st.docs = profName, p.Tracker.Provider, p.Docs.Provider
+	if (st.tracker == "jira" || st.docs == "confluence") && !st.cfg.HasAtlassianCredentials() {
 		st.notice = "Falta configurar la conexión con Atlassian: abre Configuración (o corre draco init)"
 	}
 }
