@@ -99,8 +99,12 @@ func (p *projects) update(msg tea.Msg) (screen, tea.Cmd) {
 		return p, open(newProjectForm(p, ""))
 	case name == "":
 	case key.Matches(k, useKey):
-		p.st.project = name
-		p.note = "Proyecto activo en esta sesión: " + name + " (la configuración no cambia)"
+		p.st.useProject(name)
+		if p.st.profile == "" {
+			p.note, p.failed = p.st.notice, true
+			break
+		}
+		p.note = "Proyecto activo en esta sesión: " + name + ", con el perfil " + p.st.profile + " (la configuración no cambia)"
 	case key.Matches(k, defaultKey):
 		p.done("Proyecto por defecto: "+name, p.st.save(func(c *config.Config) error { return c.SetDefaultProject(name) }))
 	case key.Matches(k, editKey):
@@ -207,7 +211,7 @@ func (p *projects) detail() string {
 		field("backend_path", pc.BackendPath), field("backend_repo", pc.BackendRepo),
 		field("frontend_path", pc.FrontendPath), field("frontend_repo", pc.FrontendRepo),
 		field("vcs_host", pc.VCSHost), field("vcs_org", pc.VCSOrg),
-		field("space", pc.ConfluenceSpaceKey),
+		field("space", pc.ConfluenceSpaceKey), field("perfil", pc.Profile),
 	}
 	for _, repo := range []string{"backend", "frontend"} {
 		if b := pc.BacklogFor(repo); b != nil && len(b.ClassGlobs)+len(b.Modules) > 0 {

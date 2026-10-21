@@ -49,7 +49,7 @@ func newProjectForm(parent *projects, name string) *projectForm {
 		old := parent.st.cfg.Projects[name]
 		f.v = config.ProjectConfig{
 			BackendPath: old.BackendPath, BackendRepo: old.BackendRepo, FrontendPath: old.FrontendPath, FrontendRepo: old.FrontendRepo,
-			VCSHost: old.VCSHost, VCSOrg: old.VCSOrg, ConfluenceSpaceKey: old.ConfluenceSpaceKey,
+			VCSHost: old.VCSHost, VCSOrg: old.VCSOrg, ConfluenceSpaceKey: old.ConfluenceSpaceKey, Profile: old.Profile,
 		}
 		for i, repo := range []string{"backend", "frontend"} {
 			if b := old.BacklogFor(repo); b != nil {
@@ -66,9 +66,19 @@ func newProjectForm(parent *projects, name string) *projectForm {
 		huh.NewInput().Title("Organización o workspace del VCS").Placeholder("mi-org").Value(&f.v.VCSOrg),
 		huh.NewInput().Title("Space de Confluence del proyecto").Description("Vacío: el de Conexión o el del perfil").Value(&f.v.ConfluenceSpaceKey),
 	)
-	f.form = newPagedForm(huh.NewGroup(fields...),
+	pages := []*huh.Group{huh.NewGroup(fields...)}
+	if names := parent.st.cfg.ProfileNames(); len(names) > 1 {
+		options := []huh.Option[string]{huh.NewOption("El perfil por defecto", "")}
+		for _, n := range names {
+			options = append(options, huh.NewOption(n, n))
+		}
+		pages = append(pages, huh.NewGroup(huh.NewSelect[string]().Title("Perfil del proyecto").
+			Description("Destino y plantilla al generar sus documentos").Options(options...).Value(&f.v.Profile)))
+	}
+	pages = append(pages,
 		f.backlogPage("backend", &f.backlog[0], "app/**/Services/**/*.php", "app/Http/{modulo}/**", &f.v.BackendPath),
 		f.backlogPage("frontend", &f.backlog[1], "src/app/**/*.service.ts", "src/app/{modulo}/**", &f.v.FrontendPath))
+	f.form = newPagedForm(pages...)
 	return f
 }
 
@@ -121,7 +131,7 @@ func (f *projectForm) save() {
 			*pc = *old
 		}
 		pc.BackendPath, pc.BackendRepo, pc.FrontendPath, pc.FrontendRepo = f.v.BackendPath, f.v.BackendRepo, f.v.FrontendPath, f.v.FrontendRepo
-		pc.VCSHost, pc.VCSOrg, pc.ConfluenceSpaceKey = f.v.VCSHost, f.v.VCSOrg, f.v.ConfluenceSpaceKey
+		pc.VCSHost, pc.VCSOrg, pc.ConfluenceSpaceKey, pc.Profile = f.v.VCSHost, f.v.VCSOrg, f.v.ConfluenceSpaceKey, f.v.Profile
 		for i, side := range []struct{ repo, path string }{{"backend", pc.BackendPath}, {"frontend", pc.FrontendPath}} {
 			if side.path != "" {
 				pc.SetBacklogPatterns(side.repo, config.SplitList(f.backlog[i].classes), config.SplitList(f.backlog[i].modules))

@@ -121,6 +121,28 @@ func TestGenerateCreatesThenUpdatesKeepingHandEdits(t *testing.T) {
 	}
 }
 
+func TestGenerateUsesTheProjectProfile(t *testing.T) {
+	cfg := &config.Config{
+		DefaultProfile: "equipo",
+		Profiles:       map[string]*config.Profile{"equipo": {}, "servicios": {}},
+		Projects:       map[string]*config.ProjectConfig{"api-pagos": {BackendPath: t.TempDir(), Profile: "servicios"}},
+	}
+	fakeEnvWith(t, cfg, &fakeTracker{})
+	open, opened := openProfile, []string{}
+	openProfile = func(c *config.Config, o profile.Options) (*profile.Bundle, error) {
+		opened = append(opened, o.Name)
+		return open(c, o)
+	}
+	for _, args := range [][]string{{"-p", "api-pagos"}, {"-p", "api-pagos", "--profile", "equipo"}} {
+		if code, out, errOut := run(append([]string{"g", "-i", "OPS-7", "-b", "a1b2c3d", "--dry-run"}, args...)...); code != exitOK {
+			t.Fatalf("%v: %d\n%s\n%s", args, code, out, errOut)
+		}
+	}
+	if strings.Join(opened, ",") != "servicios,equipo" {
+		t.Errorf("el proyecto trae su perfil y --profile gana: %v", opened)
+	}
+}
+
 func TestGenerateDryRunPublishesNothing(t *testing.T) {
 	trk := &fakeTracker{}
 	dir := fakeEnv(t, trk)

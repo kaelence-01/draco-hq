@@ -83,7 +83,7 @@ func (f *exportForm) next() (screen, error) {
 	if err != nil {
 		return nil, err
 	}
-	bundle, err := f.st.deps.OpenProfile(f.st.cfg, profile.Options{Name: f.st.profile, Scope: target.SpaceKey, AnyScope: true})
+	bundle, err := f.st.deps.OpenProfile(f.st.cfg, profile.Options{Scope: target.SpaceKey, AnyScope: true})
 	if err != nil {
 		return nil, explainProfile(err)
 	}

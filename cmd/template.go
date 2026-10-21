@@ -90,7 +90,7 @@ func newLookup(f *cli.Parsed) (*lookup, error) {
 		return nil, err
 	}
 	l := &lookup{cfg: cfg, flag: f.Get("--template")}
-	if l.profile, l.profileName, err = cfg.Profile(f.Get("--profile")); err != nil {
+	if l.profile, l.profileName, err = cfg.Profile(cfg.ProfileFor(f.Get("--profile"), f.Get("--project"))); err != nil {
 		return nil, err
 	}
 	proj, _, err := cfg.GetProject(f.Get("--project"))

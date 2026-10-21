@@ -21,7 +21,7 @@ var generateFlags = []cli.Flag{
 	{Long: "--commit-backend", Short: "-b", Value: true, Desc: "Commits del backend, separados por coma"},
 	{Long: "--commit-frontend", Short: "-f", Value: true, Desc: "Commits del frontend, separados por coma"},
 	{Long: "--project", Short: "-p", Value: true, Desc: "Proyecto de la config"},
-	{Long: "--profile", Value: true, Desc: "Perfil de la config (tracker y destino)"},
+	{Long: "--profile", Value: true, Desc: "Perfil (si no, el del proyecto o el por defecto)"},
 	{Long: "--space", Short: "-s", Value: true, Desc: "Space de Confluence o carpeta Markdown para esta ejecución"},
 	{Long: "--template", Value: true, Desc: "Carpeta con una plantilla de despliegue"},
 	{Long: "--vcs-host", Value: true, Desc: "Host del VCS para esta ejecución"},
@@ -56,7 +56,8 @@ func runGenerate(a *App, args []string) error {
 	if err != nil {
 		return err
 	}
-	prof, _, err := cfg.Profile(f.Get("--profile"))
+	profName := cfg.ProfileFor(f.Get("--profile"), f.Get("--project"))
+	prof, _, err := cfg.Profile(profName)
 	if err != nil {
 		return err
 	}
@@ -72,7 +73,7 @@ func runGenerate(a *App, args []string) error {
 	if err != nil {
 		return err
 	}
-	bundle, err := openProfile(cfg, profile.Options{Name: f.Get("--profile"), Scope: target.SpaceKey, ProjectSpace: target.ProjectSpace})
+	bundle, err := openProfile(cfg, profile.Options{Name: profName, Scope: target.SpaceKey, ProjectSpace: target.ProjectSpace})
 	if err != nil {
 		return explainProfile(err)
 	}
@@ -255,7 +256,7 @@ func generateHelp(a *App) {
 	a.printf("  -b, --commit-backend   Commits del backend                  (separados por coma)\n")
 	a.printf("  -f, --commit-frontend  Commits del frontend                 (separados por coma)\n")
 	a.printf("  -p, --project          Proyecto de la config\n")
-	a.printf("      --profile          Perfil de la config (tracker y destino)\n")
+	a.printf("      --profile          Perfil (si no, el del proyecto o el por defecto)\n")
 	a.printf("  -s, --space            Space de Confluence o carpeta Markdown para esta ejecución\n")
 	a.printf("      --template         Carpeta con una plantilla de despliegue\n")
 	a.printf("      --vcs-host         Host del VCS para esta ejecución\n")

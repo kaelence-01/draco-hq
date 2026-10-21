@@ -106,7 +106,7 @@ func TestExportFormAsksTaskAndScope(t *testing.T) {
 func TestExportFromStartToEnd(t *testing.T) {
 	e := newExportApp(t, deployDoc, "Consolidado de Pruebas QA - Pagos - Sprint 12")
 	e.search(t, "ops-7")
-	if len(e.opened) != 1 || !e.opened[0].AnyScope || e.opened[0].Scope != "" || e.opened[0].Name != "local" {
+	if len(e.opened) != 1 || !e.opened[0].AnyScope || e.opened[0].Scope != "" || e.opened[0].Name != "" {
 		t.Errorf("el perfil se abre sin exigir space, como draco f: %+v", e.opened)
 	}
 	out := view(e.m)
