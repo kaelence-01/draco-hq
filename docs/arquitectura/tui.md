@@ -5,11 +5,11 @@ de la terminal: menús, listas, formularios y vista previa. Es otra forma de
 recorrer **los mismos flujos** que el modo comando; no tiene lógica propia de
 negocio.
 
-Estado: **en implementación** (roadmap, fase 4). Implementado: la base
-(entrada, marco, pila de pantallas, pantalla principal), Proyectos y Generar
-completo, de la tarea a la publicación. Se
-actualiza al implementar cada actividad. Las reglas para escribir una pantalla
-están en el §10 y son obligatorias.
+Estado: **fase 4 cerrada**; la fase 5 suma Backlog, QA y Exportar.
+Implementado: la base (entrada, marco, pila de pantallas, pantalla principal),
+Proyectos y Generar completo, de la tarea a la publicación. Se actualiza al
+implementar cada actividad. Las reglas para escribir una pantalla están en el
+§10 y son obligatorias.
 
 ## 1. Alcance por fase
 

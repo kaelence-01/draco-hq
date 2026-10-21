@@ -29,7 +29,7 @@ func TestEveryCommandHasHelpAndSummary(t *testing.T) {
 func TestGeneralHelp(t *testing.T) {
 	for _, args := range [][]string{nil, {"help"}, {"--help"}, {"-h"}} {
 		code, out, _ := run(args...)
-		if code != exitOK || !strings.Contains(out, "Uso:") || !strings.Contains(out, "version") || !strings.Contains(out, "https://github.com/kaelence-01/draco-hq") || strings.Contains(out, "docs/roadmap.md") {
+		if code != exitOK || !strings.Contains(out, "Uso:") || !strings.Contains(out, "Modo visual") || !strings.Contains(out, "version") || !strings.Contains(out, "https://github.com/kaelence-01/draco-hq") || strings.Contains(out, "docs/roadmap.md") {
 			t.Errorf("%v: código %d\n%s", args, code, out)
 		}
 	}
