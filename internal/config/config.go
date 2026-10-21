@@ -253,6 +253,16 @@ func (c *Config) HasAtlassianCredentials() bool {
 	return c.AtlassianEmail != "" && c.AtlassianToken != "" && c.BaseURL != ""
 }
 
+// NormalizeBaseURL returns the site URL without spaces or a trailing slash;
+// it must be https.
+func NormalizeBaseURL(s string) (string, error) {
+	u := strings.TrimRight(strings.TrimSpace(s), "/")
+	if !strings.HasPrefix(u, "https://") {
+		return "", errors.New("la URL debe empezar con https://")
+	}
+	return u, nil
+}
+
 func configFromEnv() *Config {
 	return &Config{
 		AtlassianEmail:     os.Getenv("ATLASSIAN_EMAIL"),

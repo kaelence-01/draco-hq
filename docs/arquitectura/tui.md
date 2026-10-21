@@ -9,7 +9,8 @@ Estado: **fases 4 y 5 cerradas; fase 6 en curso** (Configuración, aviso de
 versión nueva, barra de comandos, ayuda y temas, diseñados en el §6).
 Implementado: la base (entrada, marco, pila de pantallas, pantalla
 principal), Proyectos, Generar y QA completos, de la tarea o el sprint a la
-publicación, Exportar y Backlog. Se actualiza al implementar cada actividad. Las reglas para escribir una
+publicación, Exportar, Backlog y Configuración (conexión y perfiles). Se
+actualiza al implementar cada actividad. Las reglas para escribir una
 pantalla están en el §10 y son obligatorias.
 
 ## 1. Alcance por fase
@@ -21,8 +22,9 @@ pantalla están en el §10 y son obligatorias.
 | 6 | Configuración (conexión, perfiles, QA, tema) en formularios, aviso de versión nueva, barra de comandos con autocompletado, ayuda, temas |
 
 Mientras una pantalla no existe, su entrada del menú aparece atenuada con el
-comando equivalente (hoy solo Configuración, con `draco init`): quien abre
-la TUI sabe que la función existe y cómo usarla hoy.
+comando equivalente: quien abre la TUI sabe que la función existe y cómo
+usarla hoy. Desde la fase 6 todas las entradas tienen pantalla; la regla
+queda para las funciones que lleguen después.
 
 ## 2. Librerías
 
@@ -83,6 +85,10 @@ internal/tui/
   findings.go   Backlog: hallazgos con filtro y detalle
   qa.go         QA: formulario y evaluación en vivo
   docrun.go     docRun: lo que vista previa, ubicación y publicar piden a Generar y a QA
+  settings.go   Configuración: secciones con su estado y asistente sin configuración
+  connection.go Configuración: conexión con Atlassian y verificación de la cuenta
+  profiles.go   Configuración: perfiles, con filtro y detalle
+  profileform.go  formulario de Huh para crear y editar un perfil
 ```
 
 `cmd` importa `tui`; `tui` nunca importa `cmd`. Lo que `cmd` reemplaza en los
@@ -131,8 +137,9 @@ habla con los flujos; nunca con un adaptador.
   | `close()` | Soltar lo que la pantalla lanzó al cerrarse: cancela el `context` de un paso en curso |
 
   `open(s)` apila; `esc` (o el mensaje `back`) cierra la de arriba, llama a
-  su `close()` y vuelve a la anterior. `toHome` cierra todas hasta la
-  principal (al terminar de publicar).
+  su `close()` y vuelve a la anterior. `backTo(s)` cierra las que están
+  sobre `s` (al terminar el asistente de Configuración), y `toHome` cierra
+  todas hasta la principal (al terminar de publicar).
 - **Teclas globales:** `ctrl+c` sale siempre; `q` sale desde la principal;
   `?` muestra la ayuda completa de teclas de la pantalla (`bubbles/help`);
   `esc` vuelve. Las tres últimas ceden ante `captures`, y el pie no ofrece
@@ -167,16 +174,14 @@ aviso de versión nueva, barra de comandos, Ayuda y temas.
 - DRACO en letras grandes con caracteres de bloque (ninguna terminal común
   muestra el logo como imagen). Si el ancho no alcanza, solo `draco`.
 - Menú: Generar documento, Proyectos, Consolidado QA, Exportar página,
-  Backlog técnico, Configuración. Atenuada, la que aún no tiene pantalla:
-  Configuración, que llega en la fase 6.
+  Backlog técnico, Configuración. Todas tienen pantalla desde la fase 6.
 - **Panel de la función elegida**, a la derecha del menú: qué hace y el mismo
   trabajo en modo comando con un ejemplo (`$ draco g -i OPS-7 -b a1b2c3d`), y
   si aún no tiene pantalla, lo dice. Enseña que los dos modos son uno. Si el
   ancho no alcanza (menos de 96 columnas), no hay panel y cada función sin
   pantalla muestra su comando en el menú.
-- Sin configuración: la principal lo dice y propone `draco init`. Desde la
-  fase 6, `enter` abre Configuración en el mismo orden que `draco init`
-  (§6, «Configuración»).
+- Sin configuración: la principal lo dice y propone abrir Configuración (o
+  `draco init`), que arranca como asistente (§6, «Configuración»).
 
 ### Proyectos
 
@@ -368,41 +373,44 @@ Lo que hacen `draco init` y `draco profile`, con sus mismas reglas, en
 formularios.
 
 - **Primero, el núcleo sale de `cmd`** (como el del backlog en la fase 5).
-  Hoy viven ahí tres reglas que la TUI necesita:
-  - agregar el primer perfil también guarda el implícito (`atlassian`) y lo
-    deja por defecto, para que los comandos que lo usaban sigan igual
-    (`runProfileAdd`);
-  - la URL del sitio empieza con `https://` y se guarda sin `/` final
-    (`runInit`);
-  - el email escrito se compara con el de la cuenta autenticada
-    (`verifyAccount`).
-
-  Pasan a funciones puras de `config` y `profile`. `draco init` y
-  `draco profile` las usan sin cambiar su salida, y sus tests pasan igual.
+  Tres reglas que vivían ahí son ahora funciones puras, y `draco init` y
+  `draco profile` las usan sin cambiar su salida (sus tests pasaron sin
+  cambios):
+  - `config.KeepImplicitProfile`: agregar el primer perfil también guarda
+    el implícito (`atlassian`) y lo deja por defecto, para que los comandos
+    que lo usaban sigan igual;
+  - `config.NormalizeBaseURL`: la URL del sitio empieza con `https://` y se
+    guarda sin espacios ni `/` final;
+  - `profile.SameAccount`: el email guardado es el de la cuenta autenticada
+    (una cuenta que oculta su email cuenta como la misma).
 - **Pantalla Configuración:** una lista de secciones, cada una con su
-  estado (`✓` completa, `⚠` lo que falta): Conexión, Perfiles, QA y Tema.
-  `enter` abre la elegida.
+  estado (`✓` lo que tiene, `⚠` lo que falta): Conexión y Perfiles. QA y
+  Tema se suman con sus actividades. `enter` abre la elegida.
 - **Conexión** (formulario de Huh): email, API token y URL del sitio.
-  - El token se escribe con eco oculto (`EchoModePassword`). Vacío,
-    conserva el actual. Nunca se muestra, ni su largo.
-  - Guardar usa `state.save`. Después, un `tea.Cmd` verifica la cuenta
-    (`OpenProfile` con `AnyScope` y `Tracker.Me`) y muestra con quién se
+  - El formulario parte del archivo (`LoadFile`), nunca del entorno.
+  - El token no se muestra al escribirlo (`EchoModeNone`, como
+    `draco init`), así que tampoco se ve su largo. Vacío, conserva el
+    actual.
+  - Guardar usa `state.save`. Después, un `tea.Cmd` verifica la cuenta con
+    lo guardado, como `draco init`: `OpenProfile` sobre la config del
+    archivo, con `AnyScope`, y `Tracker.Me`. Muestra con quién se
     autenticó. Si el email no es el de la cuenta, `s` lo corrige con otro
     `state.save`.
   - Una verificación fallida no deshace lo guardado, como en `draco init`:
     dice qué revisar (email, token, URL).
   - **Variables de entorno:** si `ATLASSIAN_EMAIL`, `ATLASSIAN_TOKEN` o
     `ATLASSIAN_BASE_URL` definen un valor, la pantalla avisa que ese valor
-    gana sobre el archivo y que la verificación lo usa. La TUI no lee el
-    entorno: compara la config del estado (`LoadLocal`) con la del archivo
+    gana sobre lo que se guarde al usar draco. La TUI no lee el entorno:
+    compara la config del estado (`LoadLocal`) con la del archivo
     (`LoadFile`). El valor del entorno nunca se muestra ni se guarda.
 - **Perfiles:** como Proyectos, una lista con filtro y el detalle del
-  elegido (tracker → destino, plantilla).
+  elegido (tracker, destino, space o carpeta, plantillas).
   - Teclas: `d` por defecto, `n` nuevo, `e` editar y `x` eliminar (pide
-    `s`, y avisa si era el por defecto).
-  - Formulario: nombre (`ValidName`), destino (Confluence con su space, o
-    una carpeta Markdown) y carpeta de plantillas opcional. El tracker es
-    Jira, el único: se muestra, no se elige.
+    `s`, y avisa si era el por defecto y quedan varios).
+  - Formulario en páginas: nombre (`ValidName`, no puede existir) y
+    destino; el space o la carpeta, según el destino; la carpeta de
+    plantillas y si queda por defecto. El tracker es Jira, el único: se
+    muestra, no se elige.
   - Sin perfiles, la lista muestra el implícito `atlassian` y avisa que
     agregar el primero también lo guarda.
 - **QA** (formulario en páginas, como el de Backlog):
@@ -414,11 +422,17 @@ formularios.
   - con `qa_jira` vacío no se guarda esa sección, porque QA es opcional.
     Con algún campo escrito, `QAJiraConfig.Validate` muestra todos los
     problemas a la vez y no guarda hasta corregirlos.
-- **Sin configuración:** el aviso de la principal abre Configuración como
-  asistente, en el orden de `draco init`: Conexión, primer perfil y, si se
-  quiere, un proyecto con el formulario de Proyectos.
+- **Sin configuración** (el archivo no tiene credenciales ni perfiles),
+  Configuración arranca como asistente, en el orden de `draco init`:
+  1. abre Conexión sola;
+  2. tras verificar, si el archivo no tiene perfiles, `enter` sigue con el
+     primer perfil. Como en `draco init`, no guarda el implícito y queda
+     por defecto;
+  3. al volver a Configuración, si no hay proyectos, `p` abre el
+     formulario de Proyectos (opcional).
 - La entrada del menú deja de estar atenuada; su ejemplo sigue siendo
-  `draco init`.
+  `draco init`. El aviso de la principal dice «abre Configuración (o corre
+  draco init)».
 
 ### Aviso de versión nueva
 
@@ -588,6 +602,7 @@ Terminal y una terminal de Linux o WSL.
 | Vista previa, ubicación y publicar compartidos por una interfaz de la TUI | QA tiene los mismos pasos que Generar; copiarlas duplicaría las reglas de `NotPreserved` y de publicar sin salida a medias |
 | Reglas de `init` y `profile` de `cmd` a funciones puras (perfil implícito, URL, cuenta) | La TUI no importa `cmd`; copiarlas daría dos formas de configurar que guardan distinto |
 | El entorno se detecta comparando la config del estado con la del archivo | La TUI no lee variables de entorno ni puede mostrar o guardar su valor por error |
+| El token sin eco (`EchoModeNone`) y la verificación con lo guardado | Lo mismo que `draco init`: ni el largo del token queda a la vista, y se verifica lo que se escribió, no un valor del entorno |
 | La barra abre la pantalla con los datos, no ejecuta el comando de texto | Lo que el comando pregunta por texto, la TUI ya lo pregunta con sus pantallas; dos interfaces en una pantalla confundirían |
 | La barra solo desde la principal | En las demás `/` filtra o se escribe, y una tecla global choca con Huh |
 | Descripción de los comandos y parser en un paquete neutro, pasados por `Deps` | Una sola fuente para la ayuda, el parser y el autocompletado; la TUI no importa `cmd` |

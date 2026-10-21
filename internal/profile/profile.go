@@ -134,6 +134,13 @@ func (b *Bundle) QA() (provider.QATracker, error) {
 	return nil, ErrNoQA
 }
 
+// SameAccount reports whether email is the authenticated account's. A token
+// for another account works, but searches by author would come back empty; an
+// account that hides its email counts as the same.
+func SameAccount(email string, u *provider.User) bool {
+	return u.Email == "" || strings.EqualFold(u.Email, email)
+}
+
 func unknown(profile, role, got string, valid ...string) error {
 	if got == "" {
 		return fmt.Errorf("perfil '%s': falta %s.provider (%s)", profile, role, strings.Join(valid, ", "))

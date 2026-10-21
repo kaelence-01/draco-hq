@@ -46,7 +46,7 @@ func newHome(st *state) *home {
 			desc: "Busca el documento de una tarea y lo guarda como texto."},
 		{label: "Backlog técnico", example: "draco backlog scan", open: func(st *state) screen { return newBacklogForm(st) },
 			desc: "Detecta deuda técnica en tus repos locales y la propone como tareas. Sin red."},
-		{label: "Configuración", example: "draco init",
+		{label: "Configuración", example: "draco init", open: func(st *state) screen { return newSettings(st) },
 			desc: "Credenciales, perfiles (tracker y destino de los documentos) y el primer proyecto."},
 	}}
 }
