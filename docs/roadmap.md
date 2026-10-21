@@ -51,7 +51,7 @@ de Windows (`cmd`) se ve más limitado.
 | 3 | Modo comando (`cmd/`, `main.go`), instalador, updater, releases | ✅ `v0.1.0` |
 | 4 | Modo visual mínimo: pantalla principal, proyectos, generar documento | ✅ `v0.2.0` |
 | 5 | Resto de pantallas: backlog, QA, exportar | ✅ `v0.2.1` |
-| 6 | Configuración en formularios, aviso de versión nueva, barra de comandos con autocompletado, ayuda, temas | ✅ (`v0.2.2`: lo publica el autor) |
+| 6 | Configuración en formularios, aviso de versión nueva, barra de comandos con autocompletado, ayuda, temas | ✅ `v0.3.0` |
 | v1.0 | Instaladores, checksums, migración desde gtt, README completo | ⬜ |
 
 ### Fase 2 — hecho
@@ -250,7 +250,8 @@ barra de comandos, la ayuda, el aviso de versión nueva y los temas. El
 diseño está en `docs/arquitectura/tui.md` §6, con las normas del §10. Como
 en la fase 5, lo que hoy vive en `cmd` y la TUI necesita se extrae antes de
 usarlo: las reglas de `init` y `profile`, y la descripción de los comandos y
-su parser. El release de la fase es `v0.2.2` (ver decisiones).
+su parser. El release de la fase salió como `v0.3.0`; se había planeado
+como `v0.2.2` (ver decisiones).
 
 | # | Actividad | Rama | Criterio de cierre |
 |---|---|---|---|
@@ -261,7 +262,7 @@ su parser. El release de la fase es `v0.2.2` (ver decisiones).
 | 5a | ✅ Barra (1): descripción de los comandos y parser de `cmd` a un paquete neutro, flags con descripción; barra con autocompletado y pantalla Ayuda | `feature/tui-barra` | `draco help` y los tests de `cmd` sin cambios; cada flag en la ayuda de su comando; sugerencias de comandos, flags y valores probadas con tablas |
 | 5b | ✅ Barra (2): cada comando abre su pantalla con los datos cargados | `feature/tui-barra-ejecutar` | `/g -i OPS-7 -b a1b2c3d` llega a Commits con el hash marcado (test); un flag sin pantalla se explica; los ejemplos del panel funcionan en la barra |
 | 6 | ✅ Temas: `ansi`, `alto-contraste` y `mono`, elegidos en Configuración | `feature/tui-temas` | El tema se guarda en `config.yaml` y se aplica al abrir; cada tema funciona en 80 columnas; `mono` sin color |
-| 7 | ✅ Cierre de la fase 6 y release `v0.2.2` | `docs/cierre-fase-6` | `v0.2.2` instalado con `draco update`; Configuración y la barra abiertas desde el binario instalado |
+| 7 | ✅ Cierre de la fase 6 y release `v0.3.0` (planeado como `v0.2.2`) | `docs/cierre-fase-6` | `v0.3.0` instalado con `draco update`; Configuración y la barra abiertas desde el binario instalado |
 
 Configuración va primero: es la única entrada atenuada del menú, y sin ella
 quien instala draco tiene que salir a `draco init`. El aviso de versión
@@ -279,10 +280,9 @@ muestra el mismo texto que `draco help`, y la TUI avisa de una versión
 nueva. Para eso salieron de `cmd` las reglas de `init` y `profile`
 (funciones puras de `config` y `profile`) y la descripción de los comandos
 con su parser (`internal/cli`). Fuera del plan se sumó `make promote`
-(bitácora 040). Quedan a cargo del autor:
-- el release `v0.2.2` (`make promote` y `make release bump=patch`, según
-  `docs/release.md`), con su verificación con `draco update` desde
-  `v0.2.1`;
+(bitácora 040). El autor publicó la fase como `v0.3.0`, con `make promote`
+y `make release bump=minor` (bitácora 049). Quedan a cargo del autor:
+- la verificación de `v0.3.0` con `draco update` desde `v0.2.1`;
 - las pruebas manuales de las bitácoras 042 a 047, que se suman a las de
   las fases 4 y 5 (029 a 032 y 035 a 038).
 
@@ -313,10 +313,12 @@ con su parser (`internal/cli`). Fuera del plan se sumó `make promote`
 | `goldmark` para leer Markdown | Go puro, MIT, mantenido; soporta tablas y tareas GFM |
 | Ramas `main` → `develop` → `feature/<tema>`, un commit por actividad, PR a `develop` | Historial corto y legible; `main` solo recibe lo integrado |
 | Bitácora por actividad, agrupada por fase (`docs/bitacora/fase-N/`), y comentarios mínimos en el código | La historia de cada decisión en un solo lugar, el código limpio |
-| Las fases 5 y 6 se publican como *patch* de `v0.2.x` (`make release bump=patch`): `v0.2.1` cierra la fase 5 y la fase 6 sigue con `v0.2.2` en adelante | Decisión del autor (bitácora 039); el *minor* no cambia hasta que el autor lo decida |
+| La fase 5 se publicó como *patch* (`v0.2.1`) y la fase 6 como *minor* (`v0.3.0`) | Decisiones del autor (bitácoras 039 y 049). La 039 había fijado `v0.2.x` para las dos; al cerrar la 6, el autor eligió *minor*, que es lo que pide semver para funciones nuevas |
 
 ## Decisiones pendientes
 
+- Cómo numerar los releases hasta la v1.0: *minor* por fase cerrada (como
+  `v0.3.0`) y *patch* para correcciones, u otra regla.
 - Significado del acrónimo: *Deployment Records, Audits & Code Overview*, la
   propuesta original *Deployment Records And Change Orchestrator* («orchestrator»
   sugiere que ejecuta despliegues, y no lo hace) o ninguno.

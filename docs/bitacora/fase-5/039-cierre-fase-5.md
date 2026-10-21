@@ -84,3 +84,6 @@ draco                               # QA, Exportar y Backlog desde el menú
 - Fase 6: barra de comandos con autocompletado, Configuración en
   formularios, temas, ayuda y aviso de versión nueva, con plan antes de
   escribir código, como en las fases 4 y 5. Sus releases siguen en `v0.2.x`.
+
+**Nota (2026-10-21):** la fase 6 no siguió en `v0.2.x`: el autor la publicó
+como `v0.3.0` (*minor*). Ver la bitácora 049.
