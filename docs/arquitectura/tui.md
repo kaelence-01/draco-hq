@@ -5,10 +5,10 @@ de la terminal: menús, listas, formularios y vista previa. Es otra forma de
 recorrer **los mismos flujos** que el modo comando; no tiene lógica propia de
 negocio.
 
-Estado: **fase 4 cerrada**; la fase 5 suma Backlog, QA y Exportar.
-Implementado: la base (entrada, marco, pila de pantallas, pantalla principal),
-Proyectos y Generar completo, de la tarea a la publicación. Se actualiza al
-implementar cada actividad. Las reglas para escribir una pantalla están en el
+Estado: **fase 5 en curso** (Exportar, Backlog y Consolidado QA, diseñadas en
+el §6). Implementado: la base (entrada, marco, pila de pantallas, pantalla
+principal), Proyectos y Generar completo, de la tarea a la publicación. Se
+actualiza al implementar cada actividad. Las reglas para escribir una pantalla están en el
 §10 y son obligatorias.
 
 ## 1. Alcance por fase
@@ -76,6 +76,11 @@ internal/tui/
   locations.go  Generar: ubicación del documento nuevo, con filtro
   publish.go    Generar: confirmación, publicación y resultado
   filter.go     filtro de una lista (/), compartido por Proyectos y Ubicación
+  export.go     Exportar: tarea, documentos que la mencionan, texto y guardado (fase 5)
+  backlog.go    Backlog: formulario y progreso por repo (fase 5)
+  findings.go   Backlog: hallazgos con filtro y detalle (fase 5)
+  qa.go         QA: formulario y evaluación en vivo (fase 5)
+  docrun.go     lo que Generar y QA comparten: vista previa, ubicación y publicar (fase 5)
 ```
 
 `cmd` importa `tui`; `tui` nunca importa `cmd`. Lo que `cmd` reemplaza en los
@@ -89,6 +94,8 @@ type Deps struct {
     LoadFile    func() (*config.Config, error)                                 // config.LoadFile (Proyectos)
     SaveConfig  func(*config.Config) error                                     // config.Save (Proyectos)
     OpenProfile func(*config.Config, profile.Options) (*profile.Bundle, error) // Generar (4a)
+    Scan        func(context.Context, string, backlog.ScanOptions) (*backlog.Report, error) // Backlog (fase 5)
+    Now         func() time.Time                                               // QA: ventana Kanban (fase 5)
 }
 ```
 
@@ -145,14 +152,18 @@ habla con los flujos; nunca con un adaptador.
 - **Sin emojis en el marco.** Su ancho varía entre terminales y rompe bordes y
   columnas (sobre todo en Windows). Se usan símbolos de un ancho: `▸ ✓ ⚠ ✗ ●`.
 
-## 6. Pantallas de la fase 4
+## 6. Pantallas
+
+Fase 4: Principal, Proyectos y Generar. Fase 5: Exportar, Backlog y
+Consolidado QA, y lo que QA comparte con Generar.
 
 ### Principal
 
 - DRACO en letras grandes con caracteres de bloque (ninguna terminal común
   muestra el logo como imagen). Si el ancho no alcanza, solo `draco`.
-- Menú: Generar documento, Proyectos; atenuadas: Consolidado QA, Exportar
-  página, Backlog técnico, Configuración (fases 5 y 6).
+- Menú: Generar documento, Proyectos, Consolidado QA, Exportar página,
+  Backlog técnico, Configuración. Atenuadas, las que aún no tienen pantalla:
+  cada actividad de la fase 5 activa la suya; Configuración, en la fase 6.
 - **Panel de la función elegida**, a la derecha del menú: qué hace y el mismo
   trabajo en modo comando con un ejemplo (`$ draco g -i OPS-7 -b a1b2c3d`), y
   si aún no tiene pantalla, lo dice. Enseña que los dos modos son uno. Si el
@@ -235,6 +246,85 @@ mismas decisiones que pregunta `draco g`:
   `ErrNoCredentials` (al abrir el perfil), `ErrNoLocations` (propone un perfil
   Markdown).
 
+### Exportar página
+
+Los pasos de `fetch.Session`, con las decisiones de `draco f`:
+
+| # | Pantalla | Paso del flujo | Decisión del usuario |
+|---|---|---|---|
+| 1 | Tarea (formulario) | `fetch.Resolve`, `profile.Open` con `AnyScope` | Clave de la tarea; space o carpeta (vacío: el del perfil, o todos) |
+| 2 | Documentos | `Search` | Con uno solo, sigue sin preguntar; con varios, elegir de la lista con filtro (el más reciente primero) |
+| 3 | Texto y guardado | `Export`, `Export.Save` | Revisar el texto (en un `viewport`); ruta del archivo, editable |
+
+- `ErrNoPages` se explica en la pantalla, con la tarea y dónde se buscó.
+- **Ruta editable, sin diálogo nativo.** El campo trae la carpeta actual y
+  el nombre sugerido (`OPS-7_Titulo.txt`). Si el archivo existe, pide `s`
+  antes de reemplazarlo. El resultado muestra la ruta y el comando
+  equivalente (`draco f -i OPS-7 -o <ruta>`).
+
+### Backlog técnico
+
+No usa red (salvo dependencias) ni perfil, como `draco backlog scan`.
+
+- **Antes de la pantalla, el núcleo sale de `cmd`.** La resolución de repos
+  (`--path`, `--repo`, el proyecto o la carpeta actual), las opciones del
+  repo con `--since` (`90d`, `12w`, `3m`), el nombre y el guardado del
+  reporte viven hoy en `cmd/backlog.go`, y la TUI no puede importarlos. Pasan
+  a `internal/backlog` como funciones puras; `cmd` las usa sin cambiar su
+  salida. Los mensajes que nombran un flag quedan en `cmd`.
+- **`Scan` recibe un `context`** y corre `git` y `composer` con él: `esc`
+  detiene un análisis largo en vez de dejarlo corriendo de fondo.
+
+| # | Pantalla | Paso | Decisión del usuario |
+|---|---|---|---|
+| 1 | Analizar (formulario) | Repos del proyecto | Proyecto (por defecto, el activo) o una carpeta; repos (los que tienen ruta); período; módulos; dependencias (usa internet) |
+| 2 | Progreso | `Scan` por repo, uno tras otro | Un repo que falla se marca y se sigue con el otro, como el comando |
+| 3 | Hallazgos | — | Recorrer, filtrar, ver el detalle, guardar |
+
+- **Hallazgos:** una pestaña por repo (`tab`), como el selector de commits.
+  Cada fila: severidad (en su color), puntos, módulo y título; `/` filtra por
+  texto (título, tipo, módulo, archivo). El detalle del elegido (tipo, ID,
+  archivos con el separador local, evidencia) va al lado desde 96 columnas y
+  debajo en 80. Abajo, el total, los puntos y la cuenta por módulo; los
+  detectores omitidos, como aviso.
+- **Sin `--limit`:** la lista se desplaza; el límite existe porque la salida
+  de texto no lo hace.
+- `s` guarda el reporte completo de cada repo donde lo deja `-o` sin ruta
+  (junto a `config.yaml`, `0600`, con el nombre que suma los módulos
+  filtrados) y muestra las rutas.
+
+### Consolidado QA
+
+Los pasos de `qa.Session`, con las decisiones de `draco qa`:
+
+| # | Pantalla | Paso del flujo | Decisión del usuario |
+|---|---|---|---|
+| 1 | Consolidado (formulario) | `qa.Resolve` (con `Deps.Now`), `profile.Open`, `Bundle.QA` | Sprint (vacío: Kanban) y módulo (obligatorio con sprint) |
+| 2 | Evaluación (progreso en vivo) | `CheckAccount`, `Collect`, `EvaluateTask` por tarea, `FindExisting` | Ninguna: ver cómo se evalúa cada tarea |
+| 3 | Vista previa | `DraftCreate` / `DraftUpdate` | Si `NotPreserved`, aceptar con `s` |
+| 4 | Ubicación (solo al crear) | `Locations` | Elegir de la lista con filtro |
+| 5 | Publicar | `Publish` | Confirmar |
+
+- **En vivo:** cada `EvaluateTask(i)` es un `tea.Cmd`, uno tras otro; la
+  tabla suma la fila de la tarea al llegar su mensaje (clave, resumen y las
+  marcas de errores, devoluciones, documento y PR: `✓`, `✗`, y `?` en
+  amarillo para `DeployDocUnknown`). Arriba, el período o módulo y sprint,
+  y los `Warnings` del target y de cada tarea. `esc` cancela entre tareas.
+- `ErrNotQAAccount` muestra la cuenta autenticada, el `qa_email` del config
+  y dónde ajustarlo; `ErrNoQA`, que el tracker del perfil no soporta QA.
+- Un consolidado con el mismo título se actualiza conservando lo escrito a
+  mano, como el comando: no hay pregunta de crear otro, porque el título es
+  la clave del consolidado.
+
+### Vista previa, ubicación y publicar: compartidos
+
+Las pantallas de Generar reciben hoy tipos de `deploy`. Para QA no se copian:
+reciben una interfaz de la TUI (`docrun.go`) con lo que cada una usa (el
+borrador, las ubicaciones, publicar y el comando equivalente), y Generar y QA
+la implementan con adaptadores que solo traducen tipos. Lo propio de Generar
+(pestaña Archivos, `TeamWide`/`OwnerUnknown`, `LinkErr`) es opcional en la
+interfaz. Los tests de Generar pasan sin cambios.
+
 ## 7. Tests
 
 - Sin terminal ni red: los tests llaman a `Update` con mensajes (teclas,
@@ -253,7 +343,10 @@ mismas decisiones que pregunta `draco g`:
   cambia la pantalla nueva.
 - Los pasos del flujo usan los dobles del modo comando: config en memoria,
   tracker y git simulados, adaptador Markdown real en una carpeta temporal.
-- Un test recorre Generar de punta a punta y comprueba el archivo publicado.
+- Un test recorre Generar de punta a punta y comprueba el archivo publicado;
+  otro, QA. Exportar guarda en una carpeta temporal y comprueba el texto.
+- Backlog usa un `Scan` simulado (`Deps.Scan`) con reportes fijos, y un test
+  real de `internal/backlog` cubre la cancelación del `context`.
 - **Nunca ejecutar un binario recién compilado** (instalador); `make run`
   usa `go run`.
 
@@ -286,6 +379,12 @@ Terminal y una terminal de Linux o WSL.
 | Teclas globales que la pantalla puede capturar (`captures`) | Un campo de texto o un filtro necesita `?` y `esc`; sin esto, escribir `?` abre la ayuda |
 | `close()` al cerrar una pantalla | Es lo que cancela un paso en curso al pulsar `esc` |
 | Lista de Proyectos propia, no `bubbles/list` | Pocas filas; `bubbles/list` trae paginación, barra de estado y colores fijos, y su filtro complica los tests |
+| Exportar con ruta editable, sin el diálogo nativo | Una ventana del sistema abierta desde la TUI la deja esperando sin señal visible, y en un test abriría una ventana real (en WSL, de Windows) |
+| Resolución de repos y opciones del backlog de `cmd` a `internal/backlog` | La TUI no importa `cmd`; copiar esas reglas daría dos backlogs que analizan distinto |
+| `backlog.Scan` con `context` | Un análisis largo debe detenerse con `esc`, no seguir de fondo |
+| Hallazgos sin límite, en una lista desplazable | `--limit` existe porque la salida de texto no se desplaza |
+| QA evalúa una tarea por comando | Progreso en vivo y cancelación entre tareas, sin tocar el flujo |
+| Vista previa, ubicación y publicar compartidos por una interfaz de la TUI | QA tiene los mismos pasos que Generar; copiarlas duplicaría las reglas de `NotPreserved` y de publicar sin salida a medias |
 
 ## 10. Normas para escribir una pantalla
 

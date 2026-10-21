@@ -50,7 +50,7 @@ de Windows (`cmd`) se ve más limitado.
 | 2 | Core: portar la lógica de gtt, separar los flujos y desacoplar los proveedores | ✅ |
 | 3 | Modo comando (`cmd/`, `main.go`), instalador, updater, releases | ✅ `v0.1.0` |
 | 4 | Modo visual mínimo: pantalla principal, proyectos, generar documento | ✅ (`v0.2.0`: lo publica el autor) |
-| 5 | Resto de pantallas: backlog, QA, exportar | ⬜ |
+| 5 | Resto de pantallas: backlog, QA, exportar | 🔄 |
 | 6 | Barra de comandos con autocompletado, temas, ayuda | ⬜ |
 | v1.0 | Instaladores, checksums, migración desde gtt, README completo | ⬜ |
 
@@ -208,6 +208,28 @@ a cargo del autor el release `v0.2.0` (`docs/release.md`), su verificación con
 `draco update` desde `v0.1.x` y la TUI abierta desde el binario instalado, y
 las pruebas manuales de las bitácoras 029 a 032: Windows Terminal y Linux/WSL,
 y Generar contra su Jira y su Confluence.
+
+### Fase 5 — resto de pantallas (en curso)
+
+Exportar, Backlog y Consolidado QA dejan de estar atenuados en el menú. Cada
+pantalla recorre el mismo flujo que su comando, con las normas de
+`docs/arquitectura/tui.md` §10; el diseño de cada una está en su §6. Lo que
+hoy vive en `cmd` y la TUI necesita (la resolución de repos y opciones del
+backlog) se extrae a su paquete antes de usarlo, y lo que Generar ya resolvió
+(vista previa, ubicación, publicar) se comparte con QA en vez de copiarse.
+
+| # | Actividad | Rama | Criterio de cierre |
+|---|---|---|---|
+| 1 | ✅ Diseño de las pantallas y plan de la fase | `docs/plan-fase-5` | `docs/arquitectura/tui.md` §6 y actividades con criterio de cierre |
+| 2 | ⬜ Exportar: tarea y space, búsqueda, lista de documentos con filtro, vista del texto y guardado en una ruta editable | `feature/tui-exportar` | Un documento exportado de punta a punta desde una carpeta Markdown (test y a mano); prueba manual contra Confluence |
+| 3 | ⬜ Backlog: resolución de repos, opciones y guardado del reporte de `cmd` a `internal/backlog`, `Scan` con `context`; formulario, progreso por repo, tabla con filtro y detalle, guardar el JSON | `feature/tui-backlog` | `draco backlog scan` sin cambios (sus tests pasan igual); un análisis en la TUI con `esc` que lo cancela; el reporte guardado igual al de `-o` |
+| 4a | ⬜ QA (1): sprint o Kanban, cuenta de QA, tareas y evaluación en vivo, una fila por tarea | `feature/tui-qa` | De la cuenta a la tabla evaluada, con dobles; `ErrNotQAAccount` y `ErrNoQA` explicados; `esc` cancela |
+| 4b | ⬜ QA (2): vista previa, ubicación y publicar compartidos con Generar; consolidado existente y `NotPreserved` | `feature/tui-qa-publicar` | Generar sin cambios (sus tests pasan igual); un consolidado publicado de punta a punta en una carpeta Markdown; prueba manual contra Jira y Confluence |
+| 5 | ⬜ Cierre de la fase 5 y release `v0.3.0` | `docs/cierre-fase-5` | `v0.3.0` instalado con `draco update` y las tres pantallas abiertas desde el binario instalado |
+
+Exportar va primero: es el flujo más corto y no publica. Backlog no usa red
+ni perfil. QA se divide como Generar: primero hasta la tabla evaluada,
+después la publicación.
 
 ### v1.0
 
