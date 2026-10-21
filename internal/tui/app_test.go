@@ -232,6 +232,9 @@ func TestScreenCapturesGlobalKeys(t *testing.T) {
 	m := newTestApp(t, testConfig(), nil, 100, 30)
 	f := &fakeScreen{capture: true}
 	send(m, openMsg{f})
+	if out := view(m); strings.Contains(out, "esc volver") || strings.Contains(out, "? ayuda") {
+		t.Errorf("el pie no ofrece las teclas que la pantalla captura:\n%s", out)
+	}
 	send(m, keyHelp)
 	send(m, keyEsc)
 	if len(m.stack) != 2 || m.help.ShowAll || len(f.got) != 2 {

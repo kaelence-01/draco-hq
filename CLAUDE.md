@@ -212,7 +212,8 @@ esencial:
   ejemplo del comando equivalente, que el **panel** muestra; sin pantalla,
   atenuada.
 - Estilos solo de `styles.go` (ANSI básicos), sin emojis, símbolos de un
-  ancho; cada vista funciona en 80 columnas.
+  ancho; cada vista funciona en 80 columnas, y un texto largo (error, URL)
+  pasa a la línea siguiente, nunca se corta.
 - Tests sin terminal con `send`/`typeText` y `View` sin color; si guarda,
   el token del entorno no llega al archivo.
 

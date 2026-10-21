@@ -32,12 +32,16 @@ type (
 
 type openMsg struct{ s screen }
 type backMsg struct{}
+type homeMsg struct{}
 
 // open stacks s over the current screen.
 func open(s screen) tea.Cmd { return func() tea.Msg { return openMsg{s} } }
 
 // back closes the current screen.
 func back() tea.Msg { return backMsg{} }
+
+// toHome closes every screen down to the home one.
+func toHome() tea.Msg { return homeMsg{} }
 
 var (
 	quitKey = key.NewBinding(key.WithKeys("ctrl+c"), key.WithHelp("ctrl+c", "salir"))
@@ -70,7 +74,7 @@ func (m *app) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if key.Matches(msg, quitKey) {
 			return m, tea.Quit
 		}
-		if c, ok := m.top().(keyCapturer); !ok || !c.captures(msg) {
+		if !m.captured(msg) {
 			switch {
 			case key.Matches(msg, helpKey):
 				m.help.ShowAll = !m.help.ShowAll
@@ -87,13 +91,15 @@ func (m *app) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case backMsg:
 		if len(m.stack) > 1 {
-			if c, ok := m.top().(closer); ok {
-				c.close()
-			}
-			m.stack = m.stack[:len(m.stack)-1]
+			m.pop()
 			if i, ok := m.top().(initer); ok {
 				return m, i.init()
 			}
+		}
+		return m, nil
+	case homeMsg:
+		for len(m.stack) > 1 {
+			m.pop()
 		}
 		return m, nil
 	}
@@ -103,6 +109,19 @@ func (m *app) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *app) top() screen { return m.stack[len(m.stack)-1] }
+
+// captured reports whether the screen on top takes k from the frame.
+func (m *app) captured(k tea.KeyPressMsg) bool {
+	c, ok := m.top().(keyCapturer)
+	return ok && c.captures(k)
+}
+
+func (m *app) pop() {
+	if c, ok := m.top().(closer); ok {
+		c.close()
+	}
+	m.stack = m.stack[:len(m.stack)-1]
+}
 
 func (m *app) View() tea.View {
 	v := tea.NewView(m.render())
@@ -158,10 +177,13 @@ func (m *app) crumbs() string {
 
 func (m *app) footer() string {
 	bindings := m.top().keys()
-	if len(m.stack) > 1 {
+	if len(m.stack) > 1 && !m.captured(tea.KeyPressMsg{Code: tea.KeyEscape}) {
 		bindings = append(bindings, backKey)
 	}
-	bindings = append(bindings, helpKey, quitKey)
+	if !m.captured(tea.KeyPressMsg{Code: '?', Text: "?"}) {
+		bindings = append(bindings, helpKey)
+	}
+	bindings = append(bindings, quitKey)
 	return m.rule() + "\n " + m.help.View(keyMap(bindings))
 }
 

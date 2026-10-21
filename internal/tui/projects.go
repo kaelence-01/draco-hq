@@ -16,20 +16,18 @@ var (
 	newKey     = key.NewBinding(key.WithKeys("n"), key.WithHelp("n", "nuevo"))
 	editKey    = key.NewBinding(key.WithKeys("e"), key.WithHelp("e", "editar"))
 	removeKey  = key.NewBinding(key.WithKeys("x"), key.WithHelp("x", "eliminar"))
-	filterKey  = key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "filtrar"))
 	yesKey     = key.NewBinding(key.WithKeys("s", "y"))
 )
 
 // projects lists the configured projects: the active one is chosen for this
 // session, the default one is saved.
 type projects struct {
-	st        *state
-	cursor    int
-	filter    string
-	filtering bool
-	removing  string // project waiting for the confirmation to delete it
-	note      string
-	failed    bool // note is an error
+	st       *state
+	cursor   int
+	filter   filter
+	removing string // project waiting for the confirmation to delete it
+	note     string
+	failed   bool // note is an error
 }
 
 func newProjects(st *state) *projects {
@@ -48,10 +46,9 @@ func (p *projects) keys() []key.Binding {
 	return []key.Binding{upKey, downKey, useKey, defaultKey, newKey, editKey, removeKey, filterKey}
 }
 
-// captures keeps the keys while the user types a filter or confirms, and esc
-// while a filter is applied, which clears it.
+// captures keeps the keys while the user confirms, and those of the filter.
 func (p *projects) captures(k tea.KeyPressMsg) bool {
-	return p.filtering || p.removing != "" || p.filter != "" && key.Matches(k, backKey)
+	return p.removing != "" || p.filter.captures(k)
 }
 
 // names are the projects that match the filter, sorted.
@@ -61,7 +58,7 @@ func (p *projects) names() []string {
 	}
 	var out []string
 	for _, n := range p.st.cfg.ProjectNames() {
-		if strings.Contains(strings.ToLower(n), strings.ToLower(p.filter)) {
+		if p.filter.matches(n) {
 			out = append(out, n)
 		}
 	}
@@ -86,22 +83,18 @@ func (p *projects) update(msg tea.Msg) (screen, tea.Cmd) {
 	case p.removing != "":
 		p.confirmRemove(key.Matches(k, yesKey))
 		return p, nil
-	case p.filtering:
-		p.typeFilter(k)
+	case p.filter.handle(k):
+		p.cursor = 0
 		return p, nil
 	}
 
 	p.note, p.failed = "", false
 	name := p.selected()
 	switch {
-	case key.Matches(k, backKey):
-		p.filter, p.cursor = "", 0
 	case key.Matches(k, upKey):
 		p.cursor = max(p.cursor-1, 0)
 	case key.Matches(k, downKey):
 		p.cursor = min(p.cursor+1, max(len(p.names())-1, 0))
-	case key.Matches(k, filterKey):
-		p.filtering = true
 	case key.Matches(k, newKey):
 		return p, open(newProjectForm(p, ""))
 	case name == "":
@@ -116,22 +109,6 @@ func (p *projects) update(msg tea.Msg) (screen, tea.Cmd) {
 		p.removing = name
 	}
 	return p, nil
-}
-
-func (p *projects) typeFilter(k tea.KeyPressMsg) {
-	switch {
-	case key.Matches(k, backKey):
-		p.filter, p.filtering = "", false
-	case k.Code == tea.KeyEnter:
-		p.filtering = false
-	case k.Code == tea.KeyBackspace:
-		if r := []rune(p.filter); len(r) > 0 {
-			p.filter = string(r[:len(r)-1])
-		}
-	case k.Text != "":
-		p.filter += k.Text
-	}
-	p.cursor = 0
 }
 
 func (p *projects) confirmRemove(yes bool) {
@@ -184,15 +161,12 @@ func (p *projects) view(width, height int) string {
 
 func (p *projects) list() string {
 	var rows []string
-	switch {
-	case p.filtering:
-		rows = append(rows, "/ "+p.filter+accentStyle.Render("█"))
-	case p.filter != "":
-		rows = append(rows, faintStyle.Render("filtro: "+p.filter+"  (esc lo quita)"))
+	if f := p.filter.view(); f != "" {
+		rows = append(rows, f)
 	}
 	names := p.names()
 	if len(names) == 0 {
-		if p.filter != "" {
+		if p.filter.text != "" {
 			rows = append(rows, faintStyle.Render("Ningún proyecto coincide"))
 		} else {
 			rows = append(rows, faintStyle.Render("No hay proyectos. n crea uno."))

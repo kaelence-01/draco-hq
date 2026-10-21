@@ -7,7 +7,7 @@ negocio.
 
 Estado: **en implementación** (roadmap, fase 4). Implementado: la base
 (entrada, marco, pila de pantallas, pantalla principal), Proyectos y Generar
-hasta los archivos leídos (vista previa y publicación: actividad 4b). Se
+completo, de la tarea a la publicación. Se
 actualiza al implementar cada actividad. Las reglas para escribir una pantalla
 están en el §10 y son obligatorias.
 
@@ -72,6 +72,10 @@ internal/tui/
   generate.go   Generar: tarea y proyecto (formulario); abre el perfil
   commits.go    Generar: selector de commits por lado, con hash a mano
   progress.go   Generar: pasos de deploy.Session con progreso y cancelación
+  preview.go    Generar: vista previa (archivos y Markdown) y secciones no conservadas
+  locations.go  Generar: ubicación del documento nuevo, con filtro
+  publish.go    Generar: confirmación, publicación y resultado
+  filter.go     filtro de una lista (/), compartido por Proyectos y Ubicación
 ```
 
 `cmd` importa `tui`; `tui` nunca importa `cmd`. Lo que `cmd` reemplaza en los
@@ -116,10 +120,12 @@ habla con los flujos; nunca con un adaptador.
   | `close()` | Soltar lo que la pantalla lanzó al cerrarse: cancela el `context` de un paso en curso |
 
   `open(s)` apila; `esc` (o el mensaje `back`) cierra la de arriba, llama a
-  su `close()` y vuelve a la anterior.
+  su `close()` y vuelve a la anterior. `toHome` cierra todas hasta la
+  principal (al terminar de publicar).
 - **Teclas globales:** `ctrl+c` sale siempre; `q` sale desde la principal;
   `?` muestra la ayuda completa de teclas de la pantalla (`bubbles/help`);
-  `esc` vuelve. Las tres últimas ceden ante `captures`.
+  `esc` vuelve. Las tres últimas ceden ante `captures`, y el pie no ofrece
+  una tecla que la pantalla captura en ese momento.
 - **Marco común:** cabecera con versión, perfil y proyecto activos; debajo,
   fuera de la principal, la **ruta** con los títulos de la pila
   (`Inicio › Proyectos › Nuevo proyecto`); pie con las teclas de la pantalla.
@@ -210,9 +216,21 @@ mismas decisiones que pregunta `draco g`:
   commit de otra rama se agrega con `h`; la pantalla dice en qué rama está
   (`CurrentBranch`). Cada lado es una pestaña (`tab`), para caber en 80
   columnas; la pestaña cuenta los commits marcados.
-- **Hasta la 4b**, el paso 3 termina con los archivos leídos por carpeta y el
-  comando equivalente con `--dry-run`, para ver el documento hoy.
-- La vista previa reemplaza a `--dry-run`: salir ahí no publica nada.
+- El paso 3 termina con los archivos leídos por carpeta; `enter` abre la
+  vista previa.
+- **Vista previa:** pestañas Documento (el Markdown en un `viewport`, con las
+  líneas largas ajustadas) y Archivos. Reemplaza a `--dry-run`: salir ahí no
+  publica nada. Al actualizar dice si lo escrito a mano se conserva; si el
+  documento actual no tiene una sección a conservar (`NotPreserved`), lo
+  avisa y `enter` no sigue hasta que el usuario acepta con `s`.
+- **Ubicación** (solo al crear): `Locations` con aviso de `TeamWide` u
+  `OwnerUnknown`, filtro con `/` (el mismo de Proyectos) y `enter` elige.
+- **Publicar:** título, destino, acción (crear junto a…, actualizar…) y
+  enlace; `enter` publica. Mientras publica, `esc` no sale: dejaría un
+  documento sin su enlace (`ctrl+c` sí). El resultado muestra la URL y, si
+  falló el enlace desde la tarea, `LinkErr` con qué hacer; un error permite
+  reintentar. La pantalla muestra también el comando equivalente. Al
+  terminar, `enter` o `esc` vuelven a la principal.
 - Los centinelas se explican con texto de la pantalla: `ErrNoSpace` y
   `ErrNoCredentials` (al abrir el perfil), `ErrNoLocations` (propone un perfil
   Markdown).
@@ -258,6 +276,9 @@ Terminal y una terminal de Linux o WSL.
 | Entradas futuras del menú atenuadas con su comando | Muestra lo que existe y cómo usarlo hoy |
 | Función pura de repos del proyecto en `deploy` (`ProjectSides`) | El selector de commits la necesita antes de `Resolve`; la TUI no reimplementa el flujo |
 | El perfil se abre al enviar la tarea, no después de los commits | Un error de credenciales o de space se ve antes de elegir commits, y el selector necesita el `ChangeSource` del perfil |
+| Publicar no se abandona con `esc` mientras corre | Se crearía el documento sin el enlace desde la tarea, y QA lo marcaría sin documentación |
+| Filtro de lista compartido (`filter.go`) | Proyectos y Ubicación filtraban igual con código copiado |
+| Texto que no cabe se ajusta a la línea siguiente | Un error o una URL cortados en el borde pierden justo lo que explica el problema |
 | `CurrentBranch` en el puerto `ChangeSource` | La pantalla dice de qué rama son los commits; sin eso, un commit de otra rama parecería no existir |
 | Sin emojis en el marco | Ancho variable entre terminales |
 | Panel con la descripción y el comando equivalente en la principal | El modo visual enseña el modo comando; viene de la maqueta del modo visual |
@@ -294,7 +315,9 @@ Obligatorias para toda pantalla nueva o modificada (las resume `CLAUDE.md`):
    `OPS-7`, `pagos`, `mi-org`). Sin pantalla, queda atenuada.
 9. **Estilos solo de `styles.go`**, con colores ANSI básicos. Sin emojis;
    símbolos de un ancho (`▸ ✓ ⚠ ✗ ●`). Cada vista funciona en 80 columnas y
-   aprovecha las anchas (como el panel desde 96).
+   aprovecha las anchas (como el panel desde 96). Un texto que no cabe
+   (errores, URLs, párrafos) pasa a la línea siguiente; solo se recortan las
+   filas de una lista, que son de una línea.
 10. **Mensajes:** el resultado de una acción se muestra en la pantalla
     (`✓` en verde, `✗` en rojo con qué hacer); un problema de config no
     impide abrir la TUI, se muestra como aviso.
