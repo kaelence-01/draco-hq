@@ -71,6 +71,7 @@ Sin entradas: se hizo antes de que existiera la bitácora.
 | [034](./fase-5/034-plan-fase-5.md) | Diseño de las pantallas y plan de la fase 5 | `docs/plan-fase-5` | 2026-10-20 | Exportar, Backlog y QA en `tui.md` §6; núcleo del backlog fuera de `cmd` y `Scan` con `context`; vista previa, ubicación y publicar compartidos con QA; la fase en 6 actividades |
 | [035](./fase-5/035-tui-exportar.md) | Exportar en la TUI | `feature/tui-exportar` | 2026-10-20 | Formulario, documentos con filtro (uno solo sigue sin preguntar) y texto con ruta editable y confirmación al reemplazar; formulario y filas de documentos compartidos con Generar, filas recortadas al ancho |
 | [036](./fase-5/036-tui-backlog.md) | Backlog en la TUI | `feature/tui-backlog` | 2026-10-20 | Núcleo del backlog de `cmd` a `internal/backlog` y `Scan` con `context`; formulario en dos páginas, progreso por repo y hallazgos con filtro, detalle y guardado |
+| [037](./fase-5/037-tui-qa.md) | QA en la TUI (1): cuenta, tareas y evaluación en vivo | `feature/tui-qa` | 2026-10-20 | Formulario de sprint o Kanban; cuenta, tareas y una fila por tarea al evaluarse, con copia propia de las filas; `ErrNotQAAccount` y `ErrNoQA` explicados; `Deps.Now` |
 
 ## Formato de cada entrada
 

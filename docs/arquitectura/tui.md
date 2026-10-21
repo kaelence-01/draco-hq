@@ -8,7 +8,8 @@ negocio.
 Estado: **fase 5 en curso** (Exportar, Backlog y Consolidado QA, diseñadas en
 el §6). Implementado: la base (entrada, marco, pila de pantallas, pantalla
 principal), Proyectos, Generar completo, de la tarea a la publicación,
-Exportar y Backlog. Se actualiza al implementar cada actividad. Las reglas para escribir una pantalla están en el
+Exportar, Backlog y QA hasta la tabla evaluada (la publicación de QA es la
+actividad 4b). Se actualiza al implementar cada actividad. Las reglas para escribir una pantalla están en el
 §10 y son obligatorias.
 
 ## 1. Alcance por fase
@@ -79,7 +80,7 @@ internal/tui/
   export.go     Exportar: tarea, documentos que la mencionan, texto y guardado
   backlog.go    Backlog: formulario y progreso por repo
   findings.go   Backlog: hallazgos con filtro y detalle
-  qa.go         QA: formulario y evaluación en vivo (fase 5)
+  qa.go         QA: formulario y evaluación en vivo
   docrun.go     lo que Generar y QA comparten: vista previa, ubicación y publicar (fase 5)
 ```
 
@@ -95,7 +96,7 @@ type Deps struct {
     SaveConfig  func(*config.Config) error                                     // config.Save (Proyectos)
     OpenProfile func(*config.Config, profile.Options) (*profile.Bundle, error) // Generar (4a)
     Scan        func(context.Context, string, backlog.ScanOptions) (*backlog.Report, error) // Backlog
-    Now         func() time.Time                                               // QA: ventana Kanban (fase 5)
+    Now         func() time.Time                                               // QA: fecha y ventana Kanban
 }
 ```
 
@@ -306,17 +307,23 @@ Los pasos de `qa.Session`, con las decisiones de `draco qa`:
 
 | # | Pantalla | Paso del flujo | Decisión del usuario |
 |---|---|---|---|
-| 1 | Consolidado (formulario) | `qa.Resolve` (con `Deps.Now`), `profile.Open`, `Bundle.QA` | Sprint (vacío: Kanban) y módulo (obligatorio con sprint) |
+| 1 | Consolidado (formulario) | `profile.Open`, `Bundle.QA`, `qa.Resolve` (con `Deps.Now` y la plantilla del perfil) | Sprint (vacío: Kanban) y módulo (obligatorio con sprint) |
 | 2 | Evaluación (progreso en vivo) | `CheckAccount`, `Collect`, `EvaluateTask` por tarea, `FindExisting` | Ninguna: ver cómo se evalúa cada tarea |
 | 3 | Vista previa | `DraftCreate` / `DraftUpdate` | Si `NotPreserved`, aceptar con `s` |
 | 4 | Ubicación (solo al crear) | `Locations` | Elegir de la lista con filtro |
 | 5 | Publicar | `Publish` | Confirmar |
 
 - **En vivo:** cada `EvaluateTask(i)` es un `tea.Cmd`, uno tras otro; la
-  tabla suma la fila de la tarea al llegar su mensaje (clave, resumen y las
-  marcas de errores, devoluciones, documento y PR: `✓`, `✗`, y `?` en
-  amarillo para `DeployDocUnknown`). Arriba, el período o módulo y sprint,
-  y los `Warnings` del target y de cada tarea. `esc` cancela entre tareas.
+  tabla suma la fila de la tarea al llegar su mensaje (clave, marcas de
+  errores, devoluciones, documento y PR: `✓`, `✗`, y `?` en amarillo para
+  `DeployDocUnknown`; resumen). Arriba, el período o módulo y sprint, los
+  `Warnings` del target, la cuenta y las tareas; debajo, los avisos de cada
+  tarea. `esc` cancela entre tareas.
+- **La pantalla guarda su copia de las filas:** al terminar `Collect` copia
+  `Session.Tasks`, y de cada `EvaluateTask(i)` copia solo la fila `i`. Así
+  nunca lee la `Session` mientras el paso siguiente la escribe.
+- Al terminar, `↑↓` recorre las filas; debajo, la tarea de revisión y las
+  observaciones de la elegida, y qué hará publicar (crear o actualizar).
 - `ErrNotQAAccount` muestra la cuenta autenticada, el `qa_email` del config
   y dónde ajustarlo; `ErrNoQA`, que el tracker del perfil no soporta QA.
 - Un consolidado con el mismo título se actualiza conservando lo escrito a
