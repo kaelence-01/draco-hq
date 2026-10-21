@@ -6,26 +6,27 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/kaelence-01/draco-hq/internal/cli"
 	"github.com/kaelence-01/draco-hq/internal/config"
 	"github.com/kaelence-01/draco-hq/internal/deploy"
 	"github.com/kaelence-01/draco-hq/internal/profile"
 )
 
 func init() {
-	register(&command{run: runGenerate, help: generateHelp, summary: "Crea o actualiza el documento de despliegue de una tarea"}, "generate", "gen", "g")
+	register(&command{run: runGenerate, help: generateHelp, flags: generateFlags, summary: "Crea o actualiza el documento de despliegue de una tarea"}, "generate", "gen", "g")
 }
 
-var generateFlags = []flag{
-	{long: "--issue", short: "-i", value: true},
-	{long: "--commit-backend", short: "-b", value: true},
-	{long: "--commit-frontend", short: "-f", value: true},
-	{long: "--project", short: "-p", value: true},
-	{long: "--profile", value: true},
-	{long: "--space", short: "-s", value: true},
-	{long: "--template", value: true},
-	{long: "--vcs-host", value: true},
-	{long: "--vcs-org", value: true},
-	{long: "--dry-run"},
+var generateFlags = []cli.Flag{
+	{Long: "--issue", Short: "-i", Value: true, Desc: "Clave de la tarea (requerido)"},
+	{Long: "--commit-backend", Short: "-b", Value: true, Desc: "Commits del backend, separados por coma"},
+	{Long: "--commit-frontend", Short: "-f", Value: true, Desc: "Commits del frontend, separados por coma"},
+	{Long: "--project", Short: "-p", Value: true, Desc: "Proyecto de la config"},
+	{Long: "--profile", Value: true, Desc: "Perfil de la config (tracker y destino)"},
+	{Long: "--space", Short: "-s", Value: true, Desc: "Space de Confluence o carpeta Markdown para esta ejecución"},
+	{Long: "--template", Value: true, Desc: "Carpeta con una plantilla de despliegue"},
+	{Long: "--vcs-host", Value: true, Desc: "Host del VCS para esta ejecución"},
+	{Long: "--vcs-org", Value: true, Desc: "Organización o workspace del VCS para esta ejecución"},
+	{Long: "--dry-run", Desc: "Muestra el documento sin publicar nada"},
 }
 
 // loadConfig and openProfile are replaced in tests, which run the commands
@@ -36,15 +37,15 @@ var (
 )
 
 func runGenerate(a *App, args []string) error {
-	f, err := parseFlags(args, generateFlags)
+	f, err := cli.Parse(args, generateFlags)
 	if err != nil {
 		return usageError("%v", err)
 	}
-	if len(f.args) > 0 {
-		return usageError("argumento inesperado: %s", f.args[0])
+	if len(f.Args) > 0 {
+		return usageError("argumento inesperado: %s", f.Args[0])
 	}
-	backend, frontend := deploy.SplitHashes(f.get("--commit-backend")), deploy.SplitHashes(f.get("--commit-frontend"))
-	if f.get("--issue") == "" {
+	backend, frontend := deploy.SplitHashes(f.Get("--commit-backend")), deploy.SplitHashes(f.Get("--commit-frontend"))
+	if f.Get("--issue") == "" {
 		return usageError("falta -i/--issue, la clave de la tarea")
 	}
 	if len(backend) == 0 && len(frontend) == 0 {
@@ -55,23 +56,23 @@ func runGenerate(a *App, args []string) error {
 	if err != nil {
 		return err
 	}
-	prof, _, err := cfg.Profile(f.get("--profile"))
+	prof, _, err := cfg.Profile(f.Get("--profile"))
 	if err != nil {
 		return err
 	}
-	tmpl := f.get("--template")
+	tmpl := f.Get("--template")
 	if tmpl == "" {
 		tmpl = prof.TemplateDir("deploy")
 	}
 	target, err := deploy.Resolve(cfg, deploy.Request{
-		Issue: f.get("--issue"), BackendHashes: backend, FrontendHashes: frontend,
-		Project: f.get("--project"), Space: f.get("--space"), Template: tmpl,
-		VCSHost: f.get("--vcs-host"), VCSOrg: f.get("--vcs-org"),
+		Issue: f.Get("--issue"), BackendHashes: backend, FrontendHashes: frontend,
+		Project: f.Get("--project"), Space: f.Get("--space"), Template: tmpl,
+		VCSHost: f.Get("--vcs-host"), VCSOrg: f.Get("--vcs-org"),
 	})
 	if err != nil {
 		return err
 	}
-	bundle, err := openProfile(cfg, profile.Options{Name: f.get("--profile"), Scope: target.SpaceKey})
+	bundle, err := openProfile(cfg, profile.Options{Name: f.Get("--profile"), Scope: target.SpaceKey})
 	if err != nil {
 		return explainProfile(err)
 	}
@@ -158,7 +159,7 @@ func runGenerate(a *App, args []string) error {
 		return err
 	}
 
-	if f.has("--dry-run") {
+	if f.Has("--dry-run") {
 		a.printf("%s %s\n%s %s\n\n", a.style(bold, "Título:"), draft.Title, a.style(bold, "Destino:"), bundle.Profile.Docs.Provider)
 		a.printf("%s\n", draft.Markdown)
 		a.printf("%s\n", a.style(yellow, "(--dry-run: no se publicó nada)"))

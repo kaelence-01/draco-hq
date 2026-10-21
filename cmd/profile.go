@@ -8,7 +8,7 @@ import (
 )
 
 func init() {
-	register(&command{run: runProfile, help: profileHelp, summary: "Lista, agrega, elige o elimina perfiles (tracker y destino)"}, "profile")
+	register(&command{run: runProfile, help: profileHelp, summary: "Lista, agrega, elige o elimina perfiles (tracker y destino)", subs: configSubs("perfil", "perfiles")}, "profile")
 }
 
 func runProfile(a *App, args []string) error {

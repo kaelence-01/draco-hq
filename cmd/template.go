@@ -10,21 +10,33 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/kaelence-01/draco-hq/internal/cli"
 	"github.com/kaelence-01/draco-hq/internal/config"
 	"github.com/kaelence-01/draco-hq/internal/document"
 	"github.com/kaelence-01/draco-hq/internal/provider"
 )
 
 func init() {
-	register(&command{run: runTemplate, help: templateHelp, summary: "Copia, lista, valida y previsualiza las plantillas de los documentos"}, "template")
+	register(&command{run: runTemplate, help: templateHelp, summary: "Copia, lista, valida y previsualiza las plantillas de los documentos", subs: []cli.Command{
+		{Names: []string{"init"}, Summary: "Copia la plantilla incluida para editarla", Flags: templateInitFlags},
+		{Names: []string{"list", "ls"}, Summary: "Qué carpetas se buscan y cuál está en uso", Flags: templateLookupFlags},
+		{Names: []string{"validate"}, Summary: "Carga y llena la plantilla con datos de ejemplo", Flags: templateLookupFlags},
+		{Names: []string{"preview"}, Summary: "Muestra el título y el Markdown con datos de ejemplo", Flags: templateLookupFlags},
+	}}, "template")
 }
 
 var kindNames = map[string]string{"deploy": "documento de despliegue", "qa": "consolidado QA"}
 
-var templateLookupFlags = []flag{
-	{long: "--template", value: true},
-	{long: "--profile", value: true},
-	{long: "--project", short: "-p", value: true},
+var templateLookupFlags = []cli.Flag{
+	{Long: "--template", Value: true, Desc: "Carpeta de una plantilla (requiere el tipo)"},
+	{Long: "--profile", Value: true, Desc: "Perfil cuya carpeta de plantillas se usa"},
+	{Long: "--project", Short: "-p", Value: true, Desc: "Proyecto: su repo backend es el de .draco/templates/deploy"},
+}
+
+var templateInitFlags = []cli.Flag{
+	{Long: "--user", Desc: "En la carpeta de plantillas del usuario, para todos tus repos"},
+	{Long: "--dir", Value: true, Desc: "En esa carpeta (por ejemplo, la del perfil)"},
+	{Long: "--force", Desc: "Sobrescribe los archivos que ya existan"},
 }
 
 func runTemplate(a *App, args []string) error {
@@ -39,11 +51,11 @@ func runTemplate(a *App, args []string) error {
 
 // kindsArg reads the optional kind argument; without it, every kind. A
 // --template folder is of one kind, so it needs the argument.
-func kindsArg(f *parsed, usage string) ([]string, error) {
-	args := f.args
+func kindsArg(f *cli.Parsed, usage string) ([]string, error) {
+	args := f.Args
 	switch len(args) {
 	case 0:
-		if f.has("--template") {
+		if f.Has("--template") {
 			return nil, usageError("--template es la carpeta de una plantilla: indica cuál (deploy o qa)")
 		}
 		return document.Kinds, nil
@@ -72,16 +84,16 @@ type lookup struct {
 	userRoot    string
 }
 
-func newLookup(f *parsed) (*lookup, error) {
+func newLookup(f *cli.Parsed) (*lookup, error) {
 	cfg, err := loadConfig()
 	if err != nil {
 		return nil, err
 	}
-	l := &lookup{cfg: cfg, flag: f.get("--template")}
-	if l.profile, l.profileName, err = cfg.Profile(f.get("--profile")); err != nil {
+	l := &lookup{cfg: cfg, flag: f.Get("--template")}
+	if l.profile, l.profileName, err = cfg.Profile(f.Get("--profile")); err != nil {
 		return nil, err
 	}
-	proj, _, err := cfg.GetProject(f.get("--project"))
+	proj, _, err := cfg.GetProject(f.Get("--project"))
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +133,7 @@ func (l *lookup) load(kind string) (*document.Template, error) {
 }
 
 func runTemplateList(a *App, args []string) error {
-	f, err := parseFlags(args, templateLookupFlags)
+	f, err := cli.Parse(args, templateLookupFlags)
 	if err != nil {
 		return usageError("%v", err)
 	}
@@ -157,22 +169,22 @@ func runTemplateList(a *App, args []string) error {
 }
 
 func runTemplateInit(a *App, args []string) error {
-	f, err := parseFlags(args, []flag{{long: "--user"}, {long: "--dir", value: true}, {long: "--force"}})
+	f, err := cli.Parse(args, templateInitFlags)
 	if err != nil {
 		return usageError("%v", err)
 	}
-	if len(f.args) != 1 || !slices.Contains(document.Kinds, f.args[0]) {
+	if len(f.Args) != 1 || !slices.Contains(document.Kinds, f.Args[0]) {
 		return usageError("uso: draco template init <deploy|qa> [--user | --dir <carpeta>] [--force]")
 	}
-	kind := f.args[0]
-	if f.has("--user") && f.has("--dir") {
+	kind := f.Args[0]
+	if f.Has("--user") && f.Has("--dir") {
 		return usageError("usa --user o --dir, no los dos")
 	}
 	dir := filepath.Join(".draco", "templates", kind)
 	switch {
-	case f.has("--dir"):
-		dir = f.get("--dir")
-	case f.has("--user"):
+	case f.Has("--dir"):
+		dir = f.Get("--dir")
+	case f.Has("--user"):
 		root, err := config.TemplatesDir()
 		if err != nil {
 			return err
@@ -189,7 +201,7 @@ func runTemplateInit(a *App, args []string) error {
 		names = append(names, n)
 	}
 	sort.Strings(names)
-	if !f.has("--force") {
+	if !f.Has("--force") {
 		var existing []string
 		for _, n := range names {
 			if _, err := os.Stat(filepath.Join(dir, n)); err == nil {
@@ -219,7 +231,7 @@ func runTemplateInit(a *App, args []string) error {
 }
 
 func runTemplateValidate(a *App, args []string) error {
-	f, err := parseFlags(args, templateLookupFlags)
+	f, err := cli.Parse(args, templateLookupFlags)
 	if err != nil {
 		return usageError("%v", err)
 	}
@@ -251,16 +263,16 @@ func runTemplateValidate(a *App, args []string) error {
 }
 
 func runTemplatePreview(a *App, args []string) error {
-	f, err := parseFlags(args, templateLookupFlags)
+	f, err := cli.Parse(args, templateLookupFlags)
 	if err != nil {
 		return usageError("%v", err)
 	}
-	if len(f.args) > 1 || len(f.args) == 1 && !slices.Contains(document.Kinds, f.args[0]) {
+	if len(f.Args) > 1 || len(f.Args) == 1 && !slices.Contains(document.Kinds, f.Args[0]) {
 		return usageError("uso: draco template preview [deploy|qa]")
 	}
 	kind := "deploy"
-	if len(f.args) == 1 {
-		kind = f.args[0]
+	if len(f.Args) == 1 {
+		kind = f.Args[0]
 	}
 	l, err := newLookup(f)
 	if err != nil {

@@ -73,6 +73,9 @@ cmd/           Modo comando: router de mapa, flags por comando, ayuda en dos
                niveles, códigos de salida (0 ok, 1 error, 2 uso)
 internal/
   build/       Versión (ldflags)
+  cli/         Descripción de los comandos (nombres, subcomandos, flags con
+               su descripción) y el parser de flags, que usan cmd y la barra
+               de comandos de la TUI
   installer/   Instalación en el primer uso: copia a ~/.local/bin o
                %LOCALAPPDATA%\Programs\draco y agrega la carpeta al PATH
   updater/     Releases de GitHub: última versión, descarga verificada con
@@ -175,11 +178,16 @@ Cada flujo vive en su propio paquete (`internal/deploy` es la referencia) y
 
 ### El modo comando (`cmd/`)
 
-- Un comando se registra con `register(&command{run, help, summary}, nombres…)`;
-  `TestEveryCommandHasHelpAndSummary` exige las tres cosas.
-- Los flags se declaran por comando (`[]flag`) y se leen con `parseFlags`: un
-  flag desconocido o sin valor es un error de uso (sale con 2), nunca se
-  ignora; solo un flag `optional` (`-o` de `backlog scan`) puede ir sin valor. `-h`/`--help` muestra la ayuda y **nunca ejecuta** el comando.
+- Un comando se registra con `register(&command{run, help, summary, flags,
+  subs}, nombres…)`; `TestEveryCommandHasHelpAndSummary` exige las tres
+  primeras. `flags` y `subs` lo describen para la barra de comandos de la TUI
+  (`commandSpecs`).
+- Los flags se declaran por comando (`[]cli.Flag`, cada uno con `Desc`) y se
+  leen con `cli.Parse`: un flag desconocido o sin valor es un error de uso
+  (sale con 2), nunca se ignora; solo un flag `Optional` (`-o` de
+  `backlog scan`) puede ir sin valor. `TestEveryFlagIsDescribedAndInItsHelp`
+  exige que cada flag y subcomando tenga descripción y aparezca en la ayuda.
+  `-h`/`--help` muestra la ayuda y **nunca ejecuta** el comando.
 - Los comandos que **guardan** la config la leen con `config.LoadFile` (solo
   el archivo), nunca con `LoadLocal`: este mezcla las variables `ATLASSIAN_*`
   y un token del entorno terminaría escrito en el disco.

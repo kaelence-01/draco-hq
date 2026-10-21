@@ -11,6 +11,7 @@ import (
 // runTUI opens the visual mode; tests replace it so they never take over a
 // terminal.
 var runTUI = func(a *App) error {
-	d := tui.Deps{LoadConfig: loadConfig, Version: build.Version, LoadFile: config.LoadFile, SaveConfig: saveConfig, OpenProfile: openProfile, Scan: scanRepo, Now: now, CheckUpdate: latestVersion}
+	d := tui.Deps{LoadConfig: loadConfig, Version: build.Version, LoadFile: config.LoadFile, SaveConfig: saveConfig, OpenProfile: openProfile, Scan: scanRepo, Now: now, CheckUpdate: latestVersion,
+		Commands: commandSpecs(), Help: helpText}
 	return tui.Run(context.Background(), d, a.rawIn, a.Out)
 }

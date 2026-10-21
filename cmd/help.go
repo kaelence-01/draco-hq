@@ -1,10 +1,13 @@
 package cmd
 
 import (
+	"bytes"
+	"fmt"
 	"sort"
 	"strings"
 
 	"github.com/kaelence-01/draco-hq/internal/build"
+	"github.com/kaelence-01/draco-hq/internal/cli"
 	"github.com/kaelence-01/draco-hq/internal/updater"
 )
 
@@ -57,8 +60,35 @@ func commandLines() []string {
 	return lines
 }
 
+// commandSpecs describes every command once, sorted by name, for the visual
+// mode's command bar.
+func commandSpecs() []cli.Command {
+	seen := map[*command]bool{}
+	var out []cli.Command
+	for _, c := range commands {
+		if !seen[c] {
+			seen[c] = true
+			out = append(out, cli.Command{Names: c.names, Summary: c.summary, Flags: c.flags, Subcommands: c.subs})
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Names[0] < out[j].Names[0] })
+	return out
+}
+
+// helpText is the help of a command without color, as draco help <name>
+// prints it.
+func helpText(name string) (string, error) {
+	c, ok := commands[name]
+	if !ok {
+		return "", fmt.Errorf("no existe el comando %q", name)
+	}
+	var out bytes.Buffer
+	c.help(New(strings.NewReader(""), &out, &out))
+	return out.String(), nil
+}
+
 func runVersion(a *App, args []string) error {
-	if _, err := parseFlags(args, nil); err != nil {
+	if _, err := cli.Parse(args, nil); err != nil {
 		return usageError("%v", err)
 	}
 	a.printf("draco %s\n", build.Version)

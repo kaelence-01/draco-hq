@@ -9,7 +9,9 @@ Estado: **fases 4 y 5 cerradas; fase 6 en curso** (Configuración, aviso de
 versión nueva, barra de comandos, ayuda y temas, diseñados en el §6).
 Implementado: la base (entrada, marco, pila de pantallas, pantalla
 principal), Proyectos, Generar y QA completos, de la tarea o el sprint a la
-publicación, Exportar, Backlog y Configuración (conexión, perfiles y QA). Se
+publicación, Exportar, Backlog, Configuración (conexión, perfiles y QA), el
+aviso de versión nueva, la barra de comandos (sugerencias y lectura de la
+línea) y la Ayuda. Se
 actualiza al implementar cada actividad. Las reglas para escribir una
 pantalla están en el §10 y son obligatorias.
 
@@ -90,6 +92,8 @@ internal/tui/
   profiles.go   Configuración: perfiles, con filtro y detalle
   profileform.go  formulario de Huh para crear y editar un perfil
   qaconfig.go   Configuración: qa_email, qa_report y qa_jira, en páginas
+  cmdbar.go     barra de comandos de la principal: sugerencias y lectura de la línea
+  helpscreen.go Ayuda: la general y la de cada comando
 ```
 
 `cmd` importa `tui`; `tui` nunca importa `cmd`. Lo que `cmd` reemplaza en los
@@ -106,12 +110,13 @@ type Deps struct {
     Scan        func(context.Context, string, backlog.ScanOptions) (*backlog.Report, error) // Backlog
     Now         func() time.Time                                               // QA: fecha y ventana Kanban
     CheckUpdate func(context.Context) string                                   // aviso de versión nueva
+    Commands    []cli.Command                                                  // barra de comandos (commandSpecs)
+    Help        func(name string) (string, error)                              // Ayuda (helpText)
 }
 ```
 
-Cada campo llega con la primera pantalla que lo usa. La fase 6 suma
-`CheckUpdate` (aviso de versión nueva, ya implementado), `Commands` (barra
-de comandos) y `Help` (Ayuda); su diseño está en el §6.
+Cada campo llega con la primera pantalla que lo usa; su diseño está en el
+§6.
 
 Igual que el modo comando, la TUI arma los adaptadores con `profile.Open` y
 habla con los flujos; nunca con un adaptador.
@@ -468,36 +473,55 @@ formularios.
 
 ### Barra de comandos
 
-- **Cada comando se describe una sola vez.** Pasan de `cmd` a un paquete
-  neutro (`internal/cli`, nombre tentativo):
-  - de cada comando: nombres, alias, resumen, subcomandos y flags;
-  - el parser de flags (`parseFlags`).
+- **Cada comando se describe una sola vez,** en `internal/cli`:
+  - `cli.Command`: nombres (el primero es el nombre, los demás alias),
+    resumen, flags y subcomandos;
+  - `cli.Flag`, con `Desc` (una línea para las sugerencias);
+  - `cli.Parse`, el parser que antes era `parseFlags` de `cmd`.
 
-  Cada flag suma una descripción de una línea para el autocompletado, y un
-  test exige que cada flag aparezca en la ayuda de su comando. `cmd` sigue
-  siendo dueño de `run` y `help`. La TUI recibe las descripciones en
-  `Deps.Commands` y nunca importa `cmd`.
-- **Se abre con `/`, solo desde la principal.** En las demás pantallas `/`
-  ya filtra listas, y las que tienen texto lo escriben. Una tecla global
-  chocaría con los campos y con las teclas de Huh (`ctrl+p` y `ctrl+n`
-  recorren sus listas).
-- **Escribir:** un campo de una línea en el marco, entre el cuerpo y el pie
-  (la maqueta del roadmap), con `draco` opcional (`/g …` o `/draco g …`).
-  Debajo aparecen sugerencias según lo escrito:
-  - los comandos, con su resumen;
+  `cmd` registra cada comando con sus `flags` y `subs`, y `commandSpecs()`
+  arma la lista que recibe la TUI en `Deps.Commands`. `cmd` sigue siendo
+  dueño de `run` y `help`, y la TUI nunca importa `cmd`. Un test de `cmd`
+  exige que cada flag y subcomando tenga descripción y aparezca en la ayuda
+  de su comando.
+- **`help` es propio de la barra** (`helpCommand`): el modo comando lo
+  atiende antes de su router, así que no está entre los comandos
+  registrados.
+- **Se abre con `/`, solo desde la principal** (y solo si hay
+  `Deps.Commands`). En las demás pantallas `/` ya filtra listas, y las que
+  tienen texto lo escriben. Una tecla global chocaría con los campos y con
+  las teclas de Huh (`ctrl+p` y `ctrl+n` recorren sus listas).
+- **Escribir:** una línea al pie del cuerpo de la principal, con `draco`
+  opcional (`/g …` o `/draco g …`). Mientras está abierta, el menú y el
+  panel se ocultan y queda el logo: así la línea, cinco sugerencias y un
+  mensaje caben en 80×24. Debajo aparecen sugerencias según lo escrito
+  (`suggest`, función pura):
+  - los comandos, con todos sus nombres y su resumen; completa el nombre
+    más corto que coincide (`g` para generate);
   - después del comando, sus subcomandos y los flags que aún no se usaron,
-    con su descripción;
+    con su descripción. Completa el flag corto si existe, o el largo si se
+    empezó con `--`;
   - después de un flag con valor, los valores que la config conoce:
     proyectos (`-p`), perfiles (`--profile`), `backend` o `frontend`
-    (`-r`).
+    (`-r`). Un flag de valor opcional (`-o`) sigue ofreciendo flags;
+  - después de `help`, los nombres de los comandos.
 
   Teclas: `↑↓` recorre las sugerencias, `tab` completa la elegida, `enter`
-  ejecuta y `esc` cierra.
-- **Ejecutar es abrir la pantalla con los datos cargados.** La línea se lee
-  con el mismo parser y los mismos flags que el modo comando: un flag
-  desconocido o sin valor es un error en la barra, igual que en el comando
-  sale con 2. Se abre la pantalla del comando en el primer paso que el
-  usuario debe revisar:
+  ejecuta y `esc` cierra. La barra se queda con todas las teclas mientras
+  está abierta (`q` y `?` se escriben).
+- **El campo es texto propio, como el filtro de las listas:** se escribe al
+  final y se borra con retroceso, sin mover el cursor dentro de la línea.
+  Las palabras se separan por espacios; un valor con espacios no se puede
+  escribir entre comillas.
+- **Antes de ejecutar** (actividad 5a): `enter` lee la línea con
+  `readLine`, con el mismo parser y los mismos flags que el modo comando.
+  Un flag desconocido o sin valor, un comando o un subcomando desconocidos
+  son un error en la barra. `help [comando]` abre la Ayuda y `version`
+  responde en la línea. Los demás comandos todavía dicen que la línea es
+  válida y que se elijan en el menú, hasta la actividad 5b.
+- **Ejecutar es abrir la pantalla con los datos cargados** (actividad 5b).
+  Se abre la pantalla del comando en el primer paso que el usuario debe
+  revisar:
 
   | Comando | Abre |
   |---|---|
@@ -524,11 +548,12 @@ formularios.
 
 - `/help` abre la pantalla Ayuda. Muestra qué es draco, las teclas
   globales, cómo se usa la barra y la lista de comandos con su resumen.
-- `/help g` muestra la ayuda del comando en un `viewport`. Es el mismo
-  texto de `draco help g`: `cmd` lo entrega sin color por
-  `Deps.Help func(name string) (string, error)`. Ningún texto de ayuda se
-  escribe dos veces.
-- La ayuda de teclas de la principal (`?`) menciona `/help`.
+- `/help g` muestra la ayuda del comando en un `viewport` que se desplaza
+  con `↑↓`. Es el mismo texto de `draco help generate`: `cmd` lo entrega sin
+  color por `Deps.Help` (`helpText`). Ningún texto de ayuda se escribe dos
+  veces. El título usa el nombre del comando («Ayuda de generate»), aunque se
+  pida por un alias; un comando que no existe es un error en la barra.
+- La tecla de la barra en el pie y en `?` dice «/ comando (/help: ayuda)».
 
 ### Temas
 
@@ -623,6 +648,8 @@ Terminal y una terminal de Linux o WSL.
 | La barra solo desde la principal | En las demás `/` filtra o se escribe, y una tecla global choca con Huh |
 | Descripción de los comandos y parser en un paquete neutro, pasados por `Deps` | Una sola fuente para la ayuda, el parser y el autocompletado; la TUI no importa `cmd` |
 | Ayuda de un comando desde `cmd` (`Deps.Help`) | Sin texto de ayuda duplicado que se desactualice |
+| Campo de la barra propio, como el filtro, y no `textinput` | Mismo comportamiento que el filtro de las listas y tests sin el cursor parpadeante; mover el cursor dentro de la línea queda como mejora |
+| Con la barra abierta, la principal oculta el menú y el panel | El menú no se usa mientras se escribe, y sin él la línea, las sugerencias y el mensaje caben en 80×24 |
 | Aviso de versión en el marco; actualizar fuera de la TUI | `draco update` reemplaza el binario en uso y escribe en la terminal |
 | Tres temas incluidos, solo con colores ANSI básicos | Siguen la paleta de la terminal (norma 9); colores del usuario romperían el contraste en terminales claras u oscuras |
 
