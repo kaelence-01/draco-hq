@@ -1,10 +1,30 @@
 package config
 
 import (
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
 )
+
+func TestExpandHome(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	for in, want := range map[string]string{
+		"~":                 home,
+		"~/code/pagos-api":  filepath.Join(home, "code", "pagos-api"),
+		"/repos/pagos-api":  "/repos/pagos-api",
+		"./docs":            "./docs",
+		"~otro/pagos-api":   "~otro/pagos-api",
+		"carpeta/~/interna": "carpeta/~/interna",
+		"":                  "",
+	} {
+		if got := ExpandHome(in); got != want {
+			t.Errorf("ExpandHome(%q) = %q, esperaba %q", in, got, want)
+		}
+	}
+}
 
 func TestSetBacklogPatternsKeepsTheRestAndDropsWhatIsEmpty(t *testing.T) {
 	p := &ProjectConfig{Backlog: &BacklogConfig{Backend: &BacklogRepoConfig{Since: "6 months ago", ClassGlobs: []string{"viejo/**"}}}}

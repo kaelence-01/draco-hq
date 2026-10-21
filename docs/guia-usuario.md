@@ -173,7 +173,8 @@ Opcionalmente, también qué plantillas usar.
 
 Ejemplo completo, con datos ficticios. No hace falta escribirlo a mano:
 Configuración (modo visual), `draco init`, `draco project` y `draco profile`
-lo crean. Las rutas van completas: draco no expande `~`.
+lo crean. En las rutas, `~` al inicio es tu carpeta personal (`~/code`, o
+`~\code` en Windows).
 
 ```yaml
 # Lo necesario, lo mismo que gtt
@@ -431,7 +432,9 @@ draco g -i OPS-7 -b a1b2c3d --dry-run               # vista previa sin publicar
 ```
 
 Hace falta al menos uno de `-b` o `-f`. El space sale de `--space`, si no del
-proyecto y si no del perfil. Si el documento existe, pregunta si actualizarlo.
+proyecto y si no del perfil. Con un perfil Markdown, la carpeta sale de
+`--space` o del perfil: el space del proyecto es solo para Confluence. Si el
+documento existe, pregunta si actualizarlo.
 
 ### Consolidado QA
 

@@ -98,7 +98,7 @@ func newLookup(f *cli.Parsed) (*lookup, error) {
 		return nil, err
 	}
 	if proj != nil {
-		l.repoDir = proj.BackendPath
+		l.repoDir = config.ExpandHome(proj.BackendPath)
 	}
 	l.userRoot, _ = config.TemplatesDir()
 	return l, nil
