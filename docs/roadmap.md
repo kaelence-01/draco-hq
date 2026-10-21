@@ -49,9 +49,9 @@ de Windows (`cmd`) se ve más limitado.
 | 1 | Nombre, identidad y repositorio | ✅ |
 | 2 | Core: portar la lógica de gtt, separar los flujos y desacoplar los proveedores | ✅ |
 | 3 | Modo comando (`cmd/`, `main.go`), instalador, updater, releases | ✅ `v0.1.0` |
-| 4 | Modo visual mínimo: pantalla principal, proyectos, generar documento | ✅ (`v0.2.0`: lo publica el autor) |
-| 5 | Resto de pantallas: backlog, QA, exportar | 🔄 |
-| 6 | Barra de comandos con autocompletado, temas, ayuda | ⬜ |
+| 4 | Modo visual mínimo: pantalla principal, proyectos, generar documento | ✅ `v0.2.0` |
+| 5 | Resto de pantallas: backlog, QA, exportar | ✅ (`v0.2.1`: lo publica el autor) |
+| 6 | Barra de comandos con autocompletado, temas, ayuda | ⬜ (`v0.2.x`) |
 | v1.0 | Instaladores, checksums, migración desde gtt, README completo | ⬜ |
 
 ### Fase 2 — hecho
@@ -209,7 +209,7 @@ a cargo del autor el release `v0.2.0` (`docs/release.md`), su verificación con
 las pruebas manuales de las bitácoras 029 a 032: Windows Terminal y Linux/WSL,
 y Generar contra su Jira y su Confluence.
 
-### Fase 5 — resto de pantallas (en curso)
+### Fase 5 — resto de pantallas (cerrada)
 
 Exportar, Backlog y Consolidado QA dejan de estar atenuados en el menú. Cada
 pantalla recorre el mismo flujo que su comando, con las normas de
@@ -225,11 +225,22 @@ backlog) se extrae a su paquete antes de usarlo, y lo que Generar ya resolvió
 | 3 | ✅ Backlog: resolución de repos, opciones y guardado del reporte de `cmd` a `internal/backlog`, `Scan` con `context`; formulario, progreso por repo, tabla con filtro y detalle, guardar el JSON (faltan las pruebas manuales del autor) | `feature/tui-backlog` | `draco backlog scan` sin cambios (sus tests pasan igual); un análisis en la TUI con `esc` que lo cancela; el reporte guardado igual al de `-o` |
 | 4a | ✅ QA (1): sprint o Kanban, cuenta de QA, tareas y evaluación en vivo, una fila por tarea (faltan las pruebas manuales del autor) | `feature/tui-qa` | De la cuenta a la tabla evaluada, con dobles; `ErrNotQAAccount` y `ErrNoQA` explicados; `esc` cancela |
 | 4b | ✅ QA (2): vista previa, ubicación y publicar compartidos con Generar; consolidado existente y `NotPreserved` (faltan las pruebas manuales del autor) | `feature/tui-qa-publicar` | Generar sin cambios (sus tests pasan igual); un consolidado publicado de punta a punta en una carpeta Markdown; prueba manual contra Jira y Confluence |
-| 5 | ⬜ Cierre de la fase 5 y release `v0.3.0` | `docs/cierre-fase-5` | `v0.3.0` instalado con `draco update` y las tres pantallas abiertas desde el binario instalado |
+| 5 | ✅ Cierre de la fase 5 y release `v0.2.1` (planeado como `v0.3.0`; ver decisiones) | `docs/cierre-fase-5` | `v0.2.1` instalado con `draco update` y las tres pantallas abiertas desde el binario instalado |
 
 Exportar va primero: es el flujo más corto y no publica. Backlog no usa red
 ni perfil. QA se divide como Generar: primero hasta la tabla evaluada,
 después la publicación.
+
+**Cierre (bitácora 039):** el modo visual cubre todas las funciones de draco
+salvo Configuración (fase 6): Generar, Proyectos, Consolidado QA hasta la
+publicación, Exportar y Backlog, sobre los mismos flujos que el modo comando.
+El núcleo del backlog salió de `cmd` a `internal/backlog`, `Scan` se cancela
+con `context`, y vista previa, ubicación y publicar son las mismas pantallas
+para Generar y QA (`docRun`). El autor decidió saltar las pruebas manuales de
+las bitácoras 035 a 038 en este cierre: Exportar, Backlog y QA no se probaron
+contra Jira y Confluence reales, ni Generar de punta a punta después de la
+038. Quedan a cargo del autor el release `v0.2.1` (`docs/release.md`) y su
+verificación con `draco update` desde `v0.2.0`.
 
 ### v1.0
 
@@ -258,6 +269,7 @@ después la publicación.
 | `goldmark` para leer Markdown | Go puro, MIT, mantenido; soporta tablas y tareas GFM |
 | Ramas `main` → `develop` → `feature/<tema>`, un commit por actividad, PR a `develop` | Historial corto y legible; `main` solo recibe lo integrado |
 | Bitácora por actividad, agrupada por fase (`docs/bitacora/fase-N/`), y comentarios mínimos en el código | La historia de cada decisión en un solo lugar, el código limpio |
+| Las fases 5 y 6 se publican como *patch* de `v0.2.x` (`make release bump=patch`): `v0.2.1` cierra la fase 5 y la fase 6 sigue con `v0.2.2` en adelante | Decisión del autor (bitácora 039); el *minor* no cambia hasta que el autor lo decida |
 
 ## Decisiones pendientes
 

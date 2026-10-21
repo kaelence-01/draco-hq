@@ -5,11 +5,12 @@ de la terminal: menús, listas, formularios y vista previa. Es otra forma de
 recorrer **los mismos flujos** que el modo comando; no tiene lógica propia de
 negocio.
 
-Estado: **fase 5 en curso** (Exportar, Backlog y Consolidado QA, diseñadas en
-el §6). Implementado: la base (entrada, marco, pila de pantallas, pantalla
-principal), Proyectos, Generar y QA completos, de la tarea o el sprint a la
-publicación, Exportar y Backlog. Se actualiza al implementar cada actividad. Las reglas para escribir una pantalla están en el
-§10 y son obligatorias.
+Estado: **fases 4 y 5 cerradas**. Implementado: la base (entrada, marco, pila
+de pantallas, pantalla principal), Proyectos, Generar y QA completos, de la
+tarea o el sprint a la publicación, Exportar y Backlog. Configuración, la
+barra de comandos, los temas y el aviso de versión nueva llegan en la fase 6.
+Se actualiza al implementar cada actividad. Las reglas para escribir una
+pantalla están en el §10 y son obligatorias.
 
 ## 1. Alcance por fase
 
@@ -20,7 +21,7 @@ publicación, Exportar y Backlog. Se actualiza al implementar cada actividad. La
 | 6 | Barra de comandos con autocompletado, configuración (perfiles, credenciales) en formularios, temas, ayuda, aviso de versión nueva |
 
 Mientras una pantalla no existe, su entrada del menú aparece atenuada con el
-comando equivalente (`draco qa`, `draco f`, `draco backlog scan`): quien abre
+comando equivalente (hoy solo Configuración, con `draco init`): quien abre
 la TUI sabe que la función existe y cómo usarla hoy.
 
 ## 2. Librerías
@@ -162,8 +163,8 @@ Consolidado QA, y lo que QA comparte con Generar.
 - DRACO en letras grandes con caracteres de bloque (ninguna terminal común
   muestra el logo como imagen). Si el ancho no alcanza, solo `draco`.
 - Menú: Generar documento, Proyectos, Consolidado QA, Exportar página,
-  Backlog técnico, Configuración. Atenuadas, las que aún no tienen pantalla:
-  cada actividad de la fase 5 activa la suya; Configuración, en la fase 6.
+  Backlog técnico, Configuración. Atenuada, la que aún no tiene pantalla:
+  Configuración, que llega en la fase 6.
 - **Panel de la función elegida**, a la derecha del menú: qué hace y el mismo
   trabajo en modo comando con un ejemplo (`$ draco g -i OPS-7 -b a1b2c3d`), y
   si aún no tiene pantalla, lo dice. Enseña que los dos modos son uno. Si el

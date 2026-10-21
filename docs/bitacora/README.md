@@ -73,6 +73,7 @@ Sin entradas: se hizo antes de que existiera la bitácora.
 | [036](./fase-5/036-tui-backlog.md) | Backlog en la TUI | `feature/tui-backlog` | 2026-10-20 | Núcleo del backlog de `cmd` a `internal/backlog` y `Scan` con `context`; formulario en dos páginas, progreso por repo y hallazgos con filtro, detalle y guardado |
 | [037](./fase-5/037-tui-qa.md) | QA en la TUI (1): cuenta, tareas y evaluación en vivo | `feature/tui-qa` | 2026-10-20 | Formulario de sprint o Kanban; cuenta, tareas y una fila por tarea al evaluarse, con copia propia de las filas; `ErrNotQAAccount` y `ErrNoQA` explicados; `Deps.Now` |
 | [038](./fase-5/038-tui-qa-publicar.md) | QA en la TUI (2): vista previa, ubicación y publicar compartidos | `feature/tui-qa-publicar` | 2026-10-20 | `docRun` con adaptadores de Generar y QA; el consolidado se publica desde la TUI; tests de Generar sin cambios; pie de teclas dentro del ancho |
+| [039](./fase-5/039-cierre-fase-5.md) | Cierre de la fase 5 | `docs/cierre-fase-5` | 2026-10-21 | Fase 5 cerrada sin las pruebas manuales (decisión del autor); fases 5 y 6 como *patch* de `v0.2.x`: release `v0.2.1` a cargo del autor |
 
 ## Formato de cada entrada
 
