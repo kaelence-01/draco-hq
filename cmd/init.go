@@ -12,7 +12,7 @@ import (
 )
 
 func init() {
-	register(&command{run: runInit, help: initHelp, summary: "Configura credenciales, el primer perfil y un proyecto"}, "init")
+	register(&command{run: runInit, help: initHelp, summary: "Configura credenciales, el space y un proyecto"}, "init")
 }
 
 const tokenURL = "https://id.atlassian.com/manage-profile/security/api-tokens"
@@ -62,23 +62,9 @@ func runInit(a *App, args []string) error {
 	}
 
 	if len(cfg.Profiles) == 0 {
-		a.printf("\n")
-		a.section("Perfil")
-		name, err := a.askValue("Nombre del perfil", "equipo", true)
-		if err != nil {
+		if cfg.ConfluenceSpaceKey, err = a.askValue("Space de Confluence de los documentos (ej: DEV)", cfg.ConfluenceSpaceKey, false); err != nil {
 			return err
 		}
-		if err := config.ValidName("perfil", name); err != nil {
-			return err
-		}
-		p := &config.Profile{}
-		if err := a.askProfile(p, cfg.ConfluenceSpaceKey); err != nil {
-			return err
-		}
-		if err := cfg.SetProfile(name, p); err != nil {
-			return err
-		}
-		cfg.DefaultProfile = name
 	} else {
 		a.printf("\n  Perfiles existentes: %s (ver draco profile list).\n", strings.Join(cfg.ProfileNames(), ", "))
 	}
@@ -94,6 +80,9 @@ func runInit(a *App, args []string) error {
 	}
 
 	a.printf("\n")
+	if len(cfg.Projects) == 0 {
+		a.printf("  Generar un documento necesita un proyecto: dónde están tus repos.\n")
+	}
 	if a.confirm("¿Configurar un proyecto ahora?", true) {
 		if err := a.addProject(cfg, ""); err != nil {
 			return err
@@ -163,7 +152,7 @@ func parens(s string) string {
 }
 
 func initHelp(a *App) {
-	a.title("draco init", "Configura credenciales, el primer perfil y un proyecto")
+	a.title("draco init", "Configura credenciales, el space y un proyecto")
 
 	a.section("Uso:")
 	a.printf("  draco init\n\n")
@@ -171,10 +160,12 @@ func initHelp(a *App) {
 	a.section("Qué pregunta:")
 	a.printf("  1. Email, API token y URL de tu sitio de Atlassian. El token no se muestra al\n")
 	a.printf("     escribirlo; se crea en %s\n", tokenURL)
-	a.printf("  2. Si no hay perfiles: nombre del perfil y destino de los documentos\n")
-	a.printf("     (Confluence con su space, o una carpeta Markdown)\n")
+	a.printf("  2. Si no hay perfiles: el space de Confluence de los documentos\n")
+	a.printf("     (confluence_space_key; un proyecto puede usar otro)\n")
 	a.printf("  3. Valida las credenciales y ofrece corregir el email si no es el de la cuenta\n")
-	a.printf("  4. Opcional: un proyecto (como draco project add)\n\n")
+	a.printf("  4. Un proyecto (como draco project add): generar un documento lo necesita\n\n")
+	a.printf("  Los perfiles son opcionales: otro destino (una carpeta Markdown) u otra\n")
+	a.printf("  plantilla se agregan con draco profile add.\n\n")
 
 	a.printf("  Se guarda en %s con permisos solo para tu usuario. Si ya\n", configPathHint())
 	a.printf("  existe, se conservan proyectos, perfiles y ajustes; guardar reescribe el\n")

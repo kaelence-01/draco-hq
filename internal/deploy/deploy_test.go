@@ -130,14 +130,14 @@ func TestResolveSpacePrecedence(t *testing.T) {
 	req := Request{Issue: "OPS-1", BackendHashes: []string{"a"}, Project: "app"}
 
 	cases := []struct {
-		name  string
-		space string
-		cfg   *config.Config
-		want  string
+		name               string
+		space              string
+		cfg                *config.Config
+		wantScope, wantPrj string
 	}{
-		{"flag gana", "FLAG", cfg, "FLAG"},
-		{"luego el proyecto", "", cfg, "PROJ"},
-		{"sin flag ni proyecto queda vacío: lo completa el perfil", "", &config.Config{ConfluenceSpaceKey: "GLOBAL", Projects: map[string]*config.ProjectConfig{"app": {BackendRepo: "api"}}}, ""},
+		{"el flag es el scope; el proyecto viaja aparte", "FLAG", cfg, "FLAG", "PROJ"},
+		{"sin flag, el proyecto solo como space de Confluence", "", cfg, "", "PROJ"},
+		{"sin flag ni proyecto queda vacío: lo completa el perfil", "", &config.Config{ConfluenceSpaceKey: "GLOBAL", Projects: map[string]*config.ProjectConfig{"app": {BackendRepo: "api"}}}, "", ""},
 	}
 	for _, c := range cases {
 		r := req
@@ -146,13 +146,16 @@ func TestResolveSpacePrecedence(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s: %v", c.name, err)
 		}
-		if got.SpaceKey != c.want {
-			t.Errorf("%s: space = %q, esperaba %q", c.name, got.SpaceKey, c.want)
+		if got.SpaceKey != c.wantScope || got.ProjectSpace != c.wantPrj {
+			t.Errorf("%s: scope %q y proyecto %q, esperaba %q y %q", c.name, got.SpaceKey, got.ProjectSpace, c.wantScope, c.wantPrj)
 		}
 	}
 }
 
 func TestProjectSides(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 	cfg := &config.Config{
 		DefaultProject: "pagos",
 		Projects: map[string]*config.ProjectConfig{
@@ -166,7 +169,7 @@ func TestProjectSides(t *testing.T) {
 		back, front   bool
 		backDir, name string
 	}{
-		{"", true, true, "~/code/pagos-api", "pagos"},
+		{"", true, true, filepath.Join(home, "code", "pagos-api"), "pagos"},
 		{"facturacion", false, true, "", "facturacion"},
 		{"vacio", true, false, "", "vacio"},
 	}

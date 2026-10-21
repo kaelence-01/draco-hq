@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"sort"
 	"strconv"
@@ -51,6 +52,32 @@ type BacklogRepoConfig struct {
 	Modules     []string `yaml:"modules,omitempty"`
 }
 
+// ErrNoProjectPaths means a project with neither a backend nor a frontend path.
+var ErrNoProjectPaths = errors.New("sin rutas de backend ni de frontend")
+
+// Complete applies the rules every project editor shares: at least one path,
+// and a repo name only next to its path, by default DefaultRepoName.
+func (p *ProjectConfig) Complete() error {
+	if p.BackendPath == "" && p.FrontendPath == "" {
+		return ErrNoProjectPaths
+	}
+	for _, side := range []struct {
+		path string
+		repo *string
+	}{{p.BackendPath, &p.BackendRepo}, {p.FrontendPath, &p.FrontendRepo}} {
+		switch {
+		case side.path == "":
+			*side.repo = ""
+		case *side.repo == "":
+			*side.repo = DefaultRepoName(side.path)
+		}
+	}
+	return nil
+}
+
+// DefaultRepoName is the VCS name of a repo nobody named: its folder's.
+func DefaultRepoName(path string) string { return filepath.Base(filepath.Clean(path)) }
+
 // BacklogFor returns the settings of repo ("backend" or "frontend"), or nil.
 func (p *ProjectConfig) BacklogFor(repo string) *BacklogRepoConfig {
 	if p == nil || p.Backlog == nil {
@@ -60,6 +87,29 @@ func (p *ProjectConfig) BacklogFor(repo string) *BacklogRepoConfig {
 		return p.Backlog.Frontend
 	}
 	return p.Backlog.Backend
+}
+
+// SetBacklogPatterns sets the class globs and modules of repo ("backend" or
+// "frontend"), keeping its other settings; a repo or a backlog left with
+// nothing is removed.
+func (p *ProjectConfig) SetBacklogPatterns(repo string, classGlobs, modules []string) {
+	if p.Backlog == nil {
+		p.Backlog = &BacklogConfig{}
+	}
+	side := &p.Backlog.Backend
+	if repo == "frontend" {
+		side = &p.Backlog.Frontend
+	}
+	if *side == nil {
+		*side = &BacklogRepoConfig{}
+	}
+	(*side).ClassGlobs, (*side).Modules = classGlobs, modules
+	if reflect.DeepEqual(**side, BacklogRepoConfig{}) {
+		*side = nil
+	}
+	if p.Backlog.Backend == nil && p.Backlog.Frontend == nil {
+		p.Backlog = nil
+	}
 }
 
 // QAReportConfig holds the names in the QA report header. Organization data,
@@ -144,6 +194,20 @@ func (q *QAJiraConfig) SprintNameFor(module string, sprint int) string {
 func (q *QAJiraConfig) Empty() bool {
 	return q.Project == "" && len(q.Statuses) == 0 && q.TestingStatus == "" && q.SprintName == "" &&
 		q.Fields == (QAJiraFields{}) && len(q.ReviewPrefixes) == 0 && q.ObservationMarker == ""
+}
+
+// ExpandHome replaces a leading ~ with the user's home folder: the shell does
+// it for flags, but nothing does it for the paths in config.yaml.
+func ExpandHome(path string) string {
+	rest, ok := strings.CutPrefix(path, "~")
+	if !ok || (rest != "" && rest[0] != '/' && rest[0] != filepath.Separator) {
+		return path
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return path
+	}
+	return filepath.Join(home, rest)
 }
 
 // SplitList reads a comma-separated list, without spaces or empty items.

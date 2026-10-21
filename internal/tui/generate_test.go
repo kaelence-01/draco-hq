@@ -50,12 +50,12 @@ func (t *fakeTracker) LinkDocument(_ context.Context, key string, d provider.Doc
 type fakeGit struct{ read map[string][]string }
 
 func (fakeGit) CurrentBranch(_ context.Context, dir string) (string, error) {
-	return map[string]string{"~/code/pagos-api": "develop", "~/code/pagos-web": "filtro-fechas"}[dir], nil
+	return map[string]string{"/code/pagos-api": "develop", "/code/pagos-web": "filtro-fechas"}[dir], nil
 }
 
 func (fakeGit) RecentCommits(_ context.Context, dir string, _ int) ([]provider.Commit, error) {
 	day := time.Date(2026, 10, 19, 10, 0, 0, 0, time.UTC)
-	if dir == "~/code/pagos-web" {
+	if dir == "/code/pagos-web" {
 		return []provider.Commit{{ShortHash: "e4f5a6b", Subject: "Filtro de fechas en la lista", Author: "Sofía", Date: day}}, nil
 	}
 	return []provider.Commit{
@@ -70,7 +70,7 @@ func (g fakeGit) ChangedFiles(_ context.Context, dir string, hashes []string) ([
 	if slices.Contains(hashes, "malo") {
 		return nil, errors.New("el commit malo no existe en el repo local")
 	}
-	if dir == "~/code/pagos-web" {
+	if dir == "/code/pagos-web" {
 		return []string{"src/app/pagos/filtro.component.ts"}, nil
 	}
 	return []string{"app/Http/Pagos/FiltroController.php", "routes/api.php"}, nil
@@ -97,9 +97,9 @@ func newGenerateApp(t *testing.T, openErr error) *generateEnv {
 	cfg := &config.Config{
 		DefaultProject: "pagos",
 		Projects: map[string]*config.ProjectConfig{
-			"pagos": {BackendPath: "~/code/pagos-api", BackendRepo: "pagos-api", FrontendPath: "~/code/pagos-web", FrontendRepo: "pagos-web",
+			"pagos": {BackendPath: "/code/pagos-api", BackendRepo: "pagos-api", FrontendPath: "/code/pagos-web", FrontendRepo: "pagos-web",
 				VCSHost: "https://github.com", VCSOrg: "mi-org", ConfluenceSpaceKey: "PAG"},
-			"facturacion": {BackendPath: "~/code/facturacion-api", BackendRepo: "facturacion-api"},
+			"facturacion": {BackendPath: "/code/facturacion-api", BackendRepo: "facturacion-api"},
 		},
 		DefaultProfile: "local",
 		Profiles: map[string]*config.Profile{"local": {
@@ -153,7 +153,7 @@ func TestGenerateFormAsksTaskAndProject(t *testing.T) {
 func TestGenerateOpensTheProfileWithTheProjectSpace(t *testing.T) {
 	e := newGenerateApp(t, nil)
 	e.toCommits(t, "OPS-7")
-	if len(e.opened) != 1 || e.opened[0].Scope != "PAG" || e.opened[0].Name != "local" {
+	if len(e.opened) != 1 || e.opened[0].ProjectSpace != "PAG" || e.opened[0].Scope != "" || e.opened[0].Name != "local" {
 		t.Errorf("el perfil se abre con el space del proyecto: %+v", e.opened)
 	}
 }
@@ -209,7 +209,7 @@ func TestGenerateReadsTheMarkedCommitsInListOrder(t *testing.T) {
 	}
 	send(e.m, keyEnter)
 
-	if got := e.git.read["~/code/pagos-api"]; strings.Join(got, ",") != "a1b2c3d,9f8e7d6,f1e2d3c" {
+	if got := e.git.read["/code/pagos-api"]; strings.Join(got, ",") != "a1b2c3d,9f8e7d6,f1e2d3c" {
 		t.Errorf("los marcados van en el orden de la lista y el manual al final: %v", got)
 	}
 	out := view(e.m)
@@ -276,7 +276,7 @@ func TestGenerateAsksAboutAnExistingDocument(t *testing.T) {
 			t.Fatalf("pregunta qué hacer con el documento existente:\n%s", out)
 		}
 		typeText(e.m, c.key)
-		_, read := e.git.read["~/code/pagos-api"]
+		_, read := e.git.read["/code/pagos-api"]
 		if read != c.read {
 			t.Errorf("%s: archivos leídos = %v", c.key, read)
 		}

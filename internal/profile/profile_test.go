@@ -3,6 +3,8 @@ package profile
 import (
 	"context"
 	"errors"
+	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -88,6 +90,35 @@ func TestMarkdownProfile(t *testing.T) {
 	cfg.Profiles["externo"].Docs.Path = ""
 	if _, err := Open(cfg, Options{}); err == nil || !strings.Contains(err.Error(), "docs.path") {
 		t.Errorf("markdown sin carpeta: %v", err)
+	}
+}
+
+func TestProjectSpaceIsOnlyForConfluence(t *testing.T) {
+	cfg := todaysConfig()
+	cfg.ConfluenceSpaceKey = ""
+	if _, err := Open(cfg, Options{ProjectSpace: "PAG"}); err != nil {
+		t.Errorf("el space del proyecto alcanza para Confluence: %v", err)
+	}
+
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	cfg.Profiles = map[string]*config.Profile{"local": {
+		Tracker: config.ProviderConfig{Provider: "jira"},
+		Docs:    config.ProviderConfig{Provider: "markdown", Path: "~/despliegues"},
+	}}
+	for _, c := range []struct {
+		o    Options
+		want string
+	}{
+		{Options{ProjectSpace: "PAG"}, filepath.Join(home, "despliegues")},
+		{Options{Scope: "./otra", ProjectSpace: "PAG"}, "./otra"},
+	} {
+		b, err := Open(cfg, c.o)
+		want, _ := markdown.New(c.want)
+		if err != nil || !reflect.DeepEqual(b.Docs, want) {
+			t.Errorf("%+v: Markdown ignora el space del proyecto y expande ~; esperaba %s: %+v %v", c.o, c.want, b, err)
+		}
 	}
 }
 

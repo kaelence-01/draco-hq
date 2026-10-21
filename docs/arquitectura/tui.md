@@ -392,9 +392,12 @@ formularios.
   - `profile.SameAccount`: el email guardado es el de la cuenta autenticada
     (una cuenta que oculta su email cuenta como la misma).
 - **Pantalla Configuración:** una lista de secciones, cada una con su
-  estado (`✓` lo que tiene, `⚠` lo que falta): Conexión, Perfiles, QA y
-  Tema. `enter` abre la elegida.
-- **Conexión** (formulario de Huh): email, API token y URL del sitio.
+  estado (`✓` lo que tiene, `⚠` lo que falta): Conexión y Proyectos, lo
+  que necesita el documento; y bajo «Opcional», Perfiles, QA y Tema
+  (bitácora 051). `enter` abre la elegida.
+- **Conexión** (formulario de Huh): email, API token, URL del sitio y, si
+  el archivo no tiene perfiles, `confluence_space_key` (con perfiles, el
+  space es de cada uno).
   - El formulario parte del archivo (`LoadFile`), nunca del entorno.
   - El token no se muestra al escribirlo (`EchoModeNone`, como
     `draco init`), así que tampoco se ve su largo. Vacío, conserva el
@@ -406,8 +409,9 @@ formularios.
     `state.save`.
   - Una verificación fallida no deshace lo guardado, como en `draco init`:
     dice qué revisar (email, token, URL).
-  - **Variables de entorno:** si `ATLASSIAN_EMAIL`, `ATLASSIAN_TOKEN` o
-    `ATLASSIAN_BASE_URL` definen un valor, la pantalla avisa que ese valor
+  - **Variables de entorno:** si `ATLASSIAN_EMAIL`, `ATLASSIAN_TOKEN`,
+    `ATLASSIAN_BASE_URL` o `CONFLUENCE_SPACE_KEY` definen un valor, la
+    pantalla avisa que ese valor
     gana sobre lo que se guarde al usar draco. La TUI no lee el entorno:
     compara la config del estado (`LoadLocal`) con la del archivo
     (`LoadFile`). El valor del entorno nunca se muestra ni se guarda.
@@ -442,12 +446,13 @@ formularios.
     `qa_email` que no es la cuenta, ahora remite a Configuración › QA.
 - **Sin configuración** (el archivo no tiene credenciales ni perfiles),
   Configuración arranca como asistente, en el orden de `draco init`:
-  1. abre Conexión sola;
-  2. tras verificar, si el archivo no tiene perfiles, `enter` sigue con el
-     primer perfil. Como en `draco init`, no guarda el implícito y queda
-     por defecto;
-  3. al volver a Configuración, si no hay proyectos, `p` abre el
-     formulario de Proyectos (opcional).
+  1. abre Conexión sola, con el space;
+  2. tras verificar, si el archivo no tiene proyectos, `enter` abre
+     Proyectos con el formulario de uno nuevo. Al guardarlo queda la
+     lista; `esc` vuelve a Configuración.
+
+  Como `draco init`, no crea perfiles: sin ellos, la config es el perfil
+  implícito (Jira → Confluence con `confluence_space_key`), igual que gtt.
 - La entrada del menú deja de estar atenuada; su ejemplo sigue siendo
   `draco init`. El aviso de la principal dice «abre Configuración (o corre
   draco init)».

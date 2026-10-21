@@ -30,7 +30,7 @@ func (p *Profile) TemplateDir(kind string) string {
 	if p.Template == "" {
 		return ""
 	}
-	return filepath.Join(p.Template, kind)
+	return filepath.Join(ExpandHome(p.Template), kind)
 }
 
 // LegacyProfile names the profile a config without profiles reads as.

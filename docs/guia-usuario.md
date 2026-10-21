@@ -108,14 +108,20 @@ Necesitas:
 - tu **email** de Atlassian;
 - un **API token**, que se crea en
   <https://id.atlassian.com/manage-profile/security/api-tokens>;
-- la **URL de tu sitio** (`https://<tu-sitio>.atlassian.net`).
+- la **URL de tu sitio** (`https://<tu-sitio>.atlassian.net`);
+- el **space de Confluence** donde van los documentos;
+- las **rutas de tus repos** (backend y frontend) y su organización o
+  workspace en el VCS: el proyecto.
 
-Tienes dos caminos:
+Es lo mismo que pedía gtt. Tienes dos caminos:
 
 - **Modo visual:** corre `draco` y abre **Configuración**. Si no hay
-  configuración, arranca sola como asistente: conexión, verificación de la
-  cuenta, primer perfil y, si quieres, un proyecto.
+  configuración, arranca sola como asistente: conexión (con el space),
+  verificación de la cuenta y el primer proyecto.
 - **Modo comando:** `draco init` pregunta lo mismo por texto.
+
+Los perfiles son opcionales: no hace falta crear uno para publicar en
+Confluence.
 
 El token no se muestra al escribirlo. Todo se guarda en
 `~/.config/draco/config.yaml` (en Windows,
@@ -132,43 +138,74 @@ destino **Carpeta Markdown local**: los documentos quedan como archivos `.md`.
 
 ---
 
-## 3. Conceptos: perfiles, proyectos y configuración
-
-### Perfil
-
-Un perfil dice **de dónde salen las tareas** (el tracker, hoy Jira) y **a
-dónde van los documentos** (Confluence con su space, o una carpeta Markdown).
-Opcionalmente, también qué plantillas usar.
-
-- Los comandos usan el perfil por defecto, u otro con `--profile`.
-- Una configuración sin perfiles funciona como el perfil implícito
-  `atlassian` (Jira y Confluence). Al agregar el primer perfil, el implícito
-  también se guarda, para que nada cambie.
+## 3. Conceptos: proyectos, perfiles y configuración
 
 ### Proyecto
 
-Un proyecto describe dónde están tus repos y cómo enlazarlos:
+Un proyecto describe dónde están tus repos y cómo enlazarlos. Generar un
+documento lo necesita:
 
 - `backend_path` y `frontend_path`: las carpetas de los clones locales;
 - `backend_repo` y `frontend_repo`: sus nombres en el VCS (si se dejan
   vacíos, el nombre de la carpeta);
 - `vcs_host` y `vcs_org`: el host y la organización o workspace del VCS;
-- `confluence_space_key`: el space de sus documentos, si no es el del perfil.
+- `confluence_space_key`: el space de sus documentos, si no es el general.
 
 El proyecto por defecto lo usan Generar y Backlog cuando no indicas otro con
 `-p`.
+
+### Perfil (opcional)
+
+Un perfil dice **de dónde salen las tareas** (el tracker, hoy Jira) y **a
+dónde van los documentos** (Confluence con su space, o una carpeta Markdown).
+Opcionalmente, también qué plantillas usar.
+
+- Una configuración sin perfiles funciona como el perfil implícito
+  `atlassian`: Jira y Confluence con `confluence_space_key`, como gtt.
+- Sirve cuando necesitas otro destino (una carpeta Markdown para revisar
+  antes de publicar), otro space para todo un equipo u otra plantilla.
+- Los comandos usan el perfil por defecto, u otro con `--profile`.
+- Al agregar el primer perfil, el implícito también se guarda, para que
+  nada cambie. Con perfiles, el space sale de cada perfil y
+  `confluence_space_key` del nivel principal deja de usarse.
 
 ### El archivo de configuración
 
 Ejemplo completo, con datos ficticios. No hace falta escribirlo a mano:
 Configuración (modo visual), `draco init`, `draco project` y `draco profile`
-lo crean.
+lo crean. En las rutas, `~` al inicio es tu carpeta personal (`~/code`, o
+`~\code` en Windows).
 
 ```yaml
+# Lo necesario, lo mismo que gtt
 atlassian_email: tu@example.test
 atlassian_token: <tu token>
 base_url: https://empresa.atlassian.net
+confluence_space_key: DEV                # el space de los documentos (sin perfiles)
 
+default_project: pagos
+projects:
+  pagos:
+    backend_path: /home/tu-usuario/code/pagos-api
+    backend_repo: pagos-api
+    frontend_path: /home/tu-usuario/code/pagos-web
+    frontend_repo: pagos-web
+    vcs_host: https://github.com
+    vcs_org: mi-org
+    deploy_checklist:                    # opcional: reemplaza al global
+      - Ejecutar migraciones
+    backlog:                             # opcional: ajusta draco backlog scan
+      backend:
+        class_globs: ["app/**/Services/**/*.php"]   # clases que deben tener tests
+        modules: ["app/Http/{modulo}/**"]           # {modulo}: la carpeta del módulo
+      frontend:
+        class_globs: ["src/app/**/*.service.ts"]
+        modules: ["src/app/{modulo}/**"]
+
+deploy_checklist:                        # «A considerar» de un documento nuevo
+  - Respaldo de la base de datos
+
+# Opcional: perfiles. Con perfiles, el space sale de cada uno
 default_profile: equipo
 profiles:
   equipo:
@@ -176,25 +213,10 @@ profiles:
     docs:    { provider: confluence, space: DEV }
   local:
     tracker: { provider: jira }
-    docs:    { provider: markdown, path: ~/documentos/despliegues }
-    template: ~/plantillas/equipo        # opcional: carpeta con deploy/ y qa/
+    docs:    { provider: markdown, path: /home/tu-usuario/documentos/despliegues }
+    template: /home/tu-usuario/plantillas/equipo   # carpeta con deploy/ y qa/
 
-default_project: pagos
-projects:
-  pagos:
-    backend_path: ~/code/pagos-api
-    backend_repo: pagos-api
-    frontend_path: ~/code/pagos-web
-    frontend_repo: pagos-web
-    vcs_host: https://github.com
-    vcs_org: mi-org
-    deploy_checklist:                    # opcional: reemplaza al global
-      - Ejecutar migraciones
-
-deploy_checklist:                        # «A considerar» de un documento nuevo
-  - Respaldo de la base de datos
-
-# Solo para el consolidado QA
+# Opcional: solo para el consolidado QA
 qa_email: qa@example.test                # la cuenta que publica el consolidado
 qa_report: { lider_tecnico: Ana, pmo: Luis, qa: Sofía }
 qa_jira:
@@ -220,7 +242,7 @@ mano se pierden.
 | Variable | Efecto |
 |---|---|
 | `ATLASSIAN_EMAIL`, `ATLASSIAN_TOKEN`, `ATLASSIAN_BASE_URL` | Ganan sobre el archivo. draco nunca las copia al archivo |
-| `CONFLUENCE_SPACE_KEY` | Space por defecto si la config no trae uno |
+| `CONFLUENCE_SPACE_KEY` | Gana sobre `confluence_space_key` del archivo, y tampoco se copia a él |
 | `DRACO_NO_UPDATE_CHECK=1` | Sin aviso de versión nueva |
 | `NO_COLOR=1` | Sin colores, en los dos modos |
 
@@ -335,25 +357,36 @@ No usa internet (salvo la revisión de dependencias) ni credenciales.
 
 ### Proyectos
 
-Muestra la lista con filtro y el detalle del proyecto elegido.
+Muestra la lista con filtro y el detalle del proyecto elegido. Se abre desde
+la principal o desde Configuración.
 
 | Tecla | Acción |
 |---|---|
 | `enter` | Lo usa en esta sesión (no cambia la config) |
 | `d` | Lo guarda como proyecto por defecto |
 | `n` | Crea un proyecto |
-| `e` | Edita el proyecto (conserva checklist y backlog) |
+| `e` | Edita el proyecto (conserva el checklist y el resto del backlog) |
 | `x` | Elimina el proyecto (pide `s`) |
 | `/` | Filtra la lista |
 
+El formulario termina con una página opcional por repo con ruta, **Backlog
+técnico**: las clases que deben tener tests (`class_globs`) y los módulos
+(`modules`), separados por comas. `enter` en blanco la salta. Un patrón mal
+escrito se marca ahí mismo y no se guarda. El resto del backlog (`since`,
+`exclude`, `max_lines`…) se edita en el YAML y se conserva.
+
 ### Configuración
+
+Arriba, lo que necesita el documento de despliegue; debajo de **Opcional**,
+lo demás.
 
 | Sección | Qué contiene |
 |---|---|
-| **Conexión** | Email, token y URL. Al guardar, verifica la cuenta y ofrece corregir el email si no es el de la cuenta. Un token vacío conserva el actual. Si una variable `ATLASSIAN_*` gana sobre el archivo, lo avisa |
-| **Perfiles** | Lista con `d`, `n`, `e` y `x`, como Proyectos |
-| **QA** | `qa_email`, los nombres del encabezado y `qa_jira`, en cuatro páginas. Las listas van separadas por comas. Si falta algo, muestra todos los problemas a la vez y no guarda |
-| **Tema** | `↑↓` prueba cada tema en toda la pantalla, `enter` guarda y `esc` vuelve al anterior |
+| **Conexión** | Email, token, URL y, sin perfiles, el space de Confluence. Al guardar, verifica la cuenta y ofrece corregir el email si no es el de la cuenta; si no hay proyectos, `enter` sigue con el primero. Un token vacío conserva el actual. Si una variable `ATLASSIAN_*` o `CONFLUENCE_SPACE_KEY` gana sobre el archivo, lo avisa |
+| **Proyectos** | La misma pantalla de Proyectos |
+| **Perfiles** (opcional) | Lista con `d`, `n`, `e` y `x`, como Proyectos. Sin perfiles, dice qué se usa: Jira → Confluence con el space de Conexión |
+| **QA** (opcional) | `qa_email`, los nombres del encabezado y `qa_jira`, en cuatro páginas. Las listas van separadas por comas. Si falta algo, muestra todos los problemas a la vez y no guarda |
+| **Tema** (opcional) | `↑↓` prueba cada tema en toda la pantalla, `enter` guarda y `esc` vuelve al anterior |
 
 Los temas son tres:
 
@@ -399,7 +432,9 @@ draco g -i OPS-7 -b a1b2c3d --dry-run               # vista previa sin publicar
 ```
 
 Hace falta al menos uno de `-b` o `-f`. El space sale de `--space`, si no del
-proyecto y si no del perfil. Si el documento existe, pregunta si actualizarlo.
+proyecto y si no del perfil. Con un perfil Markdown, la carpeta sale de
+`--space` o del perfil: el space del proyecto es solo para Confluence. Si el
+documento existe, pregunta si actualizarlo.
 
 ### Consolidado QA
 
@@ -433,7 +468,8 @@ draco backlog scan --path ~/repos/pagos-api # una carpeta que no es un proyecto
 Detecta:
 
 - **hotspots:** archivos con muchos commits;
-- **clases sin tests:** requiere `class_globs` en la config del proyecto;
+- **clases sin tests:** requiere `class_globs` en la config del proyecto
+  (en el modo visual, la página Backlog técnico del formulario de proyecto);
 - **TODO/FIXME/HACK** pendientes;
 - **archivos grandes;**
 - **dependencias vulnerables:** con `--deps`, usa internet.

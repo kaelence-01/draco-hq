@@ -1,6 +1,8 @@
 package backlog
 
 import (
+	"errors"
+	"fmt"
 	"path"
 	"strings"
 )
@@ -153,4 +155,20 @@ func matchSegments(pat, segs []string) bool {
 		pat, segs = pat[1:], segs[1:]
 	}
 	return len(segs) == 0
+}
+
+// CheckPatterns reports every malformed class glob or module pattern at once:
+// the scan skips them, so they are caught before they are saved.
+func CheckPatterns(classGlobs, modules []string) error {
+	var errs []error
+	for _, g := range classGlobs {
+		for _, s := range strings.Split(g, "/") {
+			if _, err := path.Match(s, ""); err != nil {
+				errs = append(errs, fmt.Errorf("patrón de clases inválido %q: %v", g, err))
+				break
+			}
+		}
+	}
+	_, modErrs := parseModulePatterns(modules)
+	return errors.Join(append(errs, modErrs...)...)
 }

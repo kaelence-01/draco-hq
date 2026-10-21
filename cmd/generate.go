@@ -72,7 +72,7 @@ func runGenerate(a *App, args []string) error {
 	if err != nil {
 		return err
 	}
-	bundle, err := openProfile(cfg, profile.Options{Name: f.Get("--profile"), Scope: target.SpaceKey})
+	bundle, err := openProfile(cfg, profile.Options{Name: f.Get("--profile"), Scope: target.SpaceKey, ProjectSpace: target.ProjectSpace})
 	if err != nil {
 		return explainProfile(err)
 	}

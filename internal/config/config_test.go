@@ -1,10 +1,74 @@
 package config
 
 import (
+	"errors"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
 )
+
+func TestProjectComplete(t *testing.T) {
+	cases := []struct {
+		name     string
+		in, want ProjectConfig
+		err      error
+	}{
+		{"sin rutas", ProjectConfig{BackendRepo: "pagos-api"}, ProjectConfig{BackendRepo: "pagos-api"}, ErrNoProjectPaths},
+		{"repo desde la carpeta", ProjectConfig{BackendPath: "/src/pagos-api/"}, ProjectConfig{BackendPath: "/src/pagos-api/", BackendRepo: "pagos-api"}, nil},
+		{"repo escrito se respeta", ProjectConfig{FrontendPath: "/src/web", FrontendRepo: "pagos-web"}, ProjectConfig{FrontendPath: "/src/web", FrontendRepo: "pagos-web"}, nil},
+		{"repo sin ruta se borra", ProjectConfig{BackendPath: "/src/api", FrontendRepo: "pagos-web"}, ProjectConfig{BackendPath: "/src/api", BackendRepo: "api"}, nil},
+	}
+	for _, c := range cases {
+		got := c.in
+		if err := got.Complete(); !errors.Is(err, c.err) {
+			t.Errorf("%s: error %v, se esperaba %v", c.name, err, c.err)
+		}
+		if !reflect.DeepEqual(got, c.want) {
+			t.Errorf("%s: %+v, se esperaba %+v", c.name, got, c.want)
+		}
+	}
+}
+
+func TestExpandHome(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	for in, want := range map[string]string{
+		"~":                 home,
+		"~/code/pagos-api":  filepath.Join(home, "code", "pagos-api"),
+		"/repos/pagos-api":  "/repos/pagos-api",
+		"./docs":            "./docs",
+		"~otro/pagos-api":   "~otro/pagos-api",
+		"carpeta/~/interna": "carpeta/~/interna",
+		"":                  "",
+	} {
+		if got := ExpandHome(in); got != want {
+			t.Errorf("ExpandHome(%q) = %q, esperaba %q", in, got, want)
+		}
+	}
+}
+
+func TestSetBacklogPatternsKeepsTheRestAndDropsWhatIsEmpty(t *testing.T) {
+	p := &ProjectConfig{Backlog: &BacklogConfig{Backend: &BacklogRepoConfig{Since: "6 months ago", ClassGlobs: []string{"viejo/**"}}}}
+	p.SetBacklogPatterns("backend", []string{"app/**/Services/**/*.php"}, []string{"app/Http/{modulo}/**"})
+	p.SetBacklogPatterns("frontend", []string{"src/app/**/*.service.ts"}, nil)
+	b, f := p.BacklogFor("backend"), p.BacklogFor("frontend")
+	if b.Since != "6 months ago" || !reflect.DeepEqual(b.ClassGlobs, []string{"app/**/Services/**/*.php"}) || len(b.Modules) != 1 || f == nil || len(f.ClassGlobs) != 1 {
+		t.Fatalf("reemplaza los patrones y conserva el resto: %+v %+v", b, f)
+	}
+
+	p.SetBacklogPatterns("frontend", nil, nil)
+	p.SetBacklogPatterns("backend", nil, nil)
+	if p.Backlog == nil || p.Backlog.Frontend != nil || p.BacklogFor("backend").Since != "6 months ago" {
+		t.Fatalf("un repo sin nada se quita; el que conserva since sigue: %+v", p.Backlog)
+	}
+	p.Backlog.Backend.Since = ""
+	p.SetBacklogPatterns("backend", nil, nil)
+	if p.Backlog != nil {
+		t.Errorf("sin nada en ningún repo no queda backlog: %+v", p.Backlog)
+	}
+}
 
 func TestResolveDeployChecklistPrefersProject(t *testing.T) {
 	cfg := &Config{DeployChecklist: []string{"global-1", "global-2"}}

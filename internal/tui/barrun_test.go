@@ -51,7 +51,7 @@ func TestBarOpensGenerateAtTheCommits(t *testing.T) {
 			t.Errorf("falta %q: -b marca a1b2c3d y agrega ffff999 a mano; -f marca e4f5a6b por prefijo:\n%s", want, out)
 		}
 	}
-	if !strings.Contains(out, "ffff999") || len(e.opened) != 1 || e.opened[0].Scope != "PAG" {
+	if !strings.Contains(out, "ffff999") || len(e.opened) != 1 || e.opened[0].ProjectSpace != "PAG" {
 		t.Errorf("el perfil se abre como desde el formulario: %+v\n%s", e.opened, out)
 	}
 	send(e.m, keyEsc)

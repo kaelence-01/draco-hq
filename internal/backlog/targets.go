@@ -36,16 +36,16 @@ func Targets(proj *config.ProjectConfig, repo, path string) ([]Target, error) {
 		label = "backend"
 	}
 	if path != "" {
-		return []Target{{Repo: label, Dir: path}}, nil
+		return []Target{{Repo: label, Dir: config.ExpandHome(path)}}, nil
 	}
 
 	var targets []Target
 	if proj != nil {
 		if repo != "frontend" && proj.BackendPath != "" {
-			targets = append(targets, Target{Repo: "backend", Dir: proj.BackendPath})
+			targets = append(targets, Target{Repo: "backend", Dir: config.ExpandHome(proj.BackendPath)})
 		}
 		if repo != "backend" && proj.FrontendPath != "" {
-			targets = append(targets, Target{Repo: "frontend", Dir: proj.FrontendPath})
+			targets = append(targets, Target{Repo: "frontend", Dir: config.ExpandHome(proj.FrontendPath)})
 		}
 	}
 	if len(targets) > 0 {

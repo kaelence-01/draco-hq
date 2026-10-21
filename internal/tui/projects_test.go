@@ -164,12 +164,17 @@ func TestCreateProject(t *testing.T) {
 		typeText(m, v)
 		send(m, keyEnter)
 	}
+	if out := view(m); !strings.Contains(out, "Backlog técnico del backend") || strings.Contains(out, "frontend") {
+		t.Fatalf("sigue la página opcional del backlog, solo de los repos con ruta:\n%s", out)
+	}
+	send(m, keyEnter)
+	send(m, keyEnter)
 	got, ok := f.cfg.Projects["reportes"]
 	if !ok || len(m.stack) != 2 {
 		t.Fatalf("el proyecto se guarda y vuelve a la lista: %v\n%s", f.cfg.ProjectNames(), view(m))
 	}
-	if got.BackendRepo != "reportes-api" || got.VCSHost != "https://github.com" || got.FrontendRepo != "" {
-		t.Errorf("el repo sale de la carpeta y lo vacío queda vacío: %+v", got)
+	if got.BackendRepo != "reportes-api" || got.VCSHost != "https://github.com" || got.FrontendRepo != "" || got.Backlog != nil {
+		t.Errorf("el repo sale de la carpeta y lo vacío queda vacío, backlog incluido: %+v", got)
 	}
 	if f.cfg.DefaultProject != "pagos" {
 		t.Errorf("con un por defecto, el nuevo no lo reemplaza: %q", f.cfg.DefaultProject)
@@ -177,6 +182,37 @@ func TestCreateProject(t *testing.T) {
 	assertNoToken(t, f)
 	if out := view(m); !strings.Contains(out, "✓ Proyecto guardado: reportes") {
 		t.Errorf("falta la confirmación:\n%s", out)
+	}
+}
+
+func TestProjectBacklogPatterns(t *testing.T) {
+	m, f := newProjectsApp(t)
+	typeText(m, "n")
+	for _, v := range []string{"reportes", "/repos/reportes-api", "", "", "", "", "", "", "app/[Services/*.php"} {
+		typeText(m, v)
+		send(m, keyEnter)
+	}
+	if out := view(m); !strings.Contains(out, "patrón de clases inválido") || f.cfg.Projects["reportes"] != nil {
+		t.Fatalf("un patrón mal formado no avanza ni se guarda:\n%s", out)
+	}
+	for range len("[Services/*.php") {
+		send(m, tea.KeyPressMsg{Code: tea.KeyBackspace})
+	}
+	typeText(m, "**/Services/**/*.php, app/Models/*.php")
+	send(m, keyEnter)
+	typeText(m, "app/Http/{modulo}/**")
+	send(m, keyEnter)
+
+	got := f.cfg.Projects["reportes"].BacklogFor("backend")
+	if got == nil || len(got.ClassGlobs) != 2 || got.ClassGlobs[0] != "app/**/Services/**/*.php" || len(got.Modules) != 1 {
+		t.Fatalf("las listas se guardan separadas por comas: %+v", got)
+	}
+	if f.cfg.Projects["reportes"].BacklogFor("frontend") != nil {
+		t.Error("sin ruta de frontend no hay backlog de frontend")
+	}
+	typeText(m, "/reportes")
+	if out := view(m); !strings.Contains(out, "backlog backend") || !strings.Contains(out, "módulos: app/Http/{modulo}/**") {
+		t.Errorf("el detalle muestra el backlog:\n%s", out)
 	}
 }
 
@@ -195,7 +231,7 @@ func TestFormWithoutPathsIsNotSaved(t *testing.T) {
 	for range 8 {
 		send(m, keyEnter)
 	}
-	if f.saves != 0 || !strings.Contains(view(m), "el proyecto no se guardó") {
+	if f.saves != 0 || !strings.Contains(view(m), "El proyecto no se guardó: sin rutas de backend ni de frontend") {
 		t.Errorf("sin rutas no se guarda: %d escrituras\n%s", f.saves, view(m))
 	}
 }
@@ -218,7 +254,7 @@ func TestEditKeepsWhatTheFormDoesNotShow(t *testing.T) {
 	send(m, keyEnter)
 	send(m, keyEnter)
 	typeText(m, "~/code/pagos-web")
-	for range 5 {
+	for range 5 + 2 + 2 {
 		send(m, keyEnter)
 	}
 	got := f.cfg.Projects["pagos"]
