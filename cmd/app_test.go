@@ -5,6 +5,8 @@ import (
 	"errors"
 	"strings"
 	"testing"
+
+	"github.com/kaelence-01/draco-hq/internal/cli"
 )
 
 func run(args ...string) (code int, out, errOut string) {
@@ -23,6 +25,34 @@ func TestEveryCommandHasHelpAndSummary(t *testing.T) {
 		if c.help == nil || c.run == nil || c.summary == "" {
 			t.Errorf("el comando %q necesita run, help y summary", name)
 		}
+	}
+}
+
+func TestEveryFlagIsDescribedAndInItsHelp(t *testing.T) {
+	specs := commandSpecs()
+	if c := cli.Find(specs, "g"); c == nil || c.Names[0] != "generate" || len(c.Flags) == 0 {
+		t.Fatalf("la descripción de g trae su nombre, alias y flags: %+v", c)
+	}
+	for _, c := range specs {
+		help, err := helpText(c.Names[0])
+		if err != nil || strings.Contains(help, "\033[") {
+			t.Fatalf("%s: la ayuda sale sin color: %v", c.Names[0], err)
+		}
+		flags := c.Flags
+		for _, s := range c.Subcommands {
+			flags = append(flags, s.Flags...)
+			if s.Summary == "" || !strings.Contains(help, s.Names[0]) {
+				t.Errorf("%s %s: el subcomando necesita resumen y estar en la ayuda", c.Names[0], s.Names[0])
+			}
+		}
+		for _, f := range flags {
+			if f.Desc == "" || !strings.Contains(help, f.Long) || f.Short != "" && !strings.Contains(help, f.Short+", "+f.Long) {
+				t.Errorf("%s %s: el flag necesita descripción y estar en la ayuda", c.Names[0], f.Long)
+			}
+		}
+	}
+	if _, err := helpText("nada"); err == nil {
+		t.Error("un comando que no existe es un error")
 	}
 }
 

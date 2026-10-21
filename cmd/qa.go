@@ -6,37 +6,38 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/kaelence-01/draco-hq/internal/cli"
 	"github.com/kaelence-01/draco-hq/internal/profile"
 	"github.com/kaelence-01/draco-hq/internal/qa"
 )
 
 func init() {
-	register(&command{run: runQA, help: qaHelp, summary: "Publica el consolidado de pruebas QA (Sprint o Kanban)"}, "qa")
+	register(&command{run: runQA, help: qaHelp, flags: qaFlags, summary: "Publica el consolidado de pruebas QA (Sprint o Kanban)"}, "qa")
 }
 
-var qaFlags = []flag{
-	{long: "--sprint", short: "-s", value: true},
-	{long: "--module", short: "-m", value: true},
-	{long: "--space", value: true},
-	{long: "--profile", value: true},
-	{long: "--template", value: true},
-	{long: "--dry-run"},
+var qaFlags = []cli.Flag{
+	{Long: "--sprint", Short: "-s", Value: true, Desc: "Número del sprint (sin él: modo Kanban)"},
+	{Long: "--module", Short: "-m", Value: true, Desc: "Módulo (solo modo Sprint)"},
+	{Long: "--space", Value: true, Desc: "Space de Confluence o carpeta Markdown para esta ejecución"},
+	{Long: "--profile", Value: true, Desc: "Perfil de la config (su tracker debe soportar QA)"},
+	{Long: "--template", Value: true, Desc: "Carpeta con una plantilla del consolidado"},
+	{Long: "--dry-run", Desc: "Muestra el consolidado sin publicar nada"},
 }
 
 // now is replaced in tests, which fix the Kanban window.
 var now = time.Now
 
 func runQA(a *App, args []string) error {
-	f, err := parseFlags(args, qaFlags)
+	f, err := cli.Parse(args, qaFlags)
 	if err != nil {
 		return usageError("%v", err)
 	}
-	if len(f.args) > 0 {
-		return usageError("argumento inesperado: %s", f.args[0])
+	if len(f.Args) > 0 {
+		return usageError("argumento inesperado: %s", f.Args[0])
 	}
 
-	sprintText, module := f.get("--sprint"), f.get("--module")
-	if !f.has("--sprint") {
+	sprintText, module := f.Get("--sprint"), f.Get("--module")
+	if !f.Has("--sprint") {
 		sprintText = a.ask("Número de sprint (Enter para modo Kanban): ")
 	}
 	sprint := 0
@@ -53,19 +54,19 @@ func runQA(a *App, args []string) error {
 	if err != nil {
 		return err
 	}
-	prof, _, err := cfg.Profile(f.get("--profile"))
+	prof, _, err := cfg.Profile(f.Get("--profile"))
 	if err != nil {
 		return err
 	}
-	tmpl := f.get("--template")
+	tmpl := f.Get("--template")
 	if tmpl == "" {
 		tmpl = prof.TemplateDir("qa")
 	}
-	target, err := qa.Resolve(cfg, qa.Request{Sprint: sprint, Module: module, Space: f.get("--space"), Template: tmpl}, now())
+	target, err := qa.Resolve(cfg, qa.Request{Sprint: sprint, Module: module, Space: f.Get("--space"), Template: tmpl}, now())
 	if err != nil {
 		return err
 	}
-	bundle, err := openProfile(cfg, profile.Options{Name: f.get("--profile"), Scope: target.SpaceKey})
+	bundle, err := openProfile(cfg, profile.Options{Name: f.Get("--profile"), Scope: target.SpaceKey})
 	if err != nil {
 		return explainProfile(err)
 	}
@@ -143,7 +144,7 @@ func runQA(a *App, args []string) error {
 		return err
 	}
 
-	if f.has("--dry-run") {
+	if f.Has("--dry-run") {
 		a.printf("%s %s\n%s %s\n\n%s\n%s\n", a.style(bold, "Título:"), draft.Title, a.style(bold, "Destino:"), bundle.Profile.Docs.Provider, draft.Markdown, a.style(yellow, "(--dry-run: no se publicó nada)"))
 		return nil
 	}

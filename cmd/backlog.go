@@ -10,23 +10,25 @@ import (
 	"strings"
 
 	"github.com/kaelence-01/draco-hq/internal/backlog"
+	"github.com/kaelence-01/draco-hq/internal/cli"
 	"github.com/kaelence-01/draco-hq/internal/config"
 )
 
 func init() {
-	register(&command{run: runBacklog, help: backlogHelp, summary: "Detecta deuda técnica en tus repos y la propone como tareas"}, "backlog")
+	register(&command{run: runBacklog, help: backlogHelp, summary: "Detecta deuda técnica en tus repos y la propone como tareas",
+		subs: []cli.Command{{Names: []string{"scan"}, Summary: "Analiza los repos y propone tareas", Flags: backlogScanFlags}}}, "backlog")
 }
 
-var backlogScanFlags = []flag{
-	{long: "--project", short: "-p", value: true},
-	{long: "--repo", short: "-r", value: true},
-	{long: "--path", value: true},
-	{long: "--since", value: true},
-	{long: "--modulo", short: "-m", value: true},
-	{long: "--limit", short: "-l", value: true},
-	{long: "--output", short: "-o", value: true, optional: true},
-	{long: "--json"},
-	{long: "--deps"},
+var backlogScanFlags = []cli.Flag{
+	{Long: "--project", Short: "-p", Value: true, Desc: "Proyecto de la config"},
+	{Long: "--repo", Short: "-r", Value: true, Desc: "backend o frontend: analiza solo ese repo"},
+	{Long: "--path", Value: true, Desc: "Carpeta a analizar, aunque no sea un proyecto"},
+	{Long: "--since", Value: true, Desc: "Historial a mirar: 30d, 12w, 3m o una fecha"},
+	{Long: "--modulo", Short: "-m", Value: true, Desc: "Solo esos módulos, separados por coma"},
+	{Long: "--limit", Short: "-l", Value: true, Desc: "Hallazgos a mostrar por repo; 0 = todos"},
+	{Long: "--output", Short: "-o", Value: true, Optional: true, Desc: "Guarda el reporte completo en JSON"},
+	{Long: "--json", Desc: "Imprime JSON en vez de la tabla"},
+	{Long: "--deps", Desc: "Revisa paquetes vulnerables (usa internet)"},
 }
 
 const defaultBacklogLimit = 10
@@ -40,30 +42,30 @@ func runBacklog(a *App, args []string) error {
 
 // runBacklogScan only reads the repos: it needs no credentials and no profile.
 func runBacklogScan(a *App, args []string) error {
-	f, err := parseFlags(args, backlogScanFlags)
+	f, err := cli.Parse(args, backlogScanFlags)
 	if err != nil {
 		return usageError("%v", err)
 	}
-	if len(f.args) > 0 {
-		return usageError("argumento inesperado: %s", f.args[0])
+	if len(f.Args) > 0 {
+		return usageError("argumento inesperado: %s", f.Args[0])
 	}
-	asJSON, saveReport := f.has("--json"), f.has("--output")
-	output, pathFlag := f.get("--output"), f.get("--path")
-	modules := backlog.SplitModules(f.get("--modulo"))
+	asJSON, saveReport := f.Has("--json"), f.Has("--output")
+	output, pathFlag := f.Get("--output"), f.Get("--path")
+	modules := backlog.SplitModules(f.Get("--modulo"))
 
 	cfg, err := loadConfig()
 	if err != nil {
 		return err
 	}
-	proj, projName, err := cfg.GetProject(f.get("--project"))
+	proj, projName, err := cfg.GetProject(f.Get("--project"))
 	if err != nil {
 		return err
 	}
-	targets, err := resolveBacklogTargets(pathFlag, f.get("--repo"), proj, projName)
+	targets, err := resolveBacklogTargets(pathFlag, f.Get("--repo"), proj, projName)
 	if err != nil {
 		return err
 	}
-	limit, err := parseBacklogLimit(f.get("--limit"))
+	limit, err := parseBacklogLimit(f.Get("--limit"))
 	if err != nil {
 		return usageError("%v", err)
 	}
@@ -82,8 +84,8 @@ func runBacklogScan(a *App, args []string) error {
 			a.step(i+1, len(targets), "Analizando "+describeTarget(t, projName, pathFlag != "")+"...")
 		}
 
-		opts := backlog.OptionsFor(proj.BacklogFor(t.Repo), f.get("--since"))
-		rep, err := scanRepo(ctx, t.Dir, backlog.ScanOptions{Options: opts, Dependencies: f.has("--deps")})
+		opts := backlog.OptionsFor(proj.BacklogFor(t.Repo), f.Get("--since"))
+		rep, err := scanRepo(ctx, t.Dir, backlog.ScanOptions{Options: opts, Dependencies: f.Has("--deps")})
 		if err != nil {
 			if len(targets) == 1 {
 				return err

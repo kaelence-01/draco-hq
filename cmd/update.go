@@ -7,14 +7,17 @@ import (
 	"time"
 
 	"github.com/kaelence-01/draco-hq/internal/build"
+	"github.com/kaelence-01/draco-hq/internal/cli"
 	"github.com/kaelence-01/draco-hq/internal/config"
 	"github.com/kaelence-01/draco-hq/internal/installer"
 	"github.com/kaelence-01/draco-hq/internal/updater"
 )
 
 func init() {
-	register(&command{run: runUpdate, help: updateHelp, summary: "Actualiza draco a la última versión publicada"}, "update")
+	register(&command{run: runUpdate, help: updateHelp, flags: updateFlags, summary: "Actualiza draco a la última versión publicada"}, "update")
 }
+
+var updateFlags = []cli.Flag{{Long: "--check", Desc: "Solo consulta si hay una versión nueva"}}
 
 // newUpdater, executable and installDir are replaced in tests, which use a
 // fake GitHub and temporary folders.
@@ -30,12 +33,12 @@ func notifier(c *updater.Client) *updater.Notifier {
 }
 
 func runUpdate(a *App, args []string) error {
-	f, err := parseFlags(args, []flag{{long: "--check"}})
+	f, err := cli.Parse(args, updateFlags)
 	if err != nil {
 		return usageError("%v", err)
 	}
-	if len(f.args) > 0 {
-		return usageError("argumento inesperado: %s", f.args[0])
+	if len(f.Args) > 0 {
+		return usageError("argumento inesperado: %s", f.Args[0])
 	}
 	current := build.Version
 	a.printf("%s %s\n", a.style(bold, "Versión actual:"), a.style(cyan, current))
@@ -62,7 +65,7 @@ func runUpdate(a *App, args []string) error {
 		return nil
 	}
 	a.printf("%s %s\n\n", a.style(bold, "Nueva versión:"), a.style(green+bold, latest))
-	if f.has("--check") {
+	if f.Has("--check") {
 		a.printf("Actualiza con: draco update\n")
 		return nil
 	}

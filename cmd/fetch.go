@@ -6,30 +6,31 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"github.com/kaelence-01/draco-hq/internal/cli"
 	"github.com/kaelence-01/draco-hq/internal/fetch"
 	"github.com/kaelence-01/draco-hq/internal/profile"
 )
 
 func init() {
-	register(&command{run: runFetch, help: fetchHelp, summary: "Exporta a .txt el documento de una tarea"}, "fetch", "f")
+	register(&command{run: runFetch, help: fetchHelp, flags: fetchFlags, summary: "Exporta a .txt el documento de una tarea"}, "fetch", "f")
 }
 
-var fetchFlags = []flag{
-	{long: "--issue", short: "-i", value: true},
-	{long: "--output", short: "-o", value: true},
-	{long: "--space", short: "-s", value: true},
-	{long: "--profile", value: true},
+var fetchFlags = []cli.Flag{
+	{Long: "--issue", Short: "-i", Value: true, Desc: "Clave de la tarea (requerido)"},
+	{Long: "--output", Short: "-o", Value: true, Desc: "Archivo de salida"},
+	{Long: "--space", Short: "-s", Value: true, Desc: "Space de Confluence o carpeta Markdown donde buscar"},
+	{Long: "--profile", Value: true, Desc: "Perfil de la config"},
 }
 
 func runFetch(a *App, args []string) error {
-	f, err := parseFlags(args, fetchFlags)
+	f, err := cli.Parse(args, fetchFlags)
 	if err != nil {
 		return usageError("%v", err)
 	}
-	if len(f.args) > 0 {
-		return usageError("argumento inesperado: %s", f.args[0])
+	if len(f.Args) > 0 {
+		return usageError("argumento inesperado: %s", f.Args[0])
 	}
-	if f.get("--issue") == "" {
+	if f.Get("--issue") == "" {
 		return usageError("falta -i/--issue, la clave de la tarea")
 	}
 
@@ -37,11 +38,11 @@ func runFetch(a *App, args []string) error {
 	if err != nil {
 		return err
 	}
-	target, err := fetch.Resolve(cfg, fetch.Request{Issue: f.get("--issue"), Space: f.get("--space")})
+	target, err := fetch.Resolve(cfg, fetch.Request{Issue: f.Get("--issue"), Space: f.Get("--space")})
 	if err != nil {
 		return err
 	}
-	bundle, err := openProfile(cfg, profile.Options{Name: f.get("--profile"), Scope: target.SpaceKey, AnyScope: true})
+	bundle, err := openProfile(cfg, profile.Options{Name: f.Get("--profile"), Scope: target.SpaceKey, AnyScope: true})
 	if err != nil {
 		return explainProfile(err)
 	}
@@ -83,7 +84,7 @@ func runFetch(a *App, args []string) error {
 	a.printf("\n")
 
 	a.step(3, 3, "Guardando...")
-	path := f.get("--output")
+	path := f.Get("--output")
 	if path == "" && isTerminal(a.Out) {
 		path = saveDialog(exp.FileName)
 	}
