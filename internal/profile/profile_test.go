@@ -108,6 +108,22 @@ func TestConfigErrors(t *testing.T) {
 	}
 }
 
+func TestSameAccount(t *testing.T) {
+	cases := []struct {
+		email, account string
+		want           bool
+	}{
+		{"tu@example.test", "Tu@Example.test", true},
+		{"tu@example.test", "", true},
+		{"tu@example.test", "otra@example.test", false},
+	}
+	for _, c := range cases {
+		if got := SameAccount(c.email, &provider.User{Email: c.account}); got != c.want {
+			t.Errorf("SameAccount(%q, %q) = %v", c.email, c.account, got)
+		}
+	}
+}
+
 type plainTracker struct{}
 
 func (plainTracker) Issue(context.Context, string) (*provider.Issue, error) { return nil, nil }

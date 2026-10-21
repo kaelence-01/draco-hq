@@ -32,6 +32,7 @@ type (
 
 type openMsg struct{ s screen }
 type backMsg struct{}
+type backToMsg struct{ s screen }
 type homeMsg struct{}
 
 // open stacks s over the current screen.
@@ -39,6 +40,9 @@ func open(s screen) tea.Cmd { return func() tea.Msg { return openMsg{s} } }
 
 // back closes the current screen.
 func back() tea.Msg { return backMsg{} }
+
+// backTo closes the screens above s.
+func backTo(s screen) tea.Cmd { return func() tea.Msg { return backToMsg{s} } }
 
 // toHome closes every screen down to the home one.
 func toHome() tea.Msg { return homeMsg{} }
@@ -95,6 +99,14 @@ func (m *app) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if i, ok := m.top().(initer); ok {
 				return m, i.init()
 			}
+		}
+		return m, nil
+	case backToMsg:
+		for len(m.stack) > 1 && m.top() != msg.s {
+			m.pop()
+		}
+		if i, ok := m.top().(initer); ok {
+			return m, i.init()
 		}
 		return m, nil
 	case homeMsg:

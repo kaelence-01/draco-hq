@@ -74,7 +74,7 @@ func (st *state) load() {
 	}
 	st.profile, st.tracker, st.docs = name, p.Tracker.Provider, p.Docs.Provider
 	if (st.tracker == "jira" || st.docs == "confluence") && !cfg.HasAtlassianCredentials() {
-		st.notice = "Falta configurar la conexión con Atlassian: corre draco init"
+		st.notice = "Falta configurar la conexión con Atlassian: abre Configuración (o corre draco init)"
 	}
 }
 

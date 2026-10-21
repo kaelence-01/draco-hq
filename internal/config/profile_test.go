@@ -99,6 +99,32 @@ func TestProjectAndProfileEditing(t *testing.T) {
 	}
 }
 
+func TestFirstProfileKeepsTheImplicitOne(t *testing.T) {
+	cfg := &Config{ConfluenceSpaceKey: "DEV"}
+	kept, err := cfg.KeepImplicitProfile("externo")
+	want := &Profile{Tracker: ProviderConfig{Provider: "jira"}, Docs: ProviderConfig{Provider: "confluence", Space: "DEV"}}
+	if err != nil || !reflect.DeepEqual(kept, want) || !reflect.DeepEqual(cfg.Profiles[LegacyProfile], want) || cfg.DefaultProfile != LegacyProfile {
+		t.Errorf("el implícito se guarda como perfil por defecto: %+v %v, perfiles %v, default %q", kept, err, cfg.ProfileNames(), cfg.DefaultProfile)
+	}
+	if kept, _ := cfg.KeepImplicitProfile("otro"); kept != nil {
+		t.Error("con perfiles ya no hay implícito que conservar")
+	}
+	if kept, _ := (&Config{}).KeepImplicitProfile(LegacyProfile); kept != nil {
+		t.Error("si el primero se llama como el implícito, lo reemplaza")
+	}
+}
+
+func TestNormalizeBaseURL(t *testing.T) {
+	if got, err := NormalizeBaseURL(" https://empresa.example.test/ "); err != nil || got != "https://empresa.example.test" {
+		t.Errorf("sin espacios ni / final: %q %v", got, err)
+	}
+	for _, bad := range []string{"http://empresa.example.test", "empresa.example.test", ""} {
+		if _, err := NormalizeBaseURL(bad); err == nil || !strings.Contains(err.Error(), "https://") {
+			t.Errorf("%q debe rechazarse por no ser https: %v", bad, err)
+		}
+	}
+}
+
 func TestProfileTemplateDir(t *testing.T) {
 	p := &Profile{Template: "/plantillas/equipo"}
 	if got := p.TemplateDir("qa"); got != filepath.Join("/plantillas/equipo", "qa") {

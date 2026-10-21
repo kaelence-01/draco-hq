@@ -130,17 +130,31 @@ func TestPanelFollowsTheMenu(t *testing.T) {
 		send(m, keyUp)
 	}
 	out = view(m)
-	for _, want := range []string{"▸ Configuración", "Todavía no está en el modo visual", "$ draco init"} {
+	if !strings.Contains(out, "▸ Configuración") || !strings.Contains(out, "$ draco init") || strings.Contains(out, "Todavía no está") {
+		t.Errorf("Configuración tiene pantalla y muestra su comando:\n%s", out)
+	}
+	withFutureItem(m)
+	send(m, keyDown)
+	out = view(m)
+	for _, want := range []string{"▸ Función futura", "Todavía no está en el modo visual", "$ draco futura -x 1"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("falta %q en el panel:\n%s", want, out)
 		}
 	}
 }
 
+// withFutureItem adds a function that has no screen yet.
+func withFutureItem(m *app) {
+	h := m.stack[0].(*home)
+	h.items = append(h.items, menuItem{label: "Función futura", example: "draco futura -x 1", desc: "Llega después."})
+}
+
 func TestWithoutRoomForThePanelCommandsGoInTheMenu(t *testing.T) {
-	out := view(newTestApp(t, testConfig(), nil, 80, 30))
-	if strings.Contains(out, "$ draco") || !strings.Contains(out, "draco init") || strings.Contains(out, "draco qa") || strings.Contains(out, "draco backlog") {
-		t.Errorf("sin panel, cada función sin pantalla muestra su comando en el menú:\n%s", out)
+	m := newTestApp(t, testConfig(), nil, 80, 30)
+	withFutureItem(m)
+	out := view(m)
+	if strings.Contains(out, "$ draco") || !strings.Contains(out, "draco futura") || strings.Contains(out, "draco init") || strings.Contains(out, "draco qa") {
+		t.Errorf("sin panel, solo una función sin pantalla muestra su comando en el menú:\n%s", out)
 	}
 }
 
@@ -164,12 +178,13 @@ func TestNothingRenderedBeforeTheSize(t *testing.T) {
 
 func TestMenuMovesAndPointsToTheCommand(t *testing.T) {
 	m := newTestApp(t, testConfig(), nil, 100, 30)
+	withFutureItem(m)
 	send(m, keyUp)
-	if out := view(m); !strings.Contains(out, "▸ Configuración") {
+	if out := view(m); !strings.Contains(out, "▸ Función futura") {
 		t.Fatalf("subir desde el primero va al último:\n%s", out)
 	}
 	send(m, keyEnter)
-	if out := view(m); !strings.Contains(out, "«Configuración» todavía no está en el modo visual: usa draco init") {
+	if out := view(m); !strings.Contains(out, "«Función futura» todavía no está en el modo visual: usa draco futura") {
 		t.Errorf("una función sin pantalla indica su comando:\n%s", out)
 	}
 	send(m, keyDown)
@@ -258,7 +273,7 @@ func TestConfigProblemsAreShown(t *testing.T) {
 		err  error
 		want string
 	}{
-		{"sin config", &config.Config{}, nil, "corre draco init"},
+		{"sin config", &config.Config{}, nil, "abre Configuración (o corre draco init)"},
 		{"config inválida", nil, errors.New("yaml: línea 3"), "No se pudo leer la configuración: yaml: línea 3"},
 		{"varios perfiles", &config.Config{Profiles: map[string]*config.Profile{"a": {}, "b": {}}}, nil, "ninguno por defecto"},
 	}
@@ -272,7 +287,7 @@ func TestConfigProblemsAreShown(t *testing.T) {
 	local := &config.Config{DefaultProfile: "local", Profiles: map[string]*config.Profile{"local": {
 		Tracker: config.ProviderConfig{Provider: "jira"}, Docs: config.ProviderConfig{Provider: "markdown", Path: "docs"},
 	}}}
-	if out := view(newTestApp(t, local, nil, 120, 30)); !strings.Contains(out, "corre draco init") {
+	if out := view(newTestApp(t, local, nil, 120, 30)); !strings.Contains(out, "abre Configuración") {
 		t.Errorf("Jira sin credenciales también pide draco init:\n%s", out)
 	}
 }
