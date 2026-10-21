@@ -67,7 +67,17 @@ func (s *settings) sections() []section {
 			prof.status += " (implícito)"
 		}
 	}
-	return []section{conn, prof}
+	qa := section{name: "QA", status: "sin configurar: solo hace falta para el consolidado QA"}
+	switch {
+	case c.QAJira == nil:
+	case c.QAJira.Validate() != nil:
+		qa.status = "incompleta: ábrela para ver qué falta"
+	case c.QAEmail == "":
+		qa.status = "falta el email de la cuenta de QA: nadie podría publicar el consolidado"
+	default:
+		qa.ok, qa.status = true, "proyecto "+c.QAJira.Project+"; publica "+c.QAEmail
+	}
+	return []section{conn, prof, qa}
 }
 
 func (s *settings) update(msg tea.Msg) (screen, tea.Cmd) {
@@ -81,10 +91,14 @@ func (s *settings) update(msg tea.Msg) (screen, tea.Cmd) {
 		s.cursor = max(s.cursor-1, 0)
 	case key.Matches(k, downKey):
 		s.cursor = min(s.cursor+1, len(s.sections())-1)
-	case key.Matches(k, enterKey) && s.cursor == 0:
-		return s, open(newConnection(s))
 	case key.Matches(k, enterKey):
-		return s, open(newProfiles(s.st))
+		switch s.cursor {
+		case 0:
+			return s, open(newConnection(s))
+		case 1:
+			return s, open(newProfiles(s.st))
+		}
+		return s, open(newQAConfig(s))
 	case key.Matches(k, projectKey) && s.offerProject:
 		s.offerProject = false
 		ps := newProjects(s.st)

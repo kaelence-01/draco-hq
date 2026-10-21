@@ -9,7 +9,7 @@ Estado: **fases 4 y 5 cerradas; fase 6 en curso** (Configuración, aviso de
 versión nueva, barra de comandos, ayuda y temas, diseñados en el §6).
 Implementado: la base (entrada, marco, pila de pantallas, pantalla
 principal), Proyectos, Generar y QA completos, de la tarea o el sprint a la
-publicación, Exportar, Backlog y Configuración (conexión y perfiles). Se
+publicación, Exportar, Backlog y Configuración (conexión, perfiles y QA). Se
 actualiza al implementar cada actividad. Las reglas para escribir una
 pantalla están en el §10 y son obligatorias.
 
@@ -89,6 +89,7 @@ internal/tui/
   connection.go Configuración: conexión con Atlassian y verificación de la cuenta
   profiles.go   Configuración: perfiles, con filtro y detalle
   profileform.go  formulario de Huh para crear y editar un perfil
+  qaconfig.go   Configuración: qa_email, qa_report y qa_jira, en páginas
 ```
 
 `cmd` importa `tui`; `tui` nunca importa `cmd`. Lo que `cmd` reemplaza en los
@@ -384,8 +385,8 @@ formularios.
   - `profile.SameAccount`: el email guardado es el de la cuenta autenticada
     (una cuenta que oculta su email cuenta como la misma).
 - **Pantalla Configuración:** una lista de secciones, cada una con su
-  estado (`✓` lo que tiene, `⚠` lo que falta): Conexión y Perfiles. QA y
-  Tema se suman con sus actividades. `enter` abre la elegida.
+  estado (`✓` lo que tiene, `⚠` lo que falta): Conexión, Perfiles y QA.
+  Tema se suma con su actividad. `enter` abre la elegida.
 - **Conexión** (formulario de Huh): email, API token y URL del sitio.
   - El formulario parte del archivo (`LoadFile`), nunca del entorno.
   - El token no se muestra al escribirlo (`EchoModeNone`, como
@@ -413,15 +414,25 @@ formularios.
     muestra, no se elige.
   - Sin perfiles, la lista muestra el implícito `atlassian` y avisa que
     agregar el primero también lo guarda.
-- **QA** (formulario en páginas, como el de Backlog):
-  - campos: `qa_email`, los nombres del encabezado (`qa_report`) y
-    `qa_jira` (proyecto, estados, estado de Testing, nombre del sprint,
-    campos `customfield_*`, prefijos de revisión y marcador de
-    observación);
-  - las listas se escriben separadas por comas;
-  - con `qa_jira` vacío no se guarda esa sección, porque QA es opcional.
-    Con algún campo escrito, `QAJiraConfig.Validate` muestra todos los
-    problemas a la vez y no guarda hasta corregirlos.
+- **QA** (formulario de cuatro páginas, que parte del archivo):
+  1. `qa_email` y los nombres del encabezado (`qa_report`);
+  2. de `qa_jira`: proyecto, estados, estado de Testing y nombre del
+     sprint;
+  3. los tres campos `customfield_*`;
+  4. los prefijos de revisión y el marcador de observación.
+
+  Reglas:
+  - las listas se escriben separadas por comas (`config.SplitList`); los
+    valores por defecto se muestran en la descripción de su campo;
+  - con `qa_jira` vacío (`QAJiraConfig.Empty`) no se guarda esa sección,
+    porque QA es opcional; tampoco `qa_report` sin nombres;
+  - con algún campo de `qa_jira` escrito, `QAJiraConfig.Validate` muestra
+    todos los problemas a la vez sobre el formulario, que conserva lo
+    escrito y no guarda hasta corregirlos;
+  - el estado de la sección distingue sin configurar, incompleta, sin
+    `qa_email` y completa;
+  - la pantalla del consolidado, ante un `qa_jira` incompleto o un
+    `qa_email` que no es la cuenta, ahora remite a Configuración › QA.
 - **Sin configuración** (el archivo no tiene credenciales ni perfiles),
   Configuración arranca como asistente, en el orden de `draco init`:
   1. abre Conexión sola;

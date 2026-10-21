@@ -79,7 +79,7 @@ func (e *settingsEnv) fill(values ...string) {
 func TestSettingsShowsEachSection(t *testing.T) {
 	e := newSettingsApp(t, savedConfig())
 	out := view(e.m)
-	for _, want := range []string{"Inicio › Configuración", "▸ Conexión con Atlassian", "✓ tu@example.test en https://empresa.example.test", "Perfiles", "✓ equipo: jira → confluence (space DEV)"} {
+	for _, want := range []string{"Inicio › Configuración", "▸ Conexión con Atlassian", "✓ tu@example.test en https://empresa.example.test", "Perfiles", "✓ equipo: jira → confluence (space DEV)", "QA", "⚠ sin configurar"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("falta %q:\n%s", want, out)
 		}

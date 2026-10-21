@@ -131,6 +131,31 @@ func TestQAJiraValidateNil(t *testing.T) {
 	}
 }
 
+func TestQAJiraEmpty(t *testing.T) {
+	if !(&QAJiraConfig{}).Empty() {
+		t.Error("sin valores, qa_jira está vacío")
+	}
+	for name, q := range map[string]QAJiraConfig{
+		"proyecto": {Project: "OPS"},
+		"estados":  {Statuses: []string{"10001"}},
+		"campo":    {Fields: QAJiraFields{DevStatus: "customfield_10003"}},
+		"marcador": {ObservationMarker: "Obs:"},
+	} {
+		if q.Empty() {
+			t.Errorf("con %s, qa_jira no está vacío", name)
+		}
+	}
+}
+
+func TestSplitList(t *testing.T) {
+	if got := SplitList(" 10001, En QA ,,Testing "); !reflect.DeepEqual(got, []string{"10001", "En QA", "Testing"}) {
+		t.Errorf("SplitList = %q", got)
+	}
+	if got := SplitList(" , "); got != nil {
+		t.Errorf("sin elementos no hay lista: %q", got)
+	}
+}
+
 func TestQAJiraConventionDefaults(t *testing.T) {
 	q := &QAJiraConfig{}
 	if q.Marker() != "Novedad::" || len(q.Reviews()) != 3 {
