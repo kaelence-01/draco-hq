@@ -91,3 +91,6 @@ draco update && draco version
     entre comillas (045);
   - el pie de teclas de `ansi` con colores ANSI básicos (047).
 - v1.0: instaladores, migración desde gtt, guía de usuario.
+
+**Nota (2026-10-21):** el release salió como `v0.3.0`
+(`make release bump=minor`), no como `v0.2.2`. Ver la bitácora 049.

@@ -466,7 +466,7 @@ formularios.
 - **Corre en un `tea.Cmd` al abrir** (`app.Init`); hasta que responde, no
   se muestra nada.
 - **Con versión nueva:** la cabecera lo dice junto a la versión actual
-  (`draco v0.2.2 · v0.2.3 disponible`), del lado que nunca se recorta. La
+  (`draco v0.3.0 · v0.3.1 disponible`), del lado que nunca se recorta. La
   principal explica cómo instalarla: «sal con q y corre draco update».
 - **No se actualiza desde la TUI:** `draco update` reemplaza el binario en
   uso y escribe su progreso en la terminal, así que se corre fuera del modo
