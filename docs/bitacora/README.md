@@ -87,6 +87,7 @@ Sin entradas: se hizo antes de que existiera la bitácora.
 | [045](./fase-6/045-tui-barra.md) | Barra de comandos (1): descripción de los comandos, sugerencias y Ayuda | `feature/tui-barra` | 2026-10-21 | `internal/cli` con el parser y la descripción de cada comando (flags con `Desc`); barra en la principal con sugerencias de comandos, flags y valores; Ayuda general y de cada comando con el texto de `draco help` |
 | [046](./fase-6/046-tui-barra-ejecutar.md) | Barra de comandos (2): cada comando abre su pantalla | `feature/tui-barra-ejecutar` | 2026-10-21 | `openFromBar`: formularios enviados con los datos de la línea, hashes marcados en Commits, flags sin pantalla explicados; un `-p` desconocido es un error, como en el modo comando |
 | [047](./fase-6/047-tui-temas.md) | Temas del modo visual | `feature/tui-temas` | 2026-10-21 | `ansi`, `alto-contraste` y `mono` con `applyTheme` (estilos, pie y formularios); `theme` en la config; Configuración › Tema con vista previa en vivo; `mono` sin códigos de color |
+| [048](./fase-6/048-cierre-fase-6.md) | Cierre de la fase 6 | `docs/cierre-fase-6` | 2026-10-21 | Fase 6 cerrada; pruebas manuales pendientes reunidas; release `v0.2.2` (primer uso de `make promote`) a cargo del autor |
 
 ## Formato de cada entrada
 

@@ -5,9 +5,8 @@ de la terminal: menús, listas, formularios y vista previa. Es otra forma de
 recorrer **los mismos flujos** que el modo comando; no tiene lógica propia de
 negocio.
 
-Estado: **fases 4 y 5 cerradas; fase 6 en curso** (Configuración, aviso de
-versión nueva, barra de comandos, ayuda y temas, diseñados en el §6).
-Implementado: la base (entrada, marco, pila de pantallas, pantalla
+Estado: **fases 4, 5 y 6 cerradas**; el diseño de cada pantalla está en el
+§6. Implementado: la base (entrada, marco, pila de pantallas, pantalla
 principal), Proyectos, Generar y QA completos, de la tarea o el sprint a la
 publicación, Exportar, Backlog, Configuración (conexión, perfiles y QA), el
 aviso de versión nueva, la barra de comandos (que abre cada pantalla con los
