@@ -49,8 +49,11 @@ func taskInput(v *string) *huh.Input {
 	})
 }
 
-func newForm(fields ...huh.Field) *huh.Form {
-	return huh.NewForm(huh.NewGroup(fields...)).WithShowHelp(false).WithTheme(huh.ThemeFunc(huh.ThemeBase16)).WithWidth(64)
+func newForm(fields ...huh.Field) *huh.Form { return newPagedForm(huh.NewGroup(fields...)) }
+
+// newPagedForm is a form of several pages, for what does not fit in 24 lines.
+func newPagedForm(pages ...*huh.Group) *huh.Form {
+	return huh.NewForm(pages...).WithShowHelp(false).WithTheme(huh.ThemeFunc(huh.ThemeBase16)).WithWidth(64)
 }
 
 func (g *generate) title() string       { return "Generar documento" }

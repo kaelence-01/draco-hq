@@ -130,7 +130,7 @@ func TestPanelFollowsTheMenu(t *testing.T) {
 
 func TestWithoutRoomForThePanelCommandsGoInTheMenu(t *testing.T) {
 	out := view(newTestApp(t, testConfig(), nil, 80, 30))
-	if strings.Contains(out, "$ draco") || !strings.Contains(out, "draco backlog scan") || strings.Contains(out, "Proyectos   draco project") {
+	if strings.Contains(out, "$ draco") || !strings.Contains(out, "draco qa") || strings.Contains(out, "draco backlog") || strings.Contains(out, "draco f") {
 		t.Errorf("sin panel, cada función sin pantalla muestra su comando en el menú:\n%s", out)
 	}
 }

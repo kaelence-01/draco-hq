@@ -2,10 +2,9 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
-	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -50,7 +49,7 @@ func runBacklogScan(a *App, args []string) error {
 	}
 	asJSON, saveReport := f.has("--json"), f.has("--output")
 	output, pathFlag := f.get("--output"), f.get("--path")
-	modules := splitModules(f.get("--modulo"))
+	modules := backlog.SplitModules(f.get("--modulo"))
 
 	cfg, err := loadConfig()
 	if err != nil {
@@ -74,38 +73,37 @@ func runBacklogScan(a *App, args []string) error {
 		}
 	}
 
+	ctx, cancel := a.context()
+	defer cancel()
 	var reports []*backlog.Report
 	var failed []string
 	for i, t := range targets {
 		if !asJSON {
-			a.step(i+1, len(targets), "Analizando "+t.describe(projName, pathFlag != "")+"...")
+			a.step(i+1, len(targets), "Analizando "+describeTarget(t, projName, pathFlag != "")+"...")
 		}
 
-		opts := backlogOptions(proj.BacklogFor(t.repo), f.get("--since"))
-		rep, err := scanRepo(t.dir, backlog.ScanOptions{Options: opts, Dependencies: f.has("--deps")})
+		opts := backlog.OptionsFor(proj.BacklogFor(t.Repo), f.get("--since"))
+		rep, err := scanRepo(ctx, t.Dir, backlog.ScanOptions{Options: opts, Dependencies: f.has("--deps")})
 		if err != nil {
 			if len(targets) == 1 {
 				return err
 			}
-			a.backlogFailure(asJSON, t.repo, err)
-			failed = append(failed, t.repo)
+			a.backlogFailure(asJSON, t.Repo, err)
+			failed = append(failed, t.Repo)
 			continue
 		}
 
-		if len(modules) > 0 {
-			if len(rep.Modules) == 0 {
-				a.backlogFailure(asJSON, t.repo, fmt.Errorf("-m necesita backlog.%s.modules en la config del proyecto (ver: draco help backlog)", t.repo))
-				failed = append(failed, t.repo)
-				continue
-			}
-			rep.FilterModules(modules)
+		if err := backlog.ApplyModules(rep, modules); err != nil {
+			a.backlogFailure(asJSON, t.Repo, fmt.Errorf("-m necesita backlog.%s.modules en la config del proyecto (ver: draco help backlog)", t.Repo))
+			failed = append(failed, t.Repo)
+			continue
 		}
 
 		// The saved file keeps every finding; --limit only trims what is shown.
 		savedTo := ""
 		if saveReport {
-			name := backlogReportName(projName, t.dir, t.repo, modules)
-			if savedTo, err = saveBacklogReport(rep, backlogOutputPath(output, len(targets), name), name); err != nil {
+			name := backlog.ReportName(projName, t.Dir, t.Repo, modules)
+			if savedTo, err = backlog.SaveReport(rep, backlogOutputPath(output, len(targets), name), name); err != nil {
 				return err
 			}
 		}
@@ -138,49 +136,23 @@ func runBacklogScan(a *App, args []string) error {
 	return nil
 }
 
-type backlogTarget struct {
-	repo string // "backend" or "frontend"
-	dir  string
-}
-
-func (t backlogTarget) describe(projName string, fromPathFlag bool) string {
+func describeTarget(t backlog.Target, projName string, fromPathFlag bool) string {
 	if projName == "" || fromPathFlag {
-		return t.dir
+		return t.Dir
 	}
-	return fmt.Sprintf("%s (%s %s)", t.dir, projName, t.repo)
+	return fmt.Sprintf("%s (%s %s)", t.Dir, projName, t.Repo)
 }
 
-// resolveBacklogTargets: --path scans that folder; --repo, that repo of the
-// project; neither, every repo the project has a path for. Without a project
-// (or one with no paths), the current folder.
-func resolveBacklogTargets(pathFlag, repoFlag string, proj *config.ProjectConfig, projName string) ([]backlogTarget, error) {
+// resolveBacklogTargets explains backlog.Targets in terms of the flags.
+func resolveBacklogTargets(pathFlag, repoFlag string, proj *config.ProjectConfig, projName string) ([]backlog.Target, error) {
 	if repoFlag != "" && repoFlag != "backend" && repoFlag != "frontend" {
 		return nil, fmt.Errorf("--repo debe ser backend o frontend, no %q", repoFlag)
 	}
-	repo := repoFlag
-	if repo == "" {
-		repo = "backend"
-	}
-	if pathFlag != "" {
-		return []backlogTarget{{repo: repo, dir: pathFlag}}, nil
-	}
-
-	var targets []backlogTarget
-	if proj != nil {
-		if repoFlag != "frontend" && proj.BackendPath != "" {
-			targets = append(targets, backlogTarget{repo: "backend", dir: proj.BackendPath})
-		}
-		if repoFlag != "backend" && proj.FrontendPath != "" {
-			targets = append(targets, backlogTarget{repo: "frontend", dir: proj.FrontendPath})
-		}
-	}
-	if len(targets) > 0 {
-		return targets, nil
-	}
-	if proj != nil && repoFlag != "" {
+	targets, err := backlog.Targets(proj, repoFlag, pathFlag)
+	if errors.Is(err, backlog.ErrNoRepoPath) {
 		return nil, fmt.Errorf("el proyecto %s no tiene %s_path configurado. Usa --path o agrégalo al proyecto en %s", projName, repoFlag, configPathHint())
 	}
-	return []backlogTarget{{repo: repo, dir: "."}}, nil
+	return targets, err
 }
 
 // validateBacklogOutput: with several repos each needs its own file, so -o
@@ -211,59 +183,6 @@ func (a *App) backlogFailure(asJSON bool, repo string, err error) {
 	a.printf("\n")
 }
 
-// backlogReportName is <project>-<repo>.json, or <folder>-<repo>.json without
-// a project; a module filter adds the modules, so a filtered report never
-// overwrites the full one.
-func backlogReportName(projName, dir, repo string, modules []string) string {
-	base := projName
-	if base == "" {
-		if abs, err := filepath.Abs(dir); err == nil {
-			base = filepath.Base(abs)
-		}
-	}
-	name := base + "-" + repo
-	for _, m := range modules {
-		name += "-" + backlog.ModuleKey(m)
-	}
-	return name + ".json"
-}
-
-func splitModules(v string) []string {
-	var out []string
-	for _, m := range strings.Split(v, ",") {
-		if m = strings.TrimSpace(m); m != "" {
-			out = append(out, m)
-		}
-	}
-	return out
-}
-
-// saveBacklogReport writes UTF-8 JSON itself (PowerShell 5.1 `>` writes
-// UTF-16). Without a path it goes next to config.yaml; the report holds
-// internal paths and commit messages, so it is private (0600).
-func saveBacklogReport(rep *backlog.Report, path, defaultName string) (string, error) {
-	if path == "" {
-		cfgPath, err := config.ConfigPath()
-		if err != nil {
-			return "", fmt.Errorf("no se pudo resolver la carpeta de configuración: %w", err)
-		}
-		path = filepath.Join(filepath.Dir(cfgPath), "backlog", defaultName)
-	}
-	path = filepath.Clean(path)
-
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		return "", fmt.Errorf("no se pudo crear la carpeta de %s: %w", path, err)
-	}
-	data, err := json.MarshalIndent(rep, "", "  ")
-	if err != nil {
-		return "", err
-	}
-	if err := os.WriteFile(path, append(data, '\n'), 0o600); err != nil {
-		return "", fmt.Errorf("no se pudo guardar el reporte en %s: %w", path, err)
-	}
-	return path, nil
-}
-
 // parseBacklogLimit: empty means the default, 0 means all.
 func parseBacklogLimit(v string) (int, error) {
 	if v == "" {
@@ -274,44 +193,6 @@ func parseBacklogLimit(v string) (int, error) {
 		return 0, fmt.Errorf("--limit debe ser un número mayor o igual a 0, no %q", v)
 	}
 	return n, nil
-}
-
-var sinceShorthand = regexp.MustCompile(`^(\d+)([dwm])$`)
-
-// normalizeSince accepts 90d, 12w and 3m on top of anything `git log --since`
-// understands.
-func normalizeSince(v string) string {
-	m := sinceShorthand.FindStringSubmatch(v)
-	if m == nil {
-		return v
-	}
-	unit := map[string]string{"d": "days", "w": "weeks", "m": "months"}[m[2]]
-	return m[1] + " " + unit + " ago"
-}
-
-// backlogOptions layers --since over the project's config; what stays empty
-// takes the defaults of internal/backlog.
-func backlogOptions(rc *config.BacklogRepoConfig, since string) backlog.Options {
-	var o backlog.Options
-	if rc != nil {
-		o = backlog.Options{
-			Since:       rc.Since,
-			Extensions:  rc.Extensions,
-			Exclude:     rc.Exclude,
-			MaxLines:    rc.MaxLines,
-			MinCommits:  rc.MinCommits,
-			FixKeywords: rc.FixKeywords,
-			ClassGlobs:  rc.ClassGlobs,
-			TestsDir:    rc.TestsDir,
-			TestGlobs:   rc.TestGlobs,
-			Modules:     rc.Modules,
-		}
-	}
-	if since != "" {
-		o.Since = since
-	}
-	o.Since = normalizeSince(o.Since)
-	return o
 }
 
 func severityColor(s backlog.Severity) string {
@@ -332,7 +213,7 @@ func (a *App) printBacklogReport(rep *backlog.Report) {
 
 	if len(rep.Findings) == 0 {
 		if len(rep.ModuleFilter) > 0 {
-			a.warn("Sin hallazgos en el módulo " + strings.Join(rep.ModuleFilter, ", ") + ". Módulos con hallazgos: " + formatModuleCounts(rep.Modules))
+			a.warn("Sin hallazgos en el módulo " + strings.Join(rep.ModuleFilter, ", ") + ". Módulos con hallazgos: " + backlog.ModuleSummary(rep.Modules))
 			return
 		}
 		a.ok("Sin hallazgos en el período " + rep.Since)
@@ -366,25 +247,12 @@ func (a *App) printBacklogReport(rep *backlog.Report) {
 
 	a.printf("\n")
 	if len(rep.Modules) > 0 {
-		a.printf("Por módulo: %s\n", formatModuleCounts(rep.Modules))
+		a.printf("Por módulo: %s\n", backlog.ModuleSummary(rep.Modules))
 	}
 	a.printf("Mostrando %d de %d hallazgos · %s sugeridos en total\n", len(rep.Findings), rep.Total, a.style(bold, fmt.Sprintf("%d pts", points)))
 	if len(rep.Findings) < rep.Total {
 		a.printf("Usa %s para verlos todos.\n", a.style(bold, "--limit 0"))
 	}
-}
-
-// formatModuleCounts renders "Pagos 24 · Facturacion 9".
-func formatModuleCounts(counts []backlog.ModuleCount) string {
-	parts := make([]string, 0, len(counts))
-	for _, c := range counts {
-		name := c.Module
-		if name == "" {
-			name = "(sin módulo)"
-		}
-		parts = append(parts, fmt.Sprintf("%s %d", name, c.Count))
-	}
-	return strings.Join(parts, " · ")
 }
 
 func backlogHelp(a *App) {

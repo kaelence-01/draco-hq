@@ -1,6 +1,7 @@
 package backlog
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os/exec"
@@ -41,16 +42,23 @@ type ScanOptions struct {
 
 // Scan runs every detector over the repo at dir and ranks the findings. Only
 // failing to open the repo is fatal; a failing detector goes to Report.Skipped.
-func Scan(dir string, so ScanOptions) (*Report, error) {
+// Canceling ctx stops git and composer and returns its error.
+func Scan(ctx context.Context, dir string, so ScanOptions) (*Report, error) {
 	o := so.Options.WithDefaults()
-
-	r, err := openRepo(dir)
-	if err != nil {
+	fail := func(err error) (*Report, error) {
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
 		return nil, err
+	}
+
+	r, err := openRepo(ctx, dir)
+	if err != nil {
+		return fail(err)
 	}
 	tracked, err := r.trackedFiles()
 	if err != nil {
-		return nil, fmt.Errorf("no se pudo listar los archivos del repositorio: %w", err)
+		return fail(fmt.Errorf("no se pudo listar los archivos del repositorio: %w", err))
 	}
 	trackedSet := make(map[string]bool, len(tracked))
 	for _, f := range tracked {
@@ -108,6 +116,9 @@ func Scan(dir string, so ScanOptions) (*Report, error) {
 		rep.Modules = countModules(findings)
 	}
 
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
 	Rank(findings)
 	rep.Findings = findings
 	rep.Total = len(findings)
@@ -204,7 +215,7 @@ func scanDependencies(r *repo, tracked map[string]bool) ([]Finding, error) {
 		return nil, errors.New("composer no está en PATH")
 	}
 
-	cmd := exec.Command(composer, "audit", "--locked", "--format=json", "--no-interaction")
+	cmd := exec.CommandContext(r.ctx, composer, "audit", "--locked", "--format=json", "--no-interaction")
 	cmd.Dir = r.dir
 	// composer audit exits non-zero when it finds advisories; the JSON is still the result.
 	out, runErr := cmd.Output()

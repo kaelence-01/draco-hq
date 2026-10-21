@@ -2,6 +2,7 @@ package backlog
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -10,14 +11,16 @@ import (
 	"strings"
 )
 
-// repo runs read-only git commands in a local repository.
+// repo runs read-only git commands in a local repository, stopping them when
+// ctx, the scan's, is canceled.
 type repo struct {
+	ctx     context.Context
 	dir     string
 	gitPath string
 }
 
 // openRepo resolves git to an absolute path (P-005) and checks that dir is a work tree.
-func openRepo(dir string) (*repo, error) {
+func openRepo(ctx context.Context, dir string) (*repo, error) {
 	gitPath, err := exec.LookPath("git")
 	if err != nil {
 		return nil, fmt.Errorf("git no encontrado en PATH: %w", err)
@@ -31,7 +34,7 @@ func openRepo(dir string) (*repo, error) {
 		return nil, fmt.Errorf("la ruta %s no existe o no es una carpeta", abs)
 	}
 
-	r := &repo{dir: abs, gitPath: gitPath}
+	r := &repo{ctx: ctx, dir: abs, gitPath: gitPath}
 	if _, err := r.git("rev-parse", "--is-inside-work-tree"); err != nil {
 		return nil, fmt.Errorf("%s no es un repositorio git", abs)
 	}
@@ -39,7 +42,7 @@ func openRepo(dir string) (*repo, error) {
 }
 
 func (r *repo) git(args ...string) ([]byte, error) {
-	cmd := exec.Command(r.gitPath, args...)
+	cmd := exec.CommandContext(r.ctx, r.gitPath, args...)
 	cmd.Dir = r.dir
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr

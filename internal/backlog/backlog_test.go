@@ -1,6 +1,8 @@
 package backlog
 
 import (
+	"context"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -316,7 +318,9 @@ func TestFindingIDIsStable(t *testing.T) {
 	}
 }
 
-func TestScanOnTempRepo(t *testing.T) {
+// tempRepo is a git repo with a PHP service changed by three fix commits.
+func tempRepo(t *testing.T) string {
+	t.Helper()
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git no está disponible")
 	}
@@ -349,8 +353,12 @@ func TestScanOnTempRepo(t *testing.T) {
 		write("app/Services/PagoService.php", "<?php\n// FIXME validar monto\nclass PagoService {}\n"+strings.Repeat("\n", i+1))
 		run("commit", "-q", "-am", "fix: corrige pago")
 	}
+	return dir
+}
 
-	rep, err := Scan(dir, ScanOptions{Options: Options{ClassGlobs: []string{"app/Services/*.php"}, MinCommits: 3}})
+func TestScanOnTempRepo(t *testing.T) {
+	dir := tempRepo(t)
+	rep, err := Scan(context.Background(), dir, ScanOptions{Options: Options{ClassGlobs: []string{"app/Services/*.php"}, MinCommits: 3}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -369,7 +377,16 @@ func TestScanOnTempRepo(t *testing.T) {
 }
 
 func TestScanFailsOutsideRepo(t *testing.T) {
-	if _, err := Scan(t.TempDir(), ScanOptions{}); err == nil || !strings.Contains(err.Error(), "no es un repositorio git") {
+	if _, err := Scan(context.Background(), t.TempDir(), ScanOptions{}); err == nil || !strings.Contains(err.Error(), "no es un repositorio git") {
 		t.Errorf("fuera de un repo git esperaba error claro, obtuve: %v", err)
+	}
+}
+
+func TestScanStopsWhenCanceled(t *testing.T) {
+	dir := tempRepo(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if rep, err := Scan(ctx, dir, ScanOptions{}); !errors.Is(err, context.Canceled) || rep != nil {
+		t.Errorf("un análisis cancelado devuelve el error del context, no un reporte con detectores omitidos: %v %+v", err, rep)
 	}
 }
