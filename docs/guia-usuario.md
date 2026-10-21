@@ -193,6 +193,13 @@ projects:
     vcs_org: mi-org
     deploy_checklist:                    # opcional: reemplaza al global
       - Ejecutar migraciones
+    backlog:                             # opcional: ajusta draco backlog scan
+      backend:
+        class_globs: ["app/**/Services/**/*.php"]   # clases que deben tener tests
+        modules: ["app/Http/{modulo}/**"]           # {modulo}: la carpeta del módulo
+      frontend:
+        class_globs: ["src/app/**/*.service.ts"]
+        modules: ["src/app/{modulo}/**"]
 
 deploy_checklist:                        # «A considerar» de un documento nuevo
   - Respaldo de la base de datos
@@ -357,9 +364,15 @@ la principal o desde Configuración.
 | `enter` | Lo usa en esta sesión (no cambia la config) |
 | `d` | Lo guarda como proyecto por defecto |
 | `n` | Crea un proyecto |
-| `e` | Edita el proyecto (conserva checklist y backlog) |
+| `e` | Edita el proyecto (conserva el checklist y el resto del backlog) |
 | `x` | Elimina el proyecto (pide `s`) |
 | `/` | Filtra la lista |
+
+El formulario termina con una página opcional por repo con ruta, **Backlog
+técnico**: las clases que deben tener tests (`class_globs`) y los módulos
+(`modules`), separados por comas. `enter` en blanco la salta. Un patrón mal
+escrito se marca ahí mismo y no se guarda. El resto del backlog (`since`,
+`exclude`, `max_lines`…) se edita en el YAML y se conserva.
 
 ### Configuración
 
@@ -452,7 +465,8 @@ draco backlog scan --path ~/repos/pagos-api # una carpeta que no es un proyecto
 Detecta:
 
 - **hotspots:** archivos con muchos commits;
-- **clases sin tests:** requiere `class_globs` en la config del proyecto;
+- **clases sin tests:** requiere `class_globs` en la config del proyecto
+  (en el modo visual, la página Backlog técnico del formulario de proyecto);
 - **TODO/FIXME/HACK** pendientes;
 - **archivos grandes;**
 - **dependencias vulnerables:** con `--deps`, usa internet.

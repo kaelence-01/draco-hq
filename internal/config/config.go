@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"sort"
 	"strconv"
@@ -60,6 +61,29 @@ func (p *ProjectConfig) BacklogFor(repo string) *BacklogRepoConfig {
 		return p.Backlog.Frontend
 	}
 	return p.Backlog.Backend
+}
+
+// SetBacklogPatterns sets the class globs and modules of repo ("backend" or
+// "frontend"), keeping its other settings; a repo or a backlog left with
+// nothing is removed.
+func (p *ProjectConfig) SetBacklogPatterns(repo string, classGlobs, modules []string) {
+	if p.Backlog == nil {
+		p.Backlog = &BacklogConfig{}
+	}
+	side := &p.Backlog.Backend
+	if repo == "frontend" {
+		side = &p.Backlog.Frontend
+	}
+	if *side == nil {
+		*side = &BacklogRepoConfig{}
+	}
+	(*side).ClassGlobs, (*side).Modules = classGlobs, modules
+	if reflect.DeepEqual(**side, BacklogRepoConfig{}) {
+		*side = nil
+	}
+	if p.Backlog.Backend == nil && p.Backlog.Frontend == nil {
+		p.Backlog = nil
+	}
 }
 
 // QAReportConfig holds the names in the QA report header. Organization data,

@@ -6,6 +6,27 @@ import (
 	"testing"
 )
 
+func TestSetBacklogPatternsKeepsTheRestAndDropsWhatIsEmpty(t *testing.T) {
+	p := &ProjectConfig{Backlog: &BacklogConfig{Backend: &BacklogRepoConfig{Since: "6 months ago", ClassGlobs: []string{"viejo/**"}}}}
+	p.SetBacklogPatterns("backend", []string{"app/**/Services/**/*.php"}, []string{"app/Http/{modulo}/**"})
+	p.SetBacklogPatterns("frontend", []string{"src/app/**/*.service.ts"}, nil)
+	b, f := p.BacklogFor("backend"), p.BacklogFor("frontend")
+	if b.Since != "6 months ago" || !reflect.DeepEqual(b.ClassGlobs, []string{"app/**/Services/**/*.php"}) || len(b.Modules) != 1 || f == nil || len(f.ClassGlobs) != 1 {
+		t.Fatalf("reemplaza los patrones y conserva el resto: %+v %+v", b, f)
+	}
+
+	p.SetBacklogPatterns("frontend", nil, nil)
+	p.SetBacklogPatterns("backend", nil, nil)
+	if p.Backlog == nil || p.Backlog.Frontend != nil || p.BacklogFor("backend").Since != "6 months ago" {
+		t.Fatalf("un repo sin nada se quita; el que conserva since sigue: %+v", p.Backlog)
+	}
+	p.Backlog.Backend.Since = ""
+	p.SetBacklogPatterns("backend", nil, nil)
+	if p.Backlog != nil {
+		t.Errorf("sin nada en ningún repo no queda backlog: %+v", p.Backlog)
+	}
+}
+
 func TestResolveDeployChecklistPrefersProject(t *testing.T) {
 	cfg := &Config{DeployChecklist: []string{"global-1", "global-2"}}
 	proj := &ProjectConfig{DeployChecklist: []string{"proj-1"}}

@@ -133,7 +133,7 @@ func TestWizardFromAnEmptyConfig(t *testing.T) {
 	if out := view(e.m); !strings.Contains(out, "Configuración › Proyectos › Nuevo proyecto") {
 		t.Fatalf("enter abre el formulario de Proyectos:\n%s", out)
 	}
-	e.fill("pagos", "/repos/pagos-api", "", "", "", "", "mi-org", "")
+	e.fill("pagos", "/repos/pagos-api", "", "", "", "", "mi-org", "", "", "")
 
 	if p := e.file.cfg.Projects["pagos"]; p == nil || p.BackendRepo != "pagos-api" || p.VCSOrg != "mi-org" || e.file.cfg.DefaultProject != "pagos" {
 		t.Fatalf("el primer proyecto se guarda por defecto: %+v %q", p, e.file.cfg.DefaultProject)
