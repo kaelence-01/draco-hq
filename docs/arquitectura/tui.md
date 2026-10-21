@@ -11,7 +11,7 @@ Implementado: la base (entrada, marco, pila de pantallas, pantalla
 principal), Proyectos, Generar y QA completos, de la tarea o el sprint a la
 publicación, Exportar, Backlog, Configuración (conexión, perfiles y QA), el
 aviso de versión nueva, la barra de comandos (que abre cada pantalla con los
-datos de la línea) y la Ayuda. Se
+datos de la línea), la Ayuda y los temas. Se
 actualiza al implementar cada actividad. Las reglas para escribir una
 pantalla están en el §10 y son obligatorias.
 
@@ -70,7 +70,7 @@ draco <comando> …                                 →  modo comando, sin cambi
 internal/tui/
   tui.go        Run(ctx, Deps) error; Deps: las dependencias que pasa cmd
   app.go        modelo raíz: pila de pantallas, tamaño, cabecera, pie, teclas globales
-  styles.go     estilos de Lip Gloss en un solo lugar (base para temas, fase 6)
+  styles.go     estilos de Lip Gloss en un solo lugar y los temas (applyTheme)
   logo.go       DRACO en letras grandes
   home.go       pantalla principal (menú y panel de la función elegida)
   projects.go   Proyectos: lista con filtro, activo, por defecto, borrar
@@ -94,6 +94,7 @@ internal/tui/
   qaconfig.go   Configuración: qa_email, qa_report y qa_jira, en páginas
   cmdbar.go     barra de comandos de la principal: sugerencias y lectura de la línea
   barrun.go     barra de comandos: cada comando abre su pantalla con los datos
+  themes.go     Configuración: tema, con vista previa en vivo
   helpscreen.go Ayuda: la general y la de cada comando
 ```
 
@@ -392,8 +393,8 @@ formularios.
   - `profile.SameAccount`: el email guardado es el de la cuenta autenticada
     (una cuenta que oculta su email cuenta como la misma).
 - **Pantalla Configuración:** una lista de secciones, cada una con su
-  estado (`✓` lo que tiene, `⚠` lo que falta): Conexión, Perfiles y QA.
-  Tema se suma con su actividad. `enter` abre la elegida.
+  estado (`✓` lo que tiene, `⚠` lo que falta): Conexión, Perfiles, QA y
+  Tema. `enter` abre la elegida.
 - **Conexión** (formulario de Huh): email, API token y URL del sitio.
   - El formulario parte del archivo (`LoadFile`), nunca del entorno.
   - El token no se muestra al escribirlo (`EchoModeNone`, como
@@ -575,12 +576,28 @@ formularios.
   - `ansi`: el de hoy, por defecto;
   - `alto-contraste`: colores brillantes y negrita en lo importante;
   - `mono`: sin color, solo negrita, tenue y subrayado.
-- **Se elige en Configuración › Tema**, con vista previa en vivo, y se
-  guarda en `config.yaml` (`theme: mono`) con `state.save`. Es un campo
-  nuevo de `config.Config`, y `mergeMissing` lo copia del archivo.
-  `NO_COLOR` sigue ganando.
+- **Se elige en Configuración › Tema** (`themes.go`):
+  - moverse con `↑↓` aplica el tema a toda la pantalla, con una muestra de
+    cada estilo;
+  - `enter` lo guarda en `config.yaml` (`theme: mono`) con `state.save`.
+    `ansi` se guarda vacío, porque es el valor por defecto;
+  - salir sin guardar (`close()`) vuelve al tema guardado.
+
+  `theme` es un campo nuevo de `config.Config`, y `mergeMissing` lo copia
+  del archivo. `NO_COLOR` sigue ganando: Bubble Tea quita el color al
+  escribir en la terminal.
 - **`applyTheme` reasigna las variables de `styles.go`:** ninguna pantalla
   cambia, y los tests sin color quedan iguales.
+  - `state.load` lo aplica al leer la config, así que el tema rige desde
+    que se abre la TUI.
+  - Un tema desconocido usa `ansi`, y la sección Tema avisa que no existe.
+- **El tema también cubre lo que no dibuja `styles.go`:** el pie de teclas
+  (`helpStyles`, que el marco asigna al dibujar) y los formularios de Huh
+  (`formTheme`, que usa `newPagedForm`). `mono` usa la base de Huh sin sus
+  pocos colores (botones en vídeo inverso, *placeholder* tenue).
+- En `ansi`, el pie conserva los estilos por defecto de Bubbles, que usan
+  grises en hexadecimal. Venía así desde la fase 4; pasarlo a ANSI básicos
+  cambiaría su aspecto y queda como mejora.
 
 ## 7. Tests
 

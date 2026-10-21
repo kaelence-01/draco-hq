@@ -77,7 +77,14 @@ func (s *settings) sections() []section {
 	default:
 		qa.ok, qa.status = true, "proyecto "+c.QAJira.Project+"; publica "+c.QAEmail
 	}
-	return []section{conn, prof, qa}
+	look := section{name: "Tema", ok: true, status: knownTheme(c.Theme)}
+	switch {
+	case c.Theme == "":
+		look.status += " (por defecto)"
+	case knownTheme(c.Theme) != c.Theme:
+		look.ok, look.status = false, "«"+c.Theme+"» no existe: se usa "+defaultTheme
+	}
+	return []section{conn, prof, qa, look}
 }
 
 func (s *settings) update(msg tea.Msg) (screen, tea.Cmd) {
@@ -97,8 +104,10 @@ func (s *settings) update(msg tea.Msg) (screen, tea.Cmd) {
 			return s, open(newConnection(s))
 		case 1:
 			return s, open(newProfiles(s.st))
+		case 2:
+			return s, open(newQAConfig(s))
 		}
-		return s, open(newQAConfig(s))
+		return s, open(newThemePicker(s))
 	case key.Matches(k, projectKey) && s.offerProject:
 		s.offerProject = false
 		ps := newProjects(s.st)

@@ -260,7 +260,7 @@ su parser. El release de la fase es `v0.2.2` (ver decisiones).
 | 4 | ✅ Aviso de versión nueva en el marco (`Deps.CheckUpdate`) | `feature/tui-aviso` | Con un aviso simulado, la cabecera y la principal lo muestran; sin aviso en `dev` ni con `DRACO_NO_UPDATE_CHECK`; ningún test usa la red |
 | 5a | ✅ Barra (1): descripción de los comandos y parser de `cmd` a un paquete neutro, flags con descripción; barra con autocompletado y pantalla Ayuda | `feature/tui-barra` | `draco help` y los tests de `cmd` sin cambios; cada flag en la ayuda de su comando; sugerencias de comandos, flags y valores probadas con tablas |
 | 5b | ✅ Barra (2): cada comando abre su pantalla con los datos cargados | `feature/tui-barra-ejecutar` | `/g -i OPS-7 -b a1b2c3d` llega a Commits con el hash marcado (test); un flag sin pantalla se explica; los ejemplos del panel funcionan en la barra |
-| 6 | ⬜ Temas: `ansi`, `alto-contraste` y `mono`, elegidos en Configuración | `feature/tui-temas` | El tema se guarda en `config.yaml` y se aplica al abrir; cada tema funciona en 80 columnas; `mono` sin color |
+| 6 | ✅ Temas: `ansi`, `alto-contraste` y `mono`, elegidos en Configuración | `feature/tui-temas` | El tema se guarda en `config.yaml` y se aplica al abrir; cada tema funciona en 80 columnas; `mono` sin color |
 | 7 | ⬜ Cierre de la fase 6 y release `v0.2.2` | `docs/cierre-fase-6` | `v0.2.2` instalado con `draco update`; Configuración y la barra abiertas desde el binario instalado |
 
 Configuración va primero: es la única entrada atenuada del menú, y sin ella

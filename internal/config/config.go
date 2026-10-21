@@ -211,6 +211,10 @@ type Config struct {
 	// DeployChecklist are the "A considerar" steps of a new deploy document.
 	// Stack-specific, so config, never compiled in (P-008).
 	DeployChecklist []string `yaml:"deploy_checklist,omitempty"`
+
+	// Theme is the visual mode's theme (ansi, alto-contraste, mono); empty
+	// is ansi.
+	Theme string `yaml:"theme,omitempty"`
 }
 
 // ResolveDeployChecklist returns project > global > nil (the builder's default).
@@ -326,6 +330,9 @@ func mergeMissing(cfg, fileCfg *Config) {
 	}
 	if cfg.Profiles == nil {
 		cfg.Profiles = fileCfg.Profiles
+	}
+	if cfg.Theme == "" {
+		cfg.Theme = fileCfg.Theme
 	}
 }
 
