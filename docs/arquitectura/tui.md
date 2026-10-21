@@ -5,11 +5,13 @@ de la terminal: menús, listas, formularios y vista previa. Es otra forma de
 recorrer **los mismos flujos** que el modo comando; no tiene lógica propia de
 negocio.
 
-Estado: **fases 4 y 5 cerradas**. Implementado: la base (entrada, marco, pila
-de pantallas, pantalla principal), Proyectos, Generar y QA completos, de la
-tarea o el sprint a la publicación, Exportar y Backlog. Configuración, la
-barra de comandos, los temas y el aviso de versión nueva llegan en la fase 6.
-Se actualiza al implementar cada actividad. Las reglas para escribir una
+Estado: **fases 4, 5 y 6 cerradas**; el diseño de cada pantalla está en el
+§6. Implementado: la base (entrada, marco, pila de pantallas, pantalla
+principal), Proyectos, Generar y QA completos, de la tarea o el sprint a la
+publicación, Exportar, Backlog, Configuración (conexión, perfiles y QA), el
+aviso de versión nueva, la barra de comandos (que abre cada pantalla con los
+datos de la línea), la Ayuda y los temas. Se
+actualiza al implementar cada actividad. Las reglas para escribir una
 pantalla están en el §10 y son obligatorias.
 
 ## 1. Alcance por fase
@@ -18,11 +20,12 @@ pantalla están en el §10 y son obligatorias.
 |---|---|
 | 4 | Principal, Proyectos, Generar documento (selector de commits, vista previa, ubicación con búsqueda, confirmación) |
 | 5 | Backlog (tabla filtrable), QA (progreso en vivo), Exportar |
-| 6 | Barra de comandos con autocompletado, configuración (perfiles, credenciales) en formularios, temas, ayuda, aviso de versión nueva |
+| 6 | Configuración (conexión, perfiles, QA, tema) en formularios, aviso de versión nueva, barra de comandos con autocompletado, ayuda, temas |
 
 Mientras una pantalla no existe, su entrada del menú aparece atenuada con el
-comando equivalente (hoy solo Configuración, con `draco init`): quien abre
-la TUI sabe que la función existe y cómo usarla hoy.
+comando equivalente: quien abre la TUI sabe que la función existe y cómo
+usarla hoy. Desde la fase 6 todas las entradas tienen pantalla; la regla
+queda para las funciones que lleguen después.
 
 ## 2. Librerías
 
@@ -55,8 +58,9 @@ draco <comando> …                                 →  modo comando, sin cambi
   `cmd` (`runTUI`), que los tests reemplazan: un test nunca abre la TUI real.
 - `Start` no cambia: si el binario no está instalado, la oferta de instalación
   va primero y, sin argumentos, termina ahí (doble clic en Windows).
-- El aviso de versión nueva no se muestra en la TUI hasta la fase 6
-  (`checksUpdates` ya lo omite sin argumentos).
+- Sin argumentos, `checksUpdates` omite el aviso de texto de versión nueva:
+  desde la fase 6 lo muestra la TUI en su marco, con las mismas reglas (§6,
+  «Aviso de versión nueva»).
 - `NO_COLOR` se respeta (Lip Gloss v2 lo detecta).
 
 ## 4. Paquete `internal/tui`
@@ -65,7 +69,7 @@ draco <comando> …                                 →  modo comando, sin cambi
 internal/tui/
   tui.go        Run(ctx, Deps) error; Deps: las dependencias que pasa cmd
   app.go        modelo raíz: pila de pantallas, tamaño, cabecera, pie, teclas globales
-  styles.go     estilos de Lip Gloss en un solo lugar (base para temas, fase 6)
+  styles.go     estilos de Lip Gloss en un solo lugar y los temas (applyTheme)
   logo.go       DRACO en letras grandes
   home.go       pantalla principal (menú y panel de la función elegida)
   projects.go   Proyectos: lista con filtro, activo, por defecto, borrar
@@ -82,6 +86,15 @@ internal/tui/
   findings.go   Backlog: hallazgos con filtro y detalle
   qa.go         QA: formulario y evaluación en vivo
   docrun.go     docRun: lo que vista previa, ubicación y publicar piden a Generar y a QA
+  settings.go   Configuración: secciones con su estado y asistente sin configuración
+  connection.go Configuración: conexión con Atlassian y verificación de la cuenta
+  profiles.go   Configuración: perfiles, con filtro y detalle
+  profileform.go  formulario de Huh para crear y editar un perfil
+  qaconfig.go   Configuración: qa_email, qa_report y qa_jira, en páginas
+  cmdbar.go     barra de comandos de la principal: sugerencias y lectura de la línea
+  barrun.go     barra de comandos: cada comando abre su pantalla con los datos
+  themes.go     Configuración: tema, con vista previa en vivo
+  helpscreen.go Ayuda: la general y la de cada comando
 ```
 
 `cmd` importa `tui`; `tui` nunca importa `cmd`. Lo que `cmd` reemplaza en los
@@ -97,10 +110,14 @@ type Deps struct {
     OpenProfile func(*config.Config, profile.Options) (*profile.Bundle, error) // Generar (4a)
     Scan        func(context.Context, string, backlog.ScanOptions) (*backlog.Report, error) // Backlog
     Now         func() time.Time                                               // QA: fecha y ventana Kanban
+    CheckUpdate func(context.Context) string                                   // aviso de versión nueva
+    Commands    []cli.Command                                                  // barra de comandos (commandSpecs)
+    Help        func(name string) (string, error)                              // Ayuda (helpText)
 }
 ```
 
-Cada campo llega con la primera pantalla que lo usa.
+Cada campo llega con la primera pantalla que lo usa; su diseño está en el
+§6.
 
 Igual que el modo comando, la TUI arma los adaptadores con `profile.Open` y
 habla con los flujos; nunca con un adaptador.
@@ -128,8 +145,9 @@ habla con los flujos; nunca con un adaptador.
   | `close()` | Soltar lo que la pantalla lanzó al cerrarse: cancela el `context` de un paso en curso |
 
   `open(s)` apila; `esc` (o el mensaje `back`) cierra la de arriba, llama a
-  su `close()` y vuelve a la anterior. `toHome` cierra todas hasta la
-  principal (al terminar de publicar).
+  su `close()` y vuelve a la anterior. `backTo(s)` cierra las que están
+  sobre `s` (al terminar el asistente de Configuración), y `toHome` cierra
+  todas hasta la principal (al terminar de publicar).
 - **Teclas globales:** `ctrl+c` sale siempre; `q` sale desde la principal;
   `?` muestra la ayuda completa de teclas de la pantalla (`bubbles/help`);
   `esc` vuelve. Las tres últimas ceden ante `captures`, y el pie no ofrece
@@ -156,22 +174,22 @@ habla con los flujos; nunca con un adaptador.
 ## 6. Pantallas
 
 Fase 4: Principal, Proyectos y Generar. Fase 5: Exportar, Backlog y
-Consolidado QA, y lo que QA comparte con Generar.
+Consolidado QA, y lo que QA comparte con Generar. Fase 6: Configuración,
+aviso de versión nueva, barra de comandos, Ayuda y temas.
 
 ### Principal
 
 - DRACO en letras grandes con caracteres de bloque (ninguna terminal común
   muestra el logo como imagen). Si el ancho no alcanza, solo `draco`.
 - Menú: Generar documento, Proyectos, Consolidado QA, Exportar página,
-  Backlog técnico, Configuración. Atenuada, la que aún no tiene pantalla:
-  Configuración, que llega en la fase 6.
+  Backlog técnico, Configuración. Todas tienen pantalla desde la fase 6.
 - **Panel de la función elegida**, a la derecha del menú: qué hace y el mismo
   trabajo en modo comando con un ejemplo (`$ draco g -i OPS-7 -b a1b2c3d`), y
   si aún no tiene pantalla, lo dice. Enseña que los dos modos son uno. Si el
   ancho no alcanza (menos de 96 columnas), no hay panel y cada función sin
   pantalla muestra su comando en el menú.
-- Sin configuración: la principal lo dice y propone `draco init` (los
-  formularios de configuración son de la fase 6).
+- Sin configuración: la principal lo dice y propone abrir Configuración (o
+  `draco init`), que arranca como asistente (§6, «Configuración»).
 
 ### Proyectos
 
@@ -357,6 +375,229 @@ type docRun interface {
   resultado dice «Consolidado creado» o «actualizado».
 - Los tests de Generar pasaron sin cambios.
 
+### Configuración
+
+Lo que hacen `draco init` y `draco profile`, con sus mismas reglas, en
+formularios.
+
+- **Primero, el núcleo sale de `cmd`** (como el del backlog en la fase 5).
+  Tres reglas que vivían ahí son ahora funciones puras, y `draco init` y
+  `draco profile` las usan sin cambiar su salida (sus tests pasaron sin
+  cambios):
+  - `config.KeepImplicitProfile`: agregar el primer perfil también guarda
+    el implícito (`atlassian`) y lo deja por defecto, para que los comandos
+    que lo usaban sigan igual;
+  - `config.NormalizeBaseURL`: la URL del sitio empieza con `https://` y se
+    guarda sin espacios ni `/` final;
+  - `profile.SameAccount`: el email guardado es el de la cuenta autenticada
+    (una cuenta que oculta su email cuenta como la misma).
+- **Pantalla Configuración:** una lista de secciones, cada una con su
+  estado (`✓` lo que tiene, `⚠` lo que falta): Conexión, Perfiles, QA y
+  Tema. `enter` abre la elegida.
+- **Conexión** (formulario de Huh): email, API token y URL del sitio.
+  - El formulario parte del archivo (`LoadFile`), nunca del entorno.
+  - El token no se muestra al escribirlo (`EchoModeNone`, como
+    `draco init`), así que tampoco se ve su largo. Vacío, conserva el
+    actual.
+  - Guardar usa `state.save`. Después, un `tea.Cmd` verifica la cuenta con
+    lo guardado, como `draco init`: `OpenProfile` sobre la config del
+    archivo, con `AnyScope`, y `Tracker.Me`. Muestra con quién se
+    autenticó. Si el email no es el de la cuenta, `s` lo corrige con otro
+    `state.save`.
+  - Una verificación fallida no deshace lo guardado, como en `draco init`:
+    dice qué revisar (email, token, URL).
+  - **Variables de entorno:** si `ATLASSIAN_EMAIL`, `ATLASSIAN_TOKEN` o
+    `ATLASSIAN_BASE_URL` definen un valor, la pantalla avisa que ese valor
+    gana sobre lo que se guarde al usar draco. La TUI no lee el entorno:
+    compara la config del estado (`LoadLocal`) con la del archivo
+    (`LoadFile`). El valor del entorno nunca se muestra ni se guarda.
+- **Perfiles:** como Proyectos, una lista con filtro y el detalle del
+  elegido (tracker, destino, space o carpeta, plantillas).
+  - Teclas: `d` por defecto, `n` nuevo, `e` editar y `x` eliminar (pide
+    `s`, y avisa si era el por defecto y quedan varios).
+  - Formulario en páginas: nombre (`ValidName`, no puede existir) y
+    destino; el space o la carpeta, según el destino; la carpeta de
+    plantillas y si queda por defecto. El tracker es Jira, el único: se
+    muestra, no se elige.
+  - Sin perfiles, la lista muestra el implícito `atlassian` y avisa que
+    agregar el primero también lo guarda.
+- **QA** (formulario de cuatro páginas, que parte del archivo):
+  1. `qa_email` y los nombres del encabezado (`qa_report`);
+  2. de `qa_jira`: proyecto, estados, estado de Testing y nombre del
+     sprint;
+  3. los tres campos `customfield_*`;
+  4. los prefijos de revisión y el marcador de observación.
+
+  Reglas:
+  - las listas se escriben separadas por comas (`config.SplitList`); los
+    valores por defecto se muestran en la descripción de su campo;
+  - con `qa_jira` vacío (`QAJiraConfig.Empty`) no se guarda esa sección,
+    porque QA es opcional; tampoco `qa_report` sin nombres;
+  - con algún campo de `qa_jira` escrito, `QAJiraConfig.Validate` muestra
+    todos los problemas a la vez sobre el formulario, que conserva lo
+    escrito y no guarda hasta corregirlos;
+  - el estado de la sección distingue sin configurar, incompleta, sin
+    `qa_email` y completa;
+  - la pantalla del consolidado, ante un `qa_jira` incompleto o un
+    `qa_email` que no es la cuenta, ahora remite a Configuración › QA.
+- **Sin configuración** (el archivo no tiene credenciales ni perfiles),
+  Configuración arranca como asistente, en el orden de `draco init`:
+  1. abre Conexión sola;
+  2. tras verificar, si el archivo no tiene perfiles, `enter` sigue con el
+     primer perfil. Como en `draco init`, no guarda el implícito y queda
+     por defecto;
+  3. al volver a Configuración, si no hay proyectos, `p` abre el
+     formulario de Proyectos (opcional).
+- La entrada del menú deja de estar atenuada; su ejemplo sigue siendo
+  `draco init`. El aviso de la principal dice «abre Configuración (o corre
+  draco init)».
+
+### Aviso de versión nueva
+
+- **`Deps.CheckUpdate func(context.Context) string`** devuelve la versión
+  nueva o `""`. En `cmd` es `latestVersion`, con las reglas del aviso de
+  texto:
+  - sin aviso en `dev` ni con `DRACO_NO_UPDATE_CHECK` (`updatesOff`, que
+    comparten los dos modos); la TUI solo abre en una terminal;
+  - con la caché de 24 h al día, responde sin red. Si no, consulta GitHub
+    con 3 s de límite, y ante un error usa la caché.
+
+  La TUI no conoce `updater`.
+- **Corre en un `tea.Cmd` al abrir** (`app.Init`); hasta que responde, no
+  se muestra nada.
+- **Con versión nueva:** la cabecera lo dice junto a la versión actual
+  (`draco v0.2.2 · v0.2.3 disponible`), del lado que nunca se recorta. La
+  principal explica cómo instalarla: «sal con q y corre draco update».
+- **No se actualiza desde la TUI:** `draco update` reemplaza el binario en
+  uso y escribe su progreso en la terminal, así que se corre fuera del modo
+  visual, como hoy.
+
+### Barra de comandos
+
+- **Cada comando se describe una sola vez,** en `internal/cli`:
+  - `cli.Command`: nombres (el primero es el nombre, los demás alias),
+    resumen, flags y subcomandos;
+  - `cli.Flag`, con `Desc` (una línea para las sugerencias);
+  - `cli.Parse`, el parser que antes era `parseFlags` de `cmd`.
+
+  `cmd` registra cada comando con sus `flags` y `subs`, y `commandSpecs()`
+  arma la lista que recibe la TUI en `Deps.Commands`. `cmd` sigue siendo
+  dueño de `run` y `help`, y la TUI nunca importa `cmd`. Un test de `cmd`
+  exige que cada flag y subcomando tenga descripción y aparezca en la ayuda
+  de su comando.
+- **`help` es propio de la barra** (`helpCommand`): el modo comando lo
+  atiende antes de su router, así que no está entre los comandos
+  registrados.
+- **Se abre con `/`, solo desde la principal** (y solo si hay
+  `Deps.Commands`). En las demás pantallas `/` ya filtra listas, y las que
+  tienen texto lo escriben. Una tecla global chocaría con los campos y con
+  las teclas de Huh (`ctrl+p` y `ctrl+n` recorren sus listas).
+- **Escribir:** una línea al pie del cuerpo de la principal, con `draco`
+  opcional (`/g …` o `/draco g …`). Mientras está abierta, el menú y el
+  panel se ocultan y queda el logo: así la línea, cinco sugerencias y un
+  mensaje caben en 80×24. Debajo aparecen sugerencias según lo escrito
+  (`suggest`, función pura):
+  - los comandos, con todos sus nombres y su resumen; completa el nombre
+    más corto que coincide (`g` para generate);
+  - después del comando, sus subcomandos y los flags que aún no se usaron,
+    con su descripción. Completa el flag corto si existe, o el largo si se
+    empezó con `--`;
+  - después de un flag con valor, los valores que la config conoce:
+    proyectos (`-p`), perfiles (`--profile`), `backend` o `frontend`
+    (`-r`). Un flag de valor opcional (`-o`) sigue ofreciendo flags;
+  - después de `help`, los nombres de los comandos.
+
+  Teclas: `↑↓` recorre las sugerencias, `tab` completa la elegida, `enter`
+  ejecuta y `esc` cierra. La barra se queda con todas las teclas mientras
+  está abierta (`q` y `?` se escriben).
+- **El campo es texto propio, como el filtro de las listas:** se escribe al
+  final y se borra con retroceso, sin mover el cursor dentro de la línea.
+  Las palabras se separan por espacios; un valor con espacios no se puede
+  escribir entre comillas.
+- **Leer la línea:** `enter` la lee con `readLine`, con el mismo parser y
+  los mismos flags que el modo comando. Un flag desconocido o sin valor, un
+  comando o un subcomando desconocidos son un error en la barra, igual que
+  en el comando salen con 2.
+- **Ejecutar es abrir la pantalla con los datos cargados** (`barrun.go`).
+  Se abre la pantalla del comando en el primer paso que el usuario debe
+  revisar. Un formulario con lo necesario se envía, y la pila queda como si
+  el usuario lo hubiera llenado: `esc` vuelve al formulario con los
+  valores.
+
+  | Comando | Abre |
+  |---|---|
+  | `g -i OPS-7 [-b …] [-f …] [-p …]` | Generar con el formulario enviado; en Commits, los hashes dados quedan marcados (por prefijo) o agregados a mano si no están en la lista |
+  | `qa [-s 12 -m Pagos]` | QA con el formulario enviado: la evaluación (sin `-s`, Kanban, como el comando) |
+  | `f -i OPS-7 [-s …]` | Exportar, ya buscando |
+  | `backlog scan […]` | Backlog: el análisis con las opciones de la línea |
+  | `backlog` | Backlog: el formulario, sin analizar (el comando muestra su ayuda) |
+  | `project` (`list`, `add`) | Proyectos, o su formulario nuevo |
+  | `init`, `profile …` (`add`) | Configuración: Conexión, Perfiles o su formulario nuevo |
+  | `help [comando]` | Ayuda |
+  | `version` | La versión, en la línea de la barra |
+
+  - Si falta un dato obligatorio (`g` o `f` sin `-i`), se abre el
+    formulario con lo que se dio. Un error del paso (un sprint inválido, un
+    repo que no es backend ni frontend) queda sobre el formulario, como si
+    se hubiera enviado.
+  - **Un `-p` que no existe es un error en la barra** (`cfg.GetProject`,
+    como en el modo comando). La lista de proyectos del formulario lo
+    reemplazaría por el primero, y Backlog analizaría otra cosa. Por lo
+    mismo, Generar y Backlog leen los valores de la línea antes de
+    reconstruir su formulario.
+  - Un `-b` o `-f` para un lado que el proyecto no tiene se ignora con un
+    aviso en Commits.
+  - Los flags que cada pantalla no toma (`barFlags`: `--dry-run`,
+    `--template`, `--space` de Generar, `--vcs-host`, `--vcs-org`,
+    `--profile`, `-o`, `--json`, `-l`) no abren nada. La barra explica que
+    se usan en la terminal; `--dry-run` sobra porque la vista previa no
+    publica. Con varios, se explica el primero en orden alfabético.
+  - Los comandos sin pantalla (`update`, `template`) se explican igual: se
+    corren fuera del modo visual.
+- **Los ejemplos del panel de la principal funcionan tal cual en la barra**
+  (un test lo comprueba).
+
+### Ayuda
+
+- `/help` abre la pantalla Ayuda. Muestra qué es draco, las teclas
+  globales, cómo se usa la barra y la lista de comandos con su resumen.
+- `/help g` muestra la ayuda del comando en un `viewport` que se desplaza
+  con `↑↓`. Es el mismo texto de `draco help generate`: `cmd` lo entrega sin
+  color por `Deps.Help` (`helpText`). Ningún texto de ayuda se escribe dos
+  veces. El título usa el nombre del comando («Ayuda de generate»), aunque se
+  pida por un alias; un comando que no existe es un error en la barra.
+- La tecla de la barra en el pie y en `?` dice «/ comando (/help: ayuda)».
+
+### Temas
+
+- **Un tema es el juego de estilos de `styles.go`**, siempre con colores
+  ANSI básicos (norma 9). Son tres, sin colores definidos por el usuario:
+  - `ansi`: el de hoy, por defecto;
+  - `alto-contraste`: colores brillantes y negrita en lo importante;
+  - `mono`: sin color, solo negrita, tenue y subrayado.
+- **Se elige en Configuración › Tema** (`themes.go`):
+  - moverse con `↑↓` aplica el tema a toda la pantalla, con una muestra de
+    cada estilo;
+  - `enter` lo guarda en `config.yaml` (`theme: mono`) con `state.save`.
+    `ansi` se guarda vacío, porque es el valor por defecto;
+  - salir sin guardar (`close()`) vuelve al tema guardado.
+
+  `theme` es un campo nuevo de `config.Config`, y `mergeMissing` lo copia
+  del archivo. `NO_COLOR` sigue ganando: Bubble Tea quita el color al
+  escribir en la terminal.
+- **`applyTheme` reasigna las variables de `styles.go`:** ninguna pantalla
+  cambia, y los tests sin color quedan iguales.
+  - `state.load` lo aplica al leer la config, así que el tema rige desde
+    que se abre la TUI.
+  - Un tema desconocido usa `ansi`, y la sección Tema avisa que no existe.
+- **El tema también cubre lo que no dibuja `styles.go`:** el pie de teclas
+  (`helpStyles`, que el marco asigna al dibujar) y los formularios de Huh
+  (`formTheme`, que usa `newPagedForm`). `mono` usa la base de Huh sin sus
+  pocos colores (botones en vídeo inverso, *placeholder* tenue).
+- En `ansi`, el pie conserva los estilos por defecto de Bubbles, que usan
+  grises en hexadecimal. Venía así desde la fase 4; pasarlo a ANSI básicos
+  cambiaría su aspecto y queda como mejora.
+
 ## 7. Tests
 
 - Sin terminal ni red: los tests llaman a `Update` con mensajes (teclas,
@@ -379,6 +620,16 @@ type docRun interface {
   otro, QA. Exportar guarda en una carpeta temporal y comprueba el texto.
 - Backlog usa un `Scan` simulado (`Deps.Scan`) con reportes fijos, y un test
   real de `internal/backlog` cubre la cancelación del `context`.
+- **Configuración:** cada test que guarda comprueba que el token del
+  entorno no llega al archivo y que el token escrito sí llega, pero nunca
+  aparece en `View`. La verificación de la cuenta usa un tracker simulado
+  (`Me`).
+- **Barra:** el análisis de la línea y las sugerencias son funciones puras,
+  probadas con tablas. Hay un test por fila de la tabla de comandos (cada
+  uno abre su pantalla con los datos), y otro para el flag desconocido.
+  `cmd` suma el test de que cada flag está en la ayuda de su comando.
+- **Aviso:** un `CheckUpdate` simulado; ningún test usa la red.
+- **Temas:** la vista de cada tema en 80 columnas; `mono` no emite color.
 - **Nunca ejecutar un binario recién compilado** (instalador); `make run`
   usa `go run`.
 
@@ -419,6 +670,17 @@ Terminal y una terminal de Linux o WSL.
 | Hallazgos sin límite, en una lista desplazable | `--limit` existe porque la salida de texto no se desplaza |
 | QA evalúa una tarea por comando | Progreso en vivo y cancelación entre tareas, sin tocar el flujo |
 | Vista previa, ubicación y publicar compartidos por una interfaz de la TUI | QA tiene los mismos pasos que Generar; copiarlas duplicaría las reglas de `NotPreserved` y de publicar sin salida a medias |
+| Reglas de `init` y `profile` de `cmd` a funciones puras (perfil implícito, URL, cuenta) | La TUI no importa `cmd`; copiarlas daría dos formas de configurar que guardan distinto |
+| El entorno se detecta comparando la config del estado con la del archivo | La TUI no lee variables de entorno ni puede mostrar o guardar su valor por error |
+| El token sin eco (`EchoModeNone`) y la verificación con lo guardado | Lo mismo que `draco init`: ni el largo del token queda a la vista, y se verifica lo que se escribió, no un valor del entorno |
+| La barra abre la pantalla con los datos, no ejecuta el comando de texto | Lo que el comando pregunta por texto, la TUI ya lo pregunta con sus pantallas; dos interfaces en una pantalla confundirían |
+| La barra solo desde la principal | En las demás `/` filtra o se escribe, y una tecla global choca con Huh |
+| Descripción de los comandos y parser en un paquete neutro, pasados por `Deps` | Una sola fuente para la ayuda, el parser y el autocompletado; la TUI no importa `cmd` |
+| Ayuda de un comando desde `cmd` (`Deps.Help`) | Sin texto de ayuda duplicado que se desactualice |
+| Campo de la barra propio, como el filtro, y no `textinput` | Mismo comportamiento que el filtro de las listas y tests sin el cursor parpadeante; mover el cursor dentro de la línea queda como mejora |
+| Con la barra abierta, la principal oculta el menú y el panel | El menú no se usa mientras se escribe, y sin él la línea, las sugerencias y el mensaje caben en 80×24 |
+| Aviso de versión en el marco; actualizar fuera de la TUI | `draco update` reemplaza el binario en uso y escribe en la terminal |
+| Tres temas incluidos, solo con colores ANSI básicos | Siguen la paleta de la terminal (norma 9); colores del usuario romperían el contraste en terminales claras u oscuras |
 
 ## 10. Normas para escribir una pantalla
 
@@ -445,7 +707,9 @@ Obligatorias para toda pantalla nueva o modificada (las resume `CLAUDE.md`):
    `config` + `SaveConfig`. Nunca se guarda lo leído con `LoadLocal`.
 8. **Menú y panel:** toda función nueva entra en el menú de la principal con
    su descripción y un ejemplo del comando equivalente (datos genéricos:
-   `OPS-7`, `pagos`, `mi-org`). Sin pantalla, queda atenuada.
+   `OPS-7`, `pagos`, `mi-org`). Sin pantalla, queda atenuada. Si tiene
+   comando, la barra la abre (`openFromBar`, con sus flags en `barFlags`),
+   y su ejemplo funciona en la barra.
 9. **Estilos solo de `styles.go`**, con colores ANSI básicos. Sin emojis;
    símbolos de un ancho (`▸ ✓ ⚠ ✗ ●`). Cada vista funciona en 80 columnas y
    aprovecha las anchas (como el panel desde 96). Un texto que no cabe

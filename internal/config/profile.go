@@ -119,6 +119,25 @@ func (c *Config) SetProfile(name string, p *Profile) error {
 	return nil
 }
 
+// KeepImplicitProfile saves the implicit profile, as the default, before the
+// first profile named name is added, so the commands that used it keep
+// working. It returns the profile it saved, or nil when there was nothing to
+// keep.
+func (c *Config) KeepImplicitProfile(name string) (*Profile, error) {
+	if len(c.Profiles) > 0 || name == LegacyProfile {
+		return nil, nil
+	}
+	implicit, _, err := c.Profile("")
+	if err != nil {
+		return nil, err
+	}
+	if err := c.SetProfile(LegacyProfile, implicit); err != nil {
+		return nil, err
+	}
+	c.DefaultProfile = LegacyProfile
+	return implicit, nil
+}
+
 // RemoveProfile deletes a profile; when it was the default, there is no
 // default afterwards.
 func (c *Config) RemoveProfile(name string) error {

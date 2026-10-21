@@ -46,13 +46,15 @@ make push [force=1]       # sube la rama actual (lo corre el autor: SSH)
 make pr [web=1]           # PR de la rama actual hacia develop
 make finish               # tras fusionar: develop al día y ramas fusionadas borradas
 make release-build ver=vX.Y.Z    # binarios de todas las plataformas + checksums.txt en dist/
+make promote              # develop → main: PR con merge commit, fusión confirmada, main y develop al día (lo corre el autor)
 make release bump=patch|minor|major  # tag y GitHub Release desde main (lo corre el autor)
 ```
 
 `make sync` actualiza `develop` solo con *fast-forward*: si `develop` local se
 desvió de `origin/develop`, falla en vez de mezclar. Ningún objetivo escribe
-commits en `main`: `make release` solo etiqueta `main` ya integrada, limpia e
-igual a `origin/main` (guía: `docs/release.md`). Las fases 5 y 6 se publican
+commits locales en `main`: `make promote` fusiona en GitHub, siempre con
+*merge commit* y después de preguntar, y `make release` solo etiqueta `main`
+ya integrada, limpia e igual a `origin/main` (guía: `docs/release.md`). Las fases 5 y 6 se publican
 como *patch* de `v0.2.x` (`bump=patch`: `v0.2.1`, `v0.2.2`…); el *minor* no
 sube hasta que el autor lo decida (roadmap). Las plataformas del release
 (`PLATFORMS` del Makefile) y `updater.Platforms` deben coincidir; un test lo
@@ -71,6 +73,9 @@ cmd/           Modo comando: router de mapa, flags por comando, ayuda en dos
                niveles, códigos de salida (0 ok, 1 error, 2 uso)
 internal/
   build/       Versión (ldflags)
+  cli/         Descripción de los comandos (nombres, subcomandos, flags con
+               su descripción) y el parser de flags, que usan cmd y la barra
+               de comandos de la TUI
   installer/   Instalación en el primer uso: copia a ~/.local/bin o
                %LOCALAPPDATA%\Programs\draco y agrega la carpeta al PATH
   updater/     Releases de GitHub: última versión, descarga verificada con
@@ -173,11 +178,16 @@ Cada flujo vive en su propio paquete (`internal/deploy` es la referencia) y
 
 ### El modo comando (`cmd/`)
 
-- Un comando se registra con `register(&command{run, help, summary}, nombres…)`;
-  `TestEveryCommandHasHelpAndSummary` exige las tres cosas.
-- Los flags se declaran por comando (`[]flag`) y se leen con `parseFlags`: un
-  flag desconocido o sin valor es un error de uso (sale con 2), nunca se
-  ignora; solo un flag `optional` (`-o` de `backlog scan`) puede ir sin valor. `-h`/`--help` muestra la ayuda y **nunca ejecuta** el comando.
+- Un comando se registra con `register(&command{run, help, summary, flags,
+  subs}, nombres…)`; `TestEveryCommandHasHelpAndSummary` exige las tres
+  primeras. `flags` y `subs` lo describen para la barra de comandos de la TUI
+  (`commandSpecs`).
+- Los flags se declaran por comando (`[]cli.Flag`, cada uno con `Desc`) y se
+  leen con `cli.Parse`: un flag desconocido o sin valor es un error de uso
+  (sale con 2), nunca se ignora; solo un flag `Optional` (`-o` de
+  `backlog scan`) puede ir sin valor. `TestEveryFlagIsDescribedAndInItsHelp`
+  exige que cada flag y subcomando tenga descripción y aparezca en la ayuda.
+  `-h`/`--help` muestra la ayuda y **nunca ejecuta** el comando.
 - Los comandos que **guardan** la config la leen con `config.LoadFile` (solo
   el archivo), nunca con `LoadLocal`: este mezcla las variables `ATLASSIAN_*`
   y un token del entorno terminaría escrito en el disco.
@@ -213,7 +223,8 @@ esencial:
   nunca lo leído con `LoadLocal`.
 - Toda función entra en el menú de la principal con su descripción y un
   ejemplo del comando equivalente, que el **panel** muestra; sin pantalla,
-  atenuada.
+  atenuada. Si tiene comando, la **barra** (`/`) abre su pantalla con los
+  datos de la línea (`openFromBar`, `barFlags`) y el ejemplo funciona ahí.
 - Estilos solo de `styles.go` (ANSI básicos), sin emojis, símbolos de un
   ancho; cada vista funciona en 80 columnas, y un texto largo (error, URL)
   pasa a la línea siguiente, nunca se corta.

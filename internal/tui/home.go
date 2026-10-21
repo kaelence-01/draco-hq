@@ -32,6 +32,7 @@ type home struct {
 	items  []menuItem
 	cursor int
 	note   string
+	bar    *cmdBar // nil while closed
 }
 
 func newHome(st *state) *home {
@@ -46,20 +47,41 @@ func newHome(st *state) *home {
 			desc: "Busca el documento de una tarea y lo guarda como texto."},
 		{label: "Backlog técnico", example: "draco backlog scan", open: func(st *state) screen { return newBacklogForm(st) },
 			desc: "Detecta deuda técnica en tus repos locales y la propone como tareas. Sin red."},
-		{label: "Configuración", example: "draco init",
+		{label: "Configuración", example: "draco init", open: func(st *state) screen { return newSettings(st) },
 			desc: "Credenciales, perfiles (tracker y destino de los documentos) y el primer proyecto."},
 	}}
 }
 
-func (h *home) title() string       { return "Inicio" }
-func (h *home) keys() []key.Binding { return []key.Binding{upKey, downKey, enterKey, exitKey} }
+func (h *home) title() string { return "Inicio" }
+
+func (h *home) keys() []key.Binding {
+	switch {
+	case h.bar != nil:
+		return h.bar.keys()
+	case len(h.st.deps.Commands) > 0:
+		return []key.Binding{upKey, downKey, enterKey, barKey, exitKey}
+	}
+	return []key.Binding{upKey, downKey, enterKey, exitKey}
+}
+
+// captures gives every key to the command bar while it is open.
+func (h *home) captures(tea.KeyPressMsg) bool { return h.bar != nil }
 
 func (h *home) update(msg tea.Msg) (screen, tea.Cmd) {
 	k, ok := msg.(tea.KeyPressMsg)
 	if !ok {
 		return h, nil
 	}
+	if h.bar != nil {
+		cmd, closed := h.bar.handle(k)
+		if closed {
+			h.bar = nil
+		}
+		return h, cmd
+	}
 	switch {
+	case key.Matches(k, barKey) && len(h.st.deps.Commands) > 0:
+		h.bar, h.note = &cmdBar{st: h.st}, ""
 	case key.Matches(k, exitKey):
 		return h, tea.Quit
 	case key.Matches(k, upKey):
@@ -91,6 +113,12 @@ func command(example string) string {
 }
 
 func (h *home) view(width, height int) string {
+	if h.bar != nil {
+		// The menu is not used while typing; without it, the bar fits in 24 lines.
+		bar := h.bar.view(width)
+		top := lipgloss.JoinVertical(lipgloss.Center, logo(width), faintStyle.Render("Documenta despliegues desde la terminal"))
+		return lipgloss.JoinVertical(lipgloss.Left, lipgloss.Place(width, max(height-lipgloss.Height(bar), 0), lipgloss.Center, lipgloss.Center, top), bar)
+	}
 	labelWidth := 0
 	for _, it := range h.items {
 		labelWidth = max(labelWidth, lipgloss.Width(it.label))
@@ -121,6 +149,9 @@ func (h *home) view(width, height int) string {
 	blocks := []string{logo(width), faintStyle.Render("Documenta despliegues desde la terminal"), ""}
 	if h.st.notice != "" {
 		blocks = append(blocks, warnStyle.Render("⚠ "+h.st.notice), "")
+	}
+	if v := h.st.newVersion; v != "" {
+		blocks = append(blocks, warnStyle.Render("Nueva versión "+v+" (tienes "+h.st.deps.Version+"): sal con q y corre draco update"), "")
 	}
 	blocks = append(blocks, body)
 	if h.note != "" {

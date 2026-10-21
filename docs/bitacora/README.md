@@ -74,6 +74,20 @@ Sin entradas: se hizo antes de que existiera la bitácora.
 | [037](./fase-5/037-tui-qa.md) | QA en la TUI (1): cuenta, tareas y evaluación en vivo | `feature/tui-qa` | 2026-10-20 | Formulario de sprint o Kanban; cuenta, tareas y una fila por tarea al evaluarse, con copia propia de las filas; `ErrNotQAAccount` y `ErrNoQA` explicados; `Deps.Now` |
 | [038](./fase-5/038-tui-qa-publicar.md) | QA en la TUI (2): vista previa, ubicación y publicar compartidos | `feature/tui-qa-publicar` | 2026-10-20 | `docRun` con adaptadores de Generar y QA; el consolidado se publica desde la TUI; tests de Generar sin cambios; pie de teclas dentro del ancho |
 | [039](./fase-5/039-cierre-fase-5.md) | Cierre de la fase 5 | `docs/cierre-fase-5` | 2026-10-21 | Fase 5 cerrada sin las pruebas manuales (decisión del autor); fases 5 y 6 como *patch* de `v0.2.x`: release `v0.2.1` a cargo del autor |
+| [040](./fase-5/040-make-promote.md) | `make promote`: develop → main | `feature/make-promote` | 2026-10-21 | PR de `develop` a `main` creado o reutilizado, fusión confirmada solo con *merge commit* y ramas locales al día con *fast-forward*; probado con un remoto local y un `gh` simulado |
+
+### Fase 6 — Configuración, barra de comandos y temas
+
+| # | Actividad | Rama | Fecha | Resumen |
+|---|---|---|---|---|
+| [041](./fase-6/041-plan-fase-6.md) | Diseño de las pantallas y plan de la fase 6 | `docs/plan-fase-6` | 2026-10-21 | Configuración, aviso de versión, barra, Ayuda y temas en `tui.md` §6; reglas de `init`/`profile` y descripción de los comandos fuera de `cmd`; la barra abre pantallas con datos; la fase en 8 actividades, release `v0.2.2` |
+| [042](./fase-6/042-tui-config.md) | Configuración en la TUI (1): conexión, perfiles y asistente | `feature/tui-config` | 2026-10-21 | Reglas de `init`/`profile` a funciones puras; conexión con token sin eco y verificación de la cuenta; perfiles con filtro y formulario; asistente sin configuración; aviso del entorno sin leerlo |
+| [043](./fase-6/043-tui-config-qa.md) | Configuración en la TUI (2): QA | `feature/tui-config-qa` | 2026-10-21 | `qa_email`, `qa_report` y `qa_jira` en un formulario de cuatro páginas; `Validate` muestra todos los problemas sin guardar; `qa_jira` vacío no se guarda; lo guardado lo acepta `qa.Resolve` |
+| [044](./fase-6/044-tui-aviso.md) | Aviso de versión nueva en la TUI | `feature/tui-aviso` | 2026-10-21 | `Deps.CheckUpdate` con la caché y las reglas del aviso de texto (`updatesOff` compartido); la cabecera y la principal lo muestran; actualizar sigue fuera de la TUI |
+| [045](./fase-6/045-tui-barra.md) | Barra de comandos (1): descripción de los comandos, sugerencias y Ayuda | `feature/tui-barra` | 2026-10-21 | `internal/cli` con el parser y la descripción de cada comando (flags con `Desc`); barra en la principal con sugerencias de comandos, flags y valores; Ayuda general y de cada comando con el texto de `draco help` |
+| [046](./fase-6/046-tui-barra-ejecutar.md) | Barra de comandos (2): cada comando abre su pantalla | `feature/tui-barra-ejecutar` | 2026-10-21 | `openFromBar`: formularios enviados con los datos de la línea, hashes marcados en Commits, flags sin pantalla explicados; un `-p` desconocido es un error, como en el modo comando |
+| [047](./fase-6/047-tui-temas.md) | Temas del modo visual | `feature/tui-temas` | 2026-10-21 | `ansi`, `alto-contraste` y `mono` con `applyTheme` (estilos, pie y formularios); `theme` en la config; Configuración › Tema con vista previa en vivo; `mono` sin códigos de color |
+| [048](./fase-6/048-cierre-fase-6.md) | Cierre de la fase 6 | `docs/cierre-fase-6` | 2026-10-21 | Fase 6 cerrada; pruebas manuales pendientes reunidas; release `v0.2.2` (primer uso de `make promote`) a cargo del autor |
 
 ## Formato de cada entrada
 

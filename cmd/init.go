@@ -51,15 +51,14 @@ func runInit(a *App, args []string) error {
 		return err
 	}
 	for {
-		if cfg.BaseURL, err = a.askValue("URL del sitio (ej: https://empresa.atlassian.net)", cfg.BaseURL, true); err != nil {
+		url, err := a.askValue("URL del sitio (ej: https://empresa.atlassian.net)", cfg.BaseURL, true)
+		if err != nil {
 			return err
 		}
-		cfg.BaseURL = strings.TrimRight(cfg.BaseURL, "/")
-		if strings.HasPrefix(cfg.BaseURL, "https://") {
+		if cfg.BaseURL, err = config.NormalizeBaseURL(url); err == nil {
 			break
 		}
-		a.warn("la URL debe empezar con https://")
-		cfg.BaseURL = ""
+		a.warn(err.Error())
 	}
 
 	if len(cfg.Profiles) == 0 {
@@ -140,7 +139,7 @@ func (a *App) verifyAccount(cfg *config.Config) error {
 	if err != nil {
 		return fmt.Errorf("no se pudo validar las credenciales: %w. Revisa email, token y URL, y vuelve a correr draco init", err)
 	}
-	if u.Email == "" || strings.EqualFold(u.Email, cfg.AtlassianEmail) {
+	if profile.SameAccount(cfg.AtlassianEmail, u) {
 		a.ok(fmt.Sprintf("Autenticado como %s", strings.TrimSpace(u.Name+" "+parens(u.Email))))
 		return nil
 	}

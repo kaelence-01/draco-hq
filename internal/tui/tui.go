@@ -10,6 +10,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/kaelence-01/draco-hq/internal/backlog"
+	"github.com/kaelence-01/draco-hq/internal/cli"
 	"github.com/kaelence-01/draco-hq/internal/config"
 	"github.com/kaelence-01/draco-hq/internal/profile"
 )
@@ -28,6 +29,13 @@ type Deps struct {
 	Scan func(context.Context, string, backlog.ScanOptions) (*backlog.Report, error)
 	// Now is the time of the QA report and its Kanban window.
 	Now func() time.Time
+	// CheckUpdate returns a newer published version, or "" (also when the
+	// notice is off).
+	CheckUpdate func(context.Context) string
+	// Commands describe the commands of the command mode, for the command
+	// bar; Help is the text of draco help <name>.
+	Commands []cli.Command
+	Help     func(name string) (string, error)
 }
 
 // Run shows the visual mode on a terminal until the user quits.
@@ -45,6 +53,7 @@ type state struct {
 	tracker, docs string
 	project       string // active project of this session, never saved
 	notice        string // a problem with the config, shown on the home screen
+	newVersion    string // a newer published version, once CheckUpdate answers
 }
 
 func loadState(d Deps) *state {
@@ -63,6 +72,7 @@ func (st *state) load() {
 		return
 	}
 	st.cfg = cfg
+	applyTheme(cfg.Theme)
 	_, st.project, _ = cfg.GetProject("")
 	if _, ok := cfg.Projects[active]; ok {
 		st.project = active
@@ -74,7 +84,7 @@ func (st *state) load() {
 	}
 	st.profile, st.tracker, st.docs = name, p.Tracker.Provider, p.Docs.Provider
 	if (st.tracker == "jira" || st.docs == "confluence") && !cfg.HasAtlassianCredentials() {
-		st.notice = "Falta configurar la conexión con Atlassian: corre draco init"
+		st.notice = "Falta configurar la conexión con Atlassian: abre Configuración (o corre draco init)"
 	}
 }
 

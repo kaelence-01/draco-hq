@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"net/http"
@@ -141,6 +142,28 @@ func TestStartShowsTheNewVersionNotice(t *testing.T) {
 	}
 	if code, out, _ := run("project", "list"); code != exitOK || strings.Contains(out, "Nueva versión") {
 		t.Error("fuera de una terminal nunca hay aviso")
+	}
+}
+
+func TestVisualModeLearnsTheNewVersion(t *testing.T) {
+	releaseEnv(t, "v0.1.0", "v0.2.0", nil, "")
+	if got := latestVersion(context.Background()); got != "v0.2.0" {
+		t.Fatalf("la TUI recibe la versión nueva: %q", got)
+	}
+	silent := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { t.Error("con la caché al día no se consulta GitHub") }))
+	t.Cleanup(silent.Close)
+	newUpdater = func() *updater.Client { return &updater.Client{API: silent.URL, HTTP: silent.Client()} }
+	if got := latestVersion(context.Background()); got != "v0.2.0" {
+		t.Errorf("la versión sale de la caché: %q", got)
+	}
+	t.Setenv("DRACO_NO_UPDATE_CHECK", "1")
+	if got := latestVersion(context.Background()); got != "" {
+		t.Errorf("DRACO_NO_UPDATE_CHECK lo apaga: %q", got)
+	}
+	t.Setenv("DRACO_NO_UPDATE_CHECK", "")
+	build.Version = "dev"
+	if got := latestVersion(context.Background()); got != "" {
+		t.Errorf("una versión de desarrollo no avisa: %q", got)
 	}
 }
 

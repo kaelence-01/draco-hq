@@ -57,6 +57,14 @@ func TestLoadLocalReadsProjectsWithoutCredentials(t *testing.T) {
 	}
 }
 
+func TestLoadLocalReadsTheTheme(t *testing.T) {
+	home := isolateConfig(t)
+	writeConfig(t, home, "theme: mono\n")
+	if cfg, err := LoadLocal(); err != nil || cfg.Theme != "mono" {
+		t.Errorf("el tema del archivo llega a la config: %+v %v", cfg, err)
+	}
+}
+
 func TestLoadLocalReportsInvalidYAML(t *testing.T) {
 	home := isolateConfig(t)
 	writeConfig(t, home, "projects: [sin cerrar\n")

@@ -8,7 +8,7 @@ import (
 )
 
 func init() {
-	register(&command{run: runProfile, help: profileHelp, summary: "Lista, agrega, elige o elimina perfiles (tracker y destino)"}, "profile")
+	register(&command{run: runProfile, help: profileHelp, summary: "Lista, agrega, elige o elimina perfiles (tracker y destino)", subs: configSubs("perfil", "perfiles")}, "profile")
 }
 
 func runProfile(a *App, args []string) error {
@@ -88,15 +88,12 @@ func runProfileAdd(a *App, args []string) error {
 	if err := config.ValidName("perfil", name); err != nil {
 		return err
 	}
-	// The first profile replaces the implicit one; keep it so the commands
-	// that used it keep working.
-	if len(cfg.Profiles) == 0 && name != config.LegacyProfile {
-		legacy, legacyName, _ := cfg.Profile("")
-		if err := cfg.SetProfile(legacyName, legacy); err != nil {
-			return err
-		}
-		cfg.DefaultProfile = legacyName
-		a.printf("  También se guarda el perfil '%s' (%s), el que se usaba hasta ahora.\n\n", legacyName, describeProfile(legacy))
+	legacy, err := cfg.KeepImplicitProfile(name)
+	if err != nil {
+		return err
+	}
+	if legacy != nil {
+		a.printf("  También se guarda el perfil '%s' (%s), el que se usaba hasta ahora.\n\n", config.LegacyProfile, describeProfile(legacy))
 	}
 
 	p := &config.Profile{}

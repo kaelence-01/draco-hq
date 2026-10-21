@@ -14,6 +14,8 @@ import (
 	"strings"
 
 	"golang.org/x/term"
+
+	"github.com/kaelence-01/draco-hq/internal/cli"
 )
 
 // Exit codes.
@@ -129,11 +131,15 @@ func (a *App) askSecret(prompt string) (string, error) {
 	return strings.TrimSpace(string(b)), nil
 }
 
-// command is one entry of the router.
+// command is one entry of the router. flags and subs describe it for the
+// command bar; each command still parses its own arguments.
 type command struct {
 	run     func(a *App, args []string) error
 	help    func(a *App)
 	summary string
+	flags   []cli.Flag
+	subs    []cli.Command
+	names   []string // set by register: the name first, then its aliases
 }
 
 // commands maps every name and alias to its command. TestEveryCommandHasHelp
@@ -141,6 +147,7 @@ type command struct {
 var commands = map[string]*command{}
 
 func register(c *command, names ...string) {
+	c.names = names
 	for _, n := range names {
 		commands[n] = c
 	}

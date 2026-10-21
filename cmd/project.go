@@ -5,11 +5,22 @@ import (
 	"path/filepath"
 	"text/tabwriter"
 
+	"github.com/kaelence-01/draco-hq/internal/cli"
 	"github.com/kaelence-01/draco-hq/internal/config"
 )
 
 func init() {
-	register(&command{run: runProject, help: projectHelp, summary: "Lista, agrega, elige o elimina proyectos"}, "project")
+	register(&command{run: runProject, help: projectHelp, summary: "Lista, agrega, elige o elimina proyectos", subs: configSubs("proyecto", "proyectos")}, "project")
+}
+
+// configSubs are the subcommands project and profile share.
+func configSubs(one, many string) []cli.Command {
+	return []cli.Command{
+		{Names: []string{"list", "ls"}, Summary: "Lista los " + many + " (* el de por defecto)"},
+		{Names: []string{"add"}, Summary: "Agrega o reemplaza un " + one + ", con preguntas"},
+		{Names: []string{"default"}, Summary: "Cambia el " + one + " por defecto"},
+		{Names: []string{"remove", "rm"}, Summary: "Elimina un " + one},
+	}
 }
 
 func runProject(a *App, args []string) error {
@@ -38,14 +49,14 @@ func (a *App) subcommand(name string, subs map[string]func(*App, []string) error
 
 // names reads between min and max positional arguments and no flags.
 func names(args []string, min, max int, usage string) ([]string, error) {
-	f, err := parseFlags(args, nil)
+	f, err := cli.Parse(args, nil)
 	if err != nil {
 		return nil, usageError("%v", err)
 	}
-	if len(f.args) < min || len(f.args) > max {
+	if len(f.Args) < min || len(f.Args) > max {
 		return nil, usageError("uso: %s", usage)
 	}
-	return f.args, nil
+	return f.Args, nil
 }
 
 func saveConfig(cfg *config.Config) error {
