@@ -46,13 +46,15 @@ make push [force=1]       # sube la rama actual (lo corre el autor: SSH)
 make pr [web=1]           # PR de la rama actual hacia develop
 make finish               # tras fusionar: develop al día y ramas fusionadas borradas
 make release-build ver=vX.Y.Z    # binarios de todas las plataformas + checksums.txt en dist/
+make promote              # develop → main: PR con merge commit, fusión confirmada, main y develop al día (lo corre el autor)
 make release bump=patch|minor|major  # tag y GitHub Release desde main (lo corre el autor)
 ```
 
 `make sync` actualiza `develop` solo con *fast-forward*: si `develop` local se
 desvió de `origin/develop`, falla en vez de mezclar. Ningún objetivo escribe
-commits en `main`: `make release` solo etiqueta `main` ya integrada, limpia e
-igual a `origin/main` (guía: `docs/release.md`). Las fases 5 y 6 se publican
+commits locales en `main`: `make promote` fusiona en GitHub, siempre con
+*merge commit* y después de preguntar, y `make release` solo etiqueta `main`
+ya integrada, limpia e igual a `origin/main` (guía: `docs/release.md`). Las fases 5 y 6 se publican
 como *patch* de `v0.2.x` (`bump=patch`: `v0.2.1`, `v0.2.2`…); el *minor* no
 sube hasta que el autor lo decida (roadmap). Las plataformas del release
 (`PLATFORMS` del Makefile) y `updater.Platforms` deben coincidir; un test lo
