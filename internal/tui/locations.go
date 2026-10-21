@@ -134,16 +134,7 @@ func (l *locations) view(width, height int) string {
 	if len(docs) == 0 {
 		lines = append(lines, faintStyle.Render("Ningún documento coincide"))
 	}
-	rows := max((height-len(lines)-2)/2, 1)
-	cur := min(l.cursor, max(len(docs)-1, 0))
-	start := min(max(cur-rows/2, 0), max(len(docs)-rows, 0))
-	for i := start; i < min(start+rows, len(docs)); i++ {
-		cursor, title := "  ", docs[i].Title
-		if i == cur {
-			cursor, title = accentStyle.Render("▸ "), accentStyle.Bold(true).Render(title)
-		}
-		lines = append(lines, cursor+title, "    "+faintStyle.Render(docs[i].URL))
-	}
+	lines = append(lines, docRows(docs, l.cursor, max((height-len(lines)-2)/2, 1), width-2)...)
 	return pad(lipgloss.NewStyle().Width(width - 2).Render(lipgloss.JoinVertical(lipgloss.Left, lines...)))
 }
 
@@ -153,4 +144,21 @@ func explainLocations(err error) error {
 		return fmt.Errorf("%w (o usa un perfil con destino Markdown, que no lo necesita)", err)
 	}
 	return err
+}
+
+// docRows draws up to rows documents around the cursor: title and URL, each
+// cut to width.
+func docRows(docs []provider.DocRef, cursor, rows, width int) []string {
+	row := lipgloss.NewStyle().MaxWidth(width)
+	var lines []string
+	cur := min(cursor, max(len(docs)-1, 0))
+	start := min(max(cur-rows/2, 0), max(len(docs)-rows, 0))
+	for i := start; i < min(start+rows, len(docs)); i++ {
+		mark, title := "  ", docs[i].Title
+		if i == cur {
+			mark, title = accentStyle.Render("▸ "), accentStyle.Bold(true).Render(title)
+		}
+		lines = append(lines, row.Render(mark+title), row.Render("    "+faintStyle.Render(docs[i].URL)))
+	}
+	return lines
 }
