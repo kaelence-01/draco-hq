@@ -122,6 +122,9 @@ func (h *home) view(width, height int) string {
 	if h.st.notice != "" {
 		blocks = append(blocks, warnStyle.Render("⚠ "+h.st.notice), "")
 	}
+	if v := h.st.newVersion; v != "" {
+		blocks = append(blocks, warnStyle.Render("Nueva versión "+v+" (tienes "+h.st.deps.Version+"): sal con q y corre draco update"), "")
+	}
 	blocks = append(blocks, body)
 	if h.note != "" {
 		blocks = append(blocks, "", warnStyle.Render(h.note))

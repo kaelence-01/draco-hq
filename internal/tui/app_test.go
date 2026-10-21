@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"context"
 	"errors"
 	"reflect"
 	"strings"
@@ -155,6 +156,34 @@ func TestWithoutRoomForThePanelCommandsGoInTheMenu(t *testing.T) {
 	out := view(m)
 	if strings.Contains(out, "$ draco") || !strings.Contains(out, "draco futura") || strings.Contains(out, "draco init") || strings.Contains(out, "draco qa") {
 		t.Errorf("sin panel, solo una función sin pantalla muestra su comando en el menú:\n%s", out)
+	}
+}
+
+func TestNewVersionNotice(t *testing.T) {
+	for _, latest := range []string{"v9.9.10", ""} {
+		m := newApp(Deps{
+			LoadConfig:  func() (*config.Config, error) { return testConfig(), nil },
+			Version:     "v9.9.9",
+			CheckUpdate: func(context.Context) string { return latest },
+		})
+		m.Update(tea.WindowSizeMsg{Width: 80, Height: 30})
+		if strings.Contains(view(m), "disponible") {
+			t.Fatal("hasta que la consulta responde no hay aviso")
+		}
+		for _, msg := range run(m.Init()) {
+			send(m, msg)
+		}
+		out := view(m)
+		shown := strings.Contains(out, "draco v9.9.9 · v9.9.10 disponible") && strings.Contains(out, "Nueva versión v9.9.10 (tienes v9.9.9): sal con q y corre draco update")
+		if latest != "" && !shown {
+			t.Errorf("con versión nueva, la cabecera y la principal la muestran:\n%s", out)
+		}
+		if latest == "" && strings.Contains(out, "Nueva versión") {
+			t.Errorf("sin versión nueva no hay aviso:\n%s", out)
+		}
+	}
+	if newTestApp(t, testConfig(), nil, 80, 30).Init() != nil {
+		t.Error("sin CheckUpdate no se consulta nada")
 	}
 }
 

@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"context"
 	"strings"
 
 	"charm.land/bubbles/v2/help"
@@ -66,13 +67,26 @@ func newApp(d Deps) *app {
 	return &app{st: st, stack: []screen{newHome(st)}, help: help.New()}
 }
 
-func (m *app) Init() tea.Cmd { return nil }
+type newVersionMsg struct{ version string }
+
+// Init asks for a newer version in the background; nothing shows until it
+// answers.
+func (m *app) Init() tea.Cmd {
+	check := m.st.deps.CheckUpdate
+	if check == nil {
+		return nil
+	}
+	return func() tea.Msg { return newVersionMsg{check(context.Background())} }
+}
 
 func (m *app) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
 		m.help.SetWidth(msg.Width - 1) // the footer starts with a space
+		return m, nil
+	case newVersionMsg:
+		m.st.newVersion = msg.version
 		return m, nil
 	case tea.KeyPressMsg:
 		if key.Matches(msg, quitKey) {
@@ -154,6 +168,9 @@ func (m *app) render() string {
 
 func (m *app) header() string {
 	left := boldStyle.Render("draco") + " " + faintStyle.Render(m.st.deps.Version)
+	if v := m.st.newVersion; v != "" {
+		left += faintStyle.Render(" · ") + warnStyle.Render(v+" disponible")
+	}
 	var parts []string
 	if m.st.profile != "" {
 		parts = append(parts, "perfil: "+accentStyle.Render(m.st.profile)+faintStyle.Render(" ("+m.st.tracker+" → "+m.st.docs+")"))

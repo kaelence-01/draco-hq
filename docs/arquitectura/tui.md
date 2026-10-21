@@ -105,12 +105,13 @@ type Deps struct {
     OpenProfile func(*config.Config, profile.Options) (*profile.Bundle, error) // Generar (4a)
     Scan        func(context.Context, string, backlog.ScanOptions) (*backlog.Report, error) // Backlog
     Now         func() time.Time                                               // QA: fecha y ventana Kanban
+    CheckUpdate func(context.Context) string                                   // aviso de versión nueva
 }
 ```
 
 Cada campo llega con la primera pantalla que lo usa. La fase 6 suma
-`CheckUpdate` (aviso de versión nueva), `Commands` (barra de comandos) y
-`Help` (Ayuda); su diseño está en el §6.
+`CheckUpdate` (aviso de versión nueva, ya implementado), `Commands` (barra
+de comandos) y `Help` (Ayuda); su diseño está en el §6.
 
 Igual que el modo comando, la TUI arma los adaptadores con `profile.Open` y
 habla con los flujos; nunca con un adaptador.
@@ -448,15 +449,19 @@ formularios.
 ### Aviso de versión nueva
 
 - **`Deps.CheckUpdate func(context.Context) string`** devuelve la versión
-  nueva o `""`. Lo arma `cmd` con las reglas de `updateNotice`:
-  - sin aviso en `dev`, con `DRACO_NO_UPDATE_CHECK` o sin terminal;
-  - la caché de 24 h, y la consulta a GitHub con tiempo límite.
+  nueva o `""`. En `cmd` es `latestVersion`, con las reglas del aviso de
+  texto:
+  - sin aviso en `dev` ni con `DRACO_NO_UPDATE_CHECK` (`updatesOff`, que
+    comparten los dos modos); la TUI solo abre en una terminal;
+  - con la caché de 24 h al día, responde sin red. Si no, consulta GitHub
+    con 3 s de límite, y ante un error usa la caché.
 
   La TUI no conoce `updater`.
 - **Corre en un `tea.Cmd` al abrir** (`app.Init`); hasta que responde, no
   se muestra nada.
-- **Con versión nueva:** la cabecera lo dice (`v0.2.3 disponible`) y la
-  principal explica cómo instalarla: salir y correr `draco update`.
+- **Con versión nueva:** la cabecera lo dice junto a la versión actual
+  (`draco v0.2.2 · v0.2.3 disponible`), del lado que nunca se recorta. La
+  principal explica cómo instalarla: «sal con q y corre draco update».
 - **No se actualiza desde la TUI:** `draco update` reemplaza el binario en
   uso y escribe su progreso en la terminal, así que se corre fuera del modo
   visual, como hoy.

@@ -28,6 +28,9 @@ type Deps struct {
 	Scan func(context.Context, string, backlog.ScanOptions) (*backlog.Report, error)
 	// Now is the time of the QA report and its Kanban window.
 	Now func() time.Time
+	// CheckUpdate returns a newer published version, or "" (also when the
+	// notice is off).
+	CheckUpdate func(context.Context) string
 }
 
 // Run shows the visual mode on a terminal until the user quits.
@@ -45,6 +48,7 @@ type state struct {
 	tracker, docs string
 	project       string // active project of this session, never saved
 	notice        string // a problem with the config, shown on the home screen
+	newVersion    string // a newer published version, once CheckUpdate answers
 }
 
 func loadState(d Deps) *state {
