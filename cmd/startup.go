@@ -70,7 +70,7 @@ func (a *App) endInstall(alone bool, code int) (bool, int) {
 // in the background, waited for briefly only when nothing is cached.
 func (a *App) updateNotice(args []string) func() string {
 	none := func() string { return "" }
-	if build.Version == "dev" || !a.tty || os.Getenv("DRACO_NO_UPDATE_CHECK") != "" || !checksUpdates(args) {
+	if updatesOff() || !a.tty || !checksUpdates(args) {
 		return none
 	}
 	n := notifier(newUpdater())
@@ -95,6 +95,30 @@ func (a *App) updateNotice(args []string) func() string {
 			return ""
 		}
 	}
+}
+
+// updatesOff is true for a development build or with DRACO_NO_UPDATE_CHECK.
+func updatesOff() bool {
+	return build.Version == "dev" || os.Getenv("DRACO_NO_UPDATE_CHECK") != ""
+}
+
+// latestVersion is the newer published version for the visual mode, or "",
+// with the rules and the cache of the command mode's notice. The visual mode
+// asks in the background, so it can wait for GitHub.
+func latestVersion(ctx context.Context) string {
+	if updatesOff() {
+		return ""
+	}
+	n := notifier(newUpdater())
+	if !n.Stale() {
+		return n.Cached(build.Version)
+	}
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	if v := n.Refresh(ctx, build.Version); v != "" {
+		return v
+	}
+	return n.Cached(build.Version)
 }
 
 // checksUpdates leaves out the commands where a notice is noise or redundant.
