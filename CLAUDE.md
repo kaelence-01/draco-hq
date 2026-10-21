@@ -52,7 +52,9 @@ make release bump=patch|minor|major  # tag y GitHub Release desde main (lo corre
 `make sync` actualiza `develop` solo con *fast-forward*: si `develop` local se
 desvió de `origin/develop`, falla en vez de mezclar. Ningún objetivo escribe
 commits en `main`: `make release` solo etiqueta `main` ya integrada, limpia e
-igual a `origin/main` (guía: `docs/release.md`). Las plataformas del release
+igual a `origin/main` (guía: `docs/release.md`). Las fases 5 y 6 se publican
+como *patch* de `v0.2.x` (`bump=patch`: `v0.2.1`, `v0.2.2`…); el *minor* no
+sube hasta que el autor lo decida (roadmap). Las plataformas del release
 (`PLATFORMS` del Makefile) y `updater.Platforms` deben coincidir; un test lo
 verifica.
 

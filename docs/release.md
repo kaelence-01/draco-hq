@@ -30,8 +30,11 @@ confían en ese archivo (P-006): un binario que no coincide no se instala.
 
    ```bash
    git switch main && git pull --ff-only
-   make release bump=minor       # o patch / major, o ver=vX.Y.Z
+   make release bump=patch       # o minor / major, o ver=vX.Y.Z
    ```
+
+   Las fases 5 y 6 se publican como *patch* de `v0.2.x` (roadmap,
+   «Decisiones tomadas»): `bump=minor` solo cuando el autor lo decida.
 
    `scripts/release.sh`:
    - se detiene si `gh` no está autenticado, si no estás en `main`, si hay
