@@ -1,6 +1,6 @@
 ---
 name: estandares-desarrollo
-description: Estándares obligatorios para escribir o modificar código Go en draco — comentarios mínimos, idioma, estructura de los flujos, errores, tests, dependencias y datos de organización. Úsala SIEMPRE antes de escribir o editar código en internal/, cmd/ o main.go, y al revisar un diff propio antes de cerrar la actividad.
+description: Estándares obligatorios para escribir o modificar código Go en draco — comentarios mínimos, idioma, estructura de los flujos y de las pantallas de la TUI, errores, tests, dependencias y datos de organización. Úsala SIEMPRE antes de escribir o editar código en internal/, cmd/ o main.go, y al revisar un diff propio antes de cerrar la actividad.
 ---
 
 # estandares-desarrollo
@@ -44,6 +44,22 @@ El código se explica con buenos nombres; la historia va a la bitácora.
 - Funciones puras para todo lo que se pueda (JQL, títulos, ADF) y probarlas.
 - Sin generalizar «por si acaso»: lo propio de una instancia va a config; lo
   demás, lo más simple que funcione.
+
+## Modo visual (`internal/tui`)
+
+Normas en `docs/arquitectura/tui.md` §10. Al escribir o revisar una pantalla:
+
+- ¿Hay lógica de negocio en la pantalla? Va al flujo como función pura.
+- ¿Implementa `screen` con `title` y dibuja solo su cuerpo? La ruta y el pie
+  son del marco.
+- ¿Tiene texto, filtro o confirmación? `captures` reclama `?` y `esc`;
+  `ctrl+c` nunca.
+- ¿Lanza pasos? `tea.Cmd`, spinner, `context` cancelado en `close()`, y la
+  `Session` sin leer hasta el mensaje.
+- ¿Guarda? Solo `state.save`; el test comprueba que el token del entorno no
+  llega al archivo.
+- ¿Función nueva? Entrada en el menú con descripción y ejemplo del comando.
+- Estilos de `styles.go`, sin emojis, usable en 80 columnas.
 
 ## Seguridad y datos
 

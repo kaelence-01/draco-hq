@@ -11,10 +11,24 @@ import (
 
 // screen is one page of the visual mode; the app draws the frame around it.
 type screen interface {
+	title() string
 	update(msg tea.Msg) (screen, tea.Cmd)
 	view(width, height int) string
 	keys() []key.Binding
 }
+
+// Optional parts of a screen; see docs/arquitectura/tui.md §5.
+type (
+	// keyCapturer takes a key away from the global ones (?, esc) while the
+	// screen needs it, for example while the user types. ctrl+c is never
+	// captured.
+	keyCapturer interface{ captures(k tea.KeyPressMsg) bool }
+	// initer starts the screen when it is opened.
+	initer interface{ init() tea.Cmd }
+	// closer releases what the screen started (a step's context) when it is
+	// closed.
+	closer interface{ close() }
+)
 
 type openMsg struct{ s screen }
 type backMsg struct{}
@@ -53,20 +67,29 @@ func (m *app) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.help.SetWidth(msg.Width)
 		return m, nil
 	case tea.KeyPressMsg:
-		switch {
-		case key.Matches(msg, quitKey):
+		if key.Matches(msg, quitKey) {
 			return m, tea.Quit
-		case key.Matches(msg, helpKey):
-			m.help.ShowAll = !m.help.ShowAll
-			return m, nil
-		case key.Matches(msg, backKey) && len(m.stack) > 1:
-			return m, back
+		}
+		if c, ok := m.top().(keyCapturer); !ok || !c.captures(msg) {
+			switch {
+			case key.Matches(msg, helpKey):
+				m.help.ShowAll = !m.help.ShowAll
+				return m, nil
+			case key.Matches(msg, backKey) && len(m.stack) > 1:
+				return m, back
+			}
 		}
 	case openMsg:
 		m.stack = append(m.stack, msg.s)
+		if i, ok := msg.s.(initer); ok {
+			return m, i.init()
+		}
 		return m, nil
 	case backMsg:
 		if len(m.stack) > 1 {
+			if c, ok := m.top().(closer); ok {
+				c.close()
+			}
 			m.stack = m.stack[:len(m.stack)-1]
 		}
 		return m, nil
@@ -110,7 +133,24 @@ func (m *app) header() string {
 		right, gap = "", m.width-lipgloss.Width(left)-2
 	}
 	line := " " + left + strings.Repeat(" ", max(gap, 1)) + right + " "
-	return lipgloss.NewStyle().MaxWidth(m.width).Render(line) + "\n" + m.rule()
+	out := lipgloss.NewStyle().MaxWidth(m.width).Render(line) + "\n" + m.rule()
+	if len(m.stack) > 1 {
+		out += "\n" + lipgloss.NewStyle().MaxWidth(m.width).Render(" "+m.crumbs())
+	}
+	return out
+}
+
+// crumbs is the path of open screens, the current one highlighted.
+func (m *app) crumbs() string {
+	var parts []string
+	for i, s := range m.stack {
+		if i == len(m.stack)-1 {
+			parts = append(parts, boldStyle.Render(s.title()))
+		} else {
+			parts = append(parts, faintStyle.Render(s.title()))
+		}
+	}
+	return strings.Join(parts, faintStyle.Render(" › "))
 }
 
 func (m *app) footer() string {

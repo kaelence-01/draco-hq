@@ -2,8 +2,10 @@ package tui
 
 import (
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
@@ -44,21 +46,52 @@ var (
 	keyCtrlC = tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl}
 )
 
-// send runs msg through the app and then the messages its command returns,
+// send runs msg through the app and then the messages its commands return,
 // the way the Bubble Tea loop would; it reports whether the app quit.
 func send(m *app, msg tea.Msg) (quit bool) {
-	for msg != nil {
-		var cmd tea.Cmd
-		_, cmd = m.Update(msg)
-		if cmd == nil {
-			return false
-		}
-		msg = cmd()
+	queue := []tea.Msg{msg}
+	for steps := 0; len(queue) > 0 && steps < 500; steps++ {
+		msg, queue = queue[0], queue[1:]
 		if _, ok := msg.(tea.QuitMsg); ok {
 			return true
 		}
+		_, cmd := m.Update(msg)
+		queue = append(queue, run(cmd)...)
 	}
 	return false
+}
+
+// run returns what cmd answers, opening batches and sequences. A command that
+// does not answer at once, like a cursor blink, is dropped.
+func run(cmd tea.Cmd) []tea.Msg {
+	if cmd == nil {
+		return nil
+	}
+	ch := make(chan tea.Msg, 1)
+	go func() { ch <- cmd() }()
+	select {
+	case msg := <-ch:
+		if v := reflect.ValueOf(msg); v.Kind() == reflect.Slice && v.Type().Elem() == reflect.TypeFor[tea.Cmd]() {
+			var out []tea.Msg
+			for i := range v.Len() {
+				out = append(out, run(v.Index(i).Interface().(tea.Cmd))...)
+			}
+			return out
+		}
+		if msg == nil {
+			return nil
+		}
+		return []tea.Msg{msg}
+	case <-time.After(20 * time.Millisecond):
+		return nil
+	}
+}
+
+// typeText sends s one key at a time.
+func typeText(m *app, s string) {
+	for _, r := range s {
+		send(m, press(r, string(r)))
+	}
 }
 
 func view(m *app) string { return ansi.Strip(m.View().Content) }
@@ -68,18 +101,37 @@ func TestHomeShowsLogoMenuAndFrame(t *testing.T) {
 	out := view(m)
 	for _, want := range []string{
 		"██████", "draco v9.9.9", "perfil: equipo (jira → confluence)", "proyecto: pagos",
-		"▸ Generar documento de despliegue", "draco g", "Proyectos", "Consolidado QA", "draco backlog scan",
-		"q salir", "? ayuda",
+		"▸ Generar documento de despliegue", "Proyectos", "Consolidado QA", "Backlog técnico",
+		"Lee la tarea", "$ draco g -i OPS-7 -b a1b2c3d", "q salir", "? ayuda",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("falta %q en la pantalla:\n%s", want, out)
 		}
 	}
-	if strings.Contains(out, "⚠") {
-		t.Errorf("con la config completa no hay avisos:\n%s", out)
+	if strings.Contains(out, "⚠") || strings.Contains(out, "›") {
+		t.Errorf("con la config completa no hay avisos, y la principal no lleva ruta:\n%s", out)
 	}
 	if lines := strings.Split(out, "\n"); len(lines) != 30 {
 		t.Errorf("la pantalla ocupa %d líneas, se esperaban 30", len(lines))
+	}
+}
+
+func TestPanelFollowsTheMenu(t *testing.T) {
+	m := newTestApp(t, testConfig(), nil, 100, 30)
+	send(m, keyDown)
+	send(m, keyDown)
+	out := view(m)
+	for _, want := range []string{"▸ Consolidado QA", "Todavía no está en el modo visual", "$ draco qa -s 12 -m Pagos"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("falta %q en el panel:\n%s", want, out)
+		}
+	}
+}
+
+func TestWithoutRoomForThePanelCommandsGoInTheMenu(t *testing.T) {
+	out := view(newTestApp(t, testConfig(), nil, 80, 30))
+	if strings.Contains(out, "$ draco") || !strings.Contains(out, "draco backlog scan") || strings.Contains(out, "Proyectos   draco project") {
+		t.Errorf("sin panel, cada función sin pantalla muestra su comando en el menú:\n%s", out)
 	}
 }
 
@@ -107,10 +159,11 @@ func TestMenuMovesAndPointsToTheCommand(t *testing.T) {
 	if out := view(m); !strings.Contains(out, "▸ Configuración") {
 		t.Fatalf("subir desde el primero va al último:\n%s", out)
 	}
-	send(m, keyDown)
-	send(m, keyDown)
+	for range 3 {
+		send(m, keyDown)
+	}
 	send(m, keyEnter)
-	if out := view(m); !strings.Contains(out, "«Proyectos» todavía no está en el modo visual: usa draco project") {
+	if out := view(m); !strings.Contains(out, "«Consolidado QA» todavía no está en el modo visual: usa draco qa") {
 		t.Errorf("una función sin pantalla indica su comando:\n%s", out)
 	}
 	send(m, keyDown)
@@ -139,19 +192,26 @@ func TestHelpToggle(t *testing.T) {
 	}
 }
 
-type fakeScreen struct{ got []tea.Msg }
+type fakeScreen struct {
+	got     []tea.Msg
+	capture bool
+	closed  bool
+}
 
+func (f *fakeScreen) title() string                        { return "Pantalla de prueba" }
 func (f *fakeScreen) update(msg tea.Msg) (screen, tea.Cmd) { f.got = append(f.got, msg); return f, nil }
 func (f *fakeScreen) view(int, int) string                 { return "pantalla de prueba" }
 func (f *fakeScreen) keys() []key.Binding                  { return nil }
+func (f *fakeScreen) captures(tea.KeyPressMsg) bool        { return f.capture }
+func (f *fakeScreen) close()                               { f.closed = true }
 
 func TestStackOpensAndGoesBack(t *testing.T) {
 	m := newTestApp(t, testConfig(), nil, 100, 30)
 	f := &fakeScreen{}
 	send(m, openMsg{f})
 	out := view(m)
-	if !strings.Contains(out, "pantalla de prueba") || !strings.Contains(out, "esc volver") {
-		t.Fatalf("la pantalla abierta se dibuja dentro del marco, con esc:\n%s", out)
+	if !strings.Contains(out, "pantalla de prueba") || !strings.Contains(out, "esc volver") || !strings.Contains(out, "Inicio › Pantalla de prueba") {
+		t.Fatalf("la pantalla abierta se dibuja dentro del marco, con su ruta y esc:\n%s", out)
 	}
 	if send(m, keyQ) {
 		t.Error("q solo sale desde la pantalla principal")
@@ -162,6 +222,23 @@ func TestStackOpensAndGoesBack(t *testing.T) {
 	send(m, keyEsc)
 	if out := view(m); !strings.Contains(out, "Generar documento") || strings.Contains(out, "esc volver") {
 		t.Errorf("esc vuelve a la principal:\n%s", out)
+	}
+	if !f.closed {
+		t.Error("al cerrar una pantalla se le avisa, para que cancele sus pasos")
+	}
+}
+
+func TestScreenCapturesGlobalKeys(t *testing.T) {
+	m := newTestApp(t, testConfig(), nil, 100, 30)
+	f := &fakeScreen{capture: true}
+	send(m, openMsg{f})
+	send(m, keyHelp)
+	send(m, keyEsc)
+	if len(m.stack) != 2 || m.help.ShowAll || len(f.got) != 2 {
+		t.Errorf("? y esc van a la pantalla que los captura: pila %d, ayuda %v, recibidas %v", len(m.stack), m.help.ShowAll, f.got)
+	}
+	if !send(m, keyCtrlC) {
+		t.Error("ctrl+c sale aunque la pantalla capture las teclas")
 	}
 }
 

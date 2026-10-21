@@ -6,8 +6,9 @@ recorrer **los mismos flujos** que el modo comando; no tiene lógica propia de
 negocio.
 
 Estado: **en implementación** (roadmap, fase 4). Implementado: la base
-(entrada, marco, pila de pantallas, pantalla principal). Se actualiza al
-implementar cada actividad.
+(entrada, marco, pila de pantallas, pantalla principal) y Proyectos. Se
+actualiza al implementar cada actividad. Las reglas para escribir una pantalla
+están en el §10 y son obligatorias.
 
 ## 1. Alcance por fase
 
@@ -64,8 +65,9 @@ internal/tui/
   app.go        modelo raíz: pila de pantallas, tamaño, cabecera, pie, teclas globales
   styles.go     estilos de Lip Gloss en un solo lugar (base para temas, fase 6)
   logo.go       DRACO en letras grandes
-  home.go       pantalla principal
-  projects.go   Proyectos (+ formulario)
+  home.go       pantalla principal (menú y panel de la función elegida)
+  projects.go   Proyectos: lista con filtro, activo, por defecto, borrar
+  projectform.go  formulario de Huh para crear y editar un proyecto
   generate.go   Generar documento
 ```
 
@@ -77,9 +79,9 @@ que los tests de la TUI usan los mismos dobles:
 type Deps struct {
     LoadConfig  func() (*config.Config, error)                                 // config.LoadLocal (base)
     Version     string                                                         // base
-    LoadFile    func() (*config.Config, error)                                 // para guardar (Proyectos)
-    SaveConfig  func(*config.Config) error                                     // Proyectos
-    OpenProfile func(*config.Config, profile.Options) (*profile.Bundle, error) // Generar
+    LoadFile    func() (*config.Config, error)                                 // config.LoadFile (Proyectos)
+    SaveConfig  func(*config.Config) error                                     // config.Save (Proyectos)
+    OpenProfile func(*config.Config, profile.Options) (*profile.Bundle, error) // Generar (4a)
 }
 ```
 
@@ -90,21 +92,47 @@ habla con los flujos; nunca con un adaptador.
 
 ## 5. Modelo
 
-- **Pila de pantallas.** El modelo raíz guarda una pila; cada pantalla
-  implementa una interfaz pequeña (`Update`, `View` con el tamaño disponible,
-  `Keys` para el pie). Abrir una pantalla la apila; `esc` la cierra y vuelve
-  a la anterior.
+- **Pila de pantallas.** El modelo raíz (`app`) guarda una pila; cada
+  pantalla implementa la interfaz `screen`:
+
+  ```go
+  type screen interface {
+      title() string                        // nombre en la ruta
+      update(msg tea.Msg) (screen, tea.Cmd)
+      view(width, height int) string        // solo el cuerpo, en ese tamaño
+      keys() []key.Binding                  // teclas del pie y de la ayuda
+  }
+  ```
+
+  Y, si las necesita, estas partes opcionales:
+
+  | Interfaz | Para qué |
+  |---|---|
+  | `captures(k tea.KeyPressMsg) bool` | Quitarle una tecla global (`?`, `esc`) al marco mientras la pantalla la necesita: un campo de texto, un filtro, una confirmación. `ctrl+c` nunca se captura |
+  | `init() tea.Cmd` | Arrancar al abrirse (el formulario de Huh enfoca su primer campo) |
+  | `close()` | Soltar lo que la pantalla lanzó al cerrarse: cancela el `context` de un paso en curso |
+
+  `open(s)` apila; `esc` (o el mensaje `back`) cierra la de arriba, llama a
+  su `close()` y vuelve a la anterior.
 - **Teclas globales:** `ctrl+c` sale siempre; `q` sale desde la principal;
-  `?` muestra la ayuda completa de teclas de la pantalla (`bubbles/help`).
-- **Marco común:** cabecera con versión, perfil y proyecto activos; pie con
-  las teclas de la pantalla. Las pantallas solo dibujan su cuerpo.
+  `?` muestra la ayuda completa de teclas de la pantalla (`bubbles/help`);
+  `esc` vuelve. Las tres últimas ceden ante `captures`.
+- **Marco común:** cabecera con versión, perfil y proyecto activos; debajo,
+  fuera de la principal, la **ruta** con los títulos de la pila
+  (`Inicio › Proyectos › Nuevo proyecto`); pie con las teclas de la pantalla.
+  Las pantallas solo dibujan su cuerpo.
+- **Estado compartido (`state`):** la config leída con `LoadLocal` y el
+  proyecto activo. `state.save(change)` es la única forma de guardar:
+  `LoadFile` → `change` (funciones puras de `config`) → `SaveConfig` → vuelve
+  a leer la config; el proyecto activo se mantiene mientras exista.
 - **Pasos del flujo como comandos.** Cada paso de una `Session` corre en un
   `tea.Cmd` y vuelve como mensaje (`stepDone{step, err}`). La pantalla muestra
   un spinner mientras tanto y **no lee la `Session` hasta recibir el mensaje**:
   el paso escribe sus campos desde otra goroutine.
-- **Cancelación.** Cada pantalla tiene su `context`; `esc` durante un paso lo
-  cancela y vuelve atrás. Un mensaje que llega de un paso cancelado se
-  descarta (cada paso lleva un número de secuencia).
+- **Cancelación.** Cada pantalla con pasos tiene su `context` y lo cancela en
+  `close()`; así `esc` durante un paso lo cancela y vuelve atrás. Un mensaje
+  que llega de un paso cancelado se descarta (cada paso lleva un número de
+  secuencia).
 - **Sin emojis en el marco.** Su ancho varía entre terminales y rompe bordes y
   columnas (sobre todo en Windows). Se usan símbolos de un ancho: `▸ ✓ ⚠ ✗ ●`.
 
@@ -115,15 +143,25 @@ habla con los flujos; nunca con un adaptador.
 - DRACO en letras grandes con caracteres de bloque (ninguna terminal común
   muestra el logo como imagen). Si el ancho no alcanza, solo `draco`.
 - Menú: Generar documento, Proyectos; atenuadas: Consolidado QA, Exportar
-  página, Backlog técnico, Configuración (fases 5 y 6), cada una con su
-  comando.
+  página, Backlog técnico, Configuración (fases 5 y 6).
+- **Panel de la función elegida**, a la derecha del menú: qué hace y el mismo
+  trabajo en modo comando con un ejemplo (`$ draco g -i OPS-7 -b a1b2c3d`), y
+  si aún no tiene pantalla, lo dice. Enseña que los dos modos son uno. Si el
+  ancho no alcanza (menos de 96 columnas), no hay panel y cada función sin
+  pantalla muestra su comando en el menú.
 - Sin configuración: la principal lo dice y propone `draco init` (los
   formularios de configuración son de la fase 6).
 
 ### Proyectos
 
-- Lista de proyectos (`bubbles/list`, con filtro) con backend, frontend y
-  space; marca el proyecto por defecto.
+- Lista de proyectos con filtro (`/`) y, al lado, el detalle del elegido:
+  rutas y repos, `vcs_host`, `vcs_org`, space y checklist. Marca el activo y
+  el por defecto. La lista es propia, con el mismo cursor `▸` del menú:
+  `bubbles/list` trae paginación, barra de estado y colores fijos que aquí
+  sobran, y su filtro sería otro campo con cursor parpadeante en los tests.
+- Teclas: `enter` usa el proyecto en esta sesión, `d` lo guarda como por
+  defecto, `n` nuevo, `e` editar, `x` eliminar (pide `s`), `/` filtrar; `esc`
+  quita el filtro antes de volver.
 - **Proyecto activo**: el que usa Generar en esta sesión. Se elige aquí, vive
   en memoria y no se guarda. **Por defecto** (`default_project`) sí se guarda.
 - Crear, editar y borrar con un formulario de Huh (nombre, rutas y repos de
@@ -133,6 +171,10 @@ habla con los flujos; nunca con un adaptador.
   `RemoveProject`, `SetDefaultProject`) y se guarda con `config.Save`. Nunca
   `LoadLocal`: un token de `ATLASSIAN_*` terminaría escrito en el disco.
   Editar conserva lo que el formulario no muestra (checklist, backlog).
+- Mismas reglas que `draco project add`: el nombre se valida con
+  `config.ValidName` y no puede existir; un repo vacío toma el nombre de la
+  carpeta; sin rutas de backend ni de frontend no se guarda; el primer
+  proyecto queda por defecto. `esc` cierra el formulario sin guardar.
 
 ### Generar documento
 
@@ -168,6 +210,14 @@ mismas decisiones que pregunta `draco g`:
 - Sin terminal ni red: los tests llaman a `Update` con mensajes (teclas,
   tamaño, resultados de pasos) y revisan el estado y el texto de `View` con
   un tamaño fijo y sin color.
+- `send` (en `app_test.go`) hace de bucle de Bubble Tea: pasa el mensaje por
+  `Update` y luego lo que devuelven sus comandos, abriendo `Batch` y
+  `Sequence`. Un comando que no responde enseguida (el parpadeo del cursor de
+  un campo de texto, que espera medio segundo) se descarta. `typeText` escribe
+  un texto tecla por tecla.
+- Guardar se prueba con un archivo en memoria (`fakeFile`) cuyo `LoadConfig`
+  agrega un token, como haría `ATLASSIAN_TOKEN`: cada test que guarda
+  comprueba que el token no llegó al archivo.
 - Los pasos del flujo usan los dobles del modo comando: config en memoria,
   tracker y git simulados, adaptador Markdown real en una carpeta temporal.
 - Un test recorre Generar de punta a punta y comprueba el archivo publicado.
@@ -193,3 +243,45 @@ Terminal y una terminal de Linux o WSL.
 | Entradas futuras del menú atenuadas con su comando | Muestra lo que existe y cómo usarlo hoy |
 | Función pura de repos del proyecto en `deploy` | El selector de commits la necesita antes de `Resolve`; la TUI no reimplementa el flujo |
 | Sin emojis en el marco | Ancho variable entre terminales |
+| Panel con la descripción y el comando equivalente en la principal | El modo visual enseña el modo comando; viene de la maqueta del modo visual |
+| Ruta con los títulos de la pila | Con pantallas apiladas (Proyectos › formulario) se pierde de vista dónde se está |
+| Teclas globales que la pantalla puede capturar (`captures`) | Un campo de texto o un filtro necesita `?` y `esc`; sin esto, escribir `?` abre la ayuda |
+| `close()` al cerrar una pantalla | Es lo que cancela un paso en curso al pulsar `esc` |
+| Lista de Proyectos propia, no `bubbles/list` | Pocas filas; `bubbles/list` trae paginación, barra de estado y colores fijos, y su filtro complica los tests |
+
+## 10. Normas para escribir una pantalla
+
+Obligatorias para toda pantalla nueva o modificada (las resume `CLAUDE.md`):
+
+1. **Sin lógica de negocio.** La pantalla recorre los pasos de un flujo o
+   llama a funciones puras de `config`. Si necesita algo que el flujo
+   calcula, se extrae una función pura en el flujo y la usan los dos modos.
+2. **Una pantalla, un `screen`.** Implementa `title`, `update`, `view` y
+   `keys`; dibuja solo su cuerpo en el tamaño que recibe. Nada de cabecera,
+   ruta ni pie propios: los pone el marco.
+3. **Un paso que se revisa es una pantalla.** Un flujo de varios pasos apila
+   una pantalla por paso, y `esc` vuelve al anterior sin lógica extra.
+4. **Teclas:** `ctrl+c` es del marco y nunca se captura. Si la pantalla tiene
+   un campo de texto, un filtro o una confirmación, implementa `captures` y
+   reclama `?` y `esc` mientras los necesita. Cada tecla propia va en
+   `keys()` con su ayuda en español; ninguna tecla oculta.
+5. **Red, git y disco lento en un `tea.Cmd`**, nunca en `update`: la pantalla
+   muestra un spinner y no lee la `Session` hasta recibir el mensaje. Leer y
+   guardar la config local puede ir directo en `update`.
+6. **Lo que se lanza se cancela.** Una pantalla con pasos crea su `context` y
+   lo cancela en `close()`; descarta los mensajes de pasos cancelados.
+7. **Guardar solo con `state.save`**: `LoadFile` + funciones puras de
+   `config` + `SaveConfig`. Nunca se guarda lo leído con `LoadLocal`.
+8. **Menú y panel:** toda función nueva entra en el menú de la principal con
+   su descripción y un ejemplo del comando equivalente (datos genéricos:
+   `OPS-7`, `pagos`, `mi-org`). Sin pantalla, queda atenuada.
+9. **Estilos solo de `styles.go`**, con colores ANSI básicos. Sin emojis;
+   símbolos de un ancho (`▸ ✓ ⚠ ✗ ●`). Cada vista funciona en 80 columnas y
+   aprovecha las anchas (como el panel desde 96).
+10. **Mensajes:** el resultado de una acción se muestra en la pantalla
+    (`✓` en verde, `✗` en rojo con qué hacer); un problema de config no
+    impide abrir la TUI, se muestra como aviso.
+11. **Tests sin terminal** para cada pantalla: teclas por `send`/`typeText`,
+    texto de `View` sin color con un tamaño fijo, y, si guarda, que el token
+    del entorno no llega al archivo. Nunca `tea.NewProgram` en un test.
+

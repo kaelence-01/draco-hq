@@ -190,14 +190,39 @@ Cada flujo vive en su propio paquete (`internal/deploy` es la referencia) y
   un test: en WSL abriría una ventana de Windows. La TUI tampoco: sus tests
   llaman a `Update` y `View` sin terminal.
 
+### El modo visual (`internal/tui`)
+
+Normas completas en `docs/arquitectura/tui.md` §10; son obligatorias. Lo
+esencial:
+
+- **Sin lógica de negocio**: una pantalla recorre los pasos de un flujo o usa
+  funciones puras de `config`; lo que falte se extrae al flujo, no se copia.
+- Cada pantalla implementa `screen` (`title`, `update`, `view`, `keys`) y
+  dibuja solo su cuerpo: cabecera, **ruta** (`Inicio › Proyectos`) y pie son
+  del marco. Un paso que el usuario revisa es una pantalla de la pila; `esc`
+  vuelve.
+- `ctrl+c` sale siempre. Una pantalla con texto, filtro o confirmación
+  implementa `captures` para quedarse con `?` y `esc`; la que lanza pasos
+  cancela su `context` en `close()`.
+- Red y git en un `tea.Cmd`, nunca en `update`; la `Session` no se lee hasta
+  recibir el mensaje del paso.
+- Guardar solo con `state.save` (`LoadFile` + funciones puras + `SaveConfig`);
+  nunca lo leído con `LoadLocal`.
+- Toda función entra en el menú de la principal con su descripción y un
+  ejemplo del comando equivalente, que el **panel** muestra; sin pantalla,
+  atenuada.
+- Estilos solo de `styles.go` (ANSI básicos), sin emojis, símbolos de un
+  ancho; cada vista funciona en 80 columnas.
+- Tests sin terminal con `send`/`typeText` y `View` sin color; si guarda,
+  el token del entorno no llega al archivo.
+
 ## Dependencias
 
 Hoy: `gopkg.in/yaml.v3`, `github.com/yuin/goldmark` (Markdown → formato de cada
 destino; solo en los adaptadores) y `golang.org/x/term` (leer el token sin
 mostrarlo en `draco init`) y `golang.org/x/sys` (el PATH de Windows en el
 registro, en el instalador). Para la TUI, Charm v2 (`charm.land/…`):
-Bubble Tea, Bubbles y Lip Gloss; Huh está aprobada y llega con los
-formularios. `github.com/charmbracelet/x/ansi` (ya dependencia de Lip Gloss)
+Bubble Tea, Bubbles, Lip Gloss y Huh (formularios). `github.com/charmbracelet/x/ansi` (ya dependencia de Lip Gloss)
 quita los colores en los tests de la TUI. Cualquier otra se justifica antes de
 agregarla. El router de comandos es un mapa de nombre a comando, como
 en gtt, sin Cobra.
