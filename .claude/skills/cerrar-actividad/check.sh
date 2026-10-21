@@ -111,6 +111,17 @@ for m in $(git diff --name-only --diff-filter=M "$base" -- 'docs/bitacora/fase-*
 	warn "$m ya estaba en $base: solo se permiten notas aclaratorias"
 done
 
+section "5. Guía de usuario"
+changed=$( (git diff --name-only "$base"; git ls-files -o --exclude-standard) | sort -u)
+visible=$(echo "$changed" | grep -E '^(cmd/|internal/tui/|internal/config/|scripts/install\.)' | grep -v '_test\.go$' || true)
+if [ -z "$visible" ]; then
+	ok "sin cambios en lo que ve el usuario"
+elif echo "$changed" | grep -qx 'docs/guia-usuario.md'; then
+	ok "docs/guia-usuario.md actualizada"
+else
+	warn "cambian $(echo "$visible" | wc -l | tr -d ' ') archivo(s) que el usuario ve y no docs/guia-usuario.md: actualízala, o explica en la bitácora por qué no hace falta"
+fi
+
 section "Resultado"
 if [ "$failures" -gt 0 ]; then
 	printf '  \033[31m%d bloqueante(s)\033[0m, %d advertencia(s)\n' "$failures" "$warnings"
