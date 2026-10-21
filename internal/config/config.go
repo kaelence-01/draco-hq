@@ -170,6 +170,20 @@ func (q *QAJiraConfig) Empty() bool {
 		q.Fields == (QAJiraFields{}) && len(q.ReviewPrefixes) == 0 && q.ObservationMarker == ""
 }
 
+// ExpandHome replaces a leading ~ with the user's home folder: the shell does
+// it for flags, but nothing does it for the paths in config.yaml.
+func ExpandHome(path string) string {
+	rest, ok := strings.CutPrefix(path, "~")
+	if !ok || (rest != "" && rest[0] != '/' && rest[0] != filepath.Separator) {
+		return path
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return path
+	}
+	return filepath.Join(home, rest)
+}
+
 // SplitList reads a comma-separated list, without spaces or empty items.
 func SplitList(s string) []string {
 	var out []string

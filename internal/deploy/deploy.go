@@ -51,7 +51,7 @@ type Sides struct {
 	Project  string // empty when no project applies
 	Backend  Repo
 	Frontend Repo
-	SpaceKey string // the project's destination scope; empty: the profile's
+	SpaceKey string // the project's Confluence space; empty: the profile's
 }
 
 // ProjectSides returns the sides of a project; empty is default_project.
@@ -66,8 +66,8 @@ func ProjectSides(cfg *config.Config, project string) (*Sides, error) {
 func sidesOf(proj *config.ProjectConfig, name string) *Sides {
 	s := &Sides{Project: name}
 	if proj != nil {
-		s.Backend = Repo{Name: proj.BackendRepo, WorkDir: proj.BackendPath}
-		s.Frontend = Repo{Name: proj.FrontendRepo, WorkDir: proj.FrontendPath}
+		s.Backend = Repo{Name: proj.BackendRepo, WorkDir: config.ExpandHome(proj.BackendPath)}
+		s.Frontend = Repo{Name: proj.FrontendRepo, WorkDir: config.ExpandHome(proj.FrontendPath)}
 		s.SpaceKey = proj.ConfluenceSpaceKey
 	}
 	return s
@@ -82,14 +82,15 @@ func (s *Sides) Deployable() (backend, frontend bool) {
 
 // Target is a Request resolved against config.
 type Target struct {
-	Issue       string
-	ProjectName string // empty when no project applies
-	SpaceKey    string // destination scope from the request or the project; empty: the profile's
-	VCSHost     string
-	VCSOrg      string
-	Backend     Repo
-	Frontend    Repo
-	Checklist   []string
+	Issue        string
+	ProjectName  string // empty when no project applies
+	SpaceKey     string // destination scope from the request: a space or a Markdown folder
+	ProjectSpace string // the project's Confluence space; see profile.Options
+	VCSHost      string
+	VCSOrg       string
+	Backend      Repo
+	Frontend     Repo
+	Checklist    []string
 
 	// Template renders the document; nil is the built-in one.
 	Template *document.Template
@@ -115,14 +116,15 @@ func Resolve(cfg *config.Config, req Request) (*Target, error) {
 
 	sides := sidesOf(proj, projName)
 	t := &Target{
-		Issue:       req.Issue,
-		ProjectName: projName,
-		SpaceKey:    req.Space,
-		VCSHost:     req.VCSHost,
-		VCSOrg:      req.VCSOrg,
-		Backend:     sides.Backend,
-		Frontend:    sides.Frontend,
-		Checklist:   cfg.ResolveDeployChecklist(proj),
+		Issue:        req.Issue,
+		ProjectName:  projName,
+		SpaceKey:     req.Space,
+		ProjectSpace: sides.SpaceKey,
+		VCSHost:      req.VCSHost,
+		VCSOrg:       req.VCSOrg,
+		Backend:      sides.Backend,
+		Frontend:     sides.Frontend,
+		Checklist:    cfg.ResolveDeployChecklist(proj),
 	}
 	t.Backend.Hashes, t.Frontend.Hashes = req.BackendHashes, req.FrontendHashes
 
@@ -134,10 +136,6 @@ func Resolve(cfg *config.Config, req Request) (*Target, error) {
 			t.VCSOrg = proj.VCSOrg
 		}
 	}
-	if t.SpaceKey == "" {
-		t.SpaceKey = sides.SpaceKey
-	}
-
 	if t.Template, err = loadTemplate(req.Template, t.Backend.WorkDir); err != nil {
 		return nil, err
 	}

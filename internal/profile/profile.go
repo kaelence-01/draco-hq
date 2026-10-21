@@ -33,8 +33,12 @@ type Options struct {
 	Name string // empty: default_profile (see config.Profile)
 
 	// Scope overrides the destination scope: a Confluence space key, or a
-	// Markdown folder. Empty uses the profile's.
+	// Markdown folder. Empty uses ProjectSpace or the profile's.
 	Scope string
+
+	// ProjectSpace is the project's Confluence space: it comes before the
+	// profile's, and a Markdown destination ignores it.
+	ProjectSpace string
 
 	// AnyScope lets a Confluence destination work without a space, searching
 	// every space (exporting does).
@@ -60,7 +64,7 @@ func Open(cfg *config.Config, o Options) (*Bundle, error) {
 	if err != nil {
 		return nil, err
 	}
-	b := &Bundle{Name: name, Profile: *p, Changes: git.Local{}, Template: p.Template}
+	b := &Bundle{Name: name, Profile: *p, Changes: git.Local{}, Template: config.ExpandHome(p.Template)}
 
 	var client *atlassian.Client
 	atlassianClient := func() (*atlassian.Client, error) {
@@ -93,6 +97,9 @@ func Open(cfg *config.Config, o Options) (*Bundle, error) {
 	switch p.Docs.Provider {
 	case "confluence":
 		if scope == "" {
+			scope = o.ProjectSpace
+		}
+		if scope == "" {
 			scope = p.Docs.Space
 		}
 		if scope == "" && !o.AnyScope {
@@ -105,7 +112,7 @@ func Open(cfg *config.Config, o Options) (*Bundle, error) {
 		b.Docs = atlassian.NewDocStore(c, scope)
 	case "markdown":
 		if scope == "" {
-			scope = p.Docs.Path
+			scope = config.ExpandHome(p.Docs.Path)
 		}
 		if scope == "" {
 			return nil, fmt.Errorf("perfil '%s': docs.path es obligatorio con provider: markdown", name)
