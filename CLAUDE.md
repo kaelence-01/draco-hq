@@ -99,7 +99,10 @@ internal/
   fetch/       Flujo de exportar una página a texto, sin E/S de terminal
   tui/         Modo visual (Bubble Tea v2): pila de pantallas sobre los flujos;
                recibe sus dependencias de cmd en tui.Deps
+scripts/       install.sh / install.ps1 (instalación con un comando, verifican
+               checksums.txt), release.sh, promote.sh
 docs/
+  guia-usuario.md            Guía de usuario (pública; se mantiene al día)
   roadmap.md                 Visión, fases, estado y decisiones
   arquitectura/proveedores.md    Puertos, adaptadores y plantillas (diseño)
   arquitectura/tui.md            Modo visual: pantallas, modelo y tests (diseño)
@@ -284,6 +287,12 @@ main ── develop ── feature/<tema>   (PR → develop, nunca a main)
   fusionadas no se reescriben.
 - La historia y el porqué de las decisiones van a la bitácora, **no a
   comentarios del código**: comentarios mínimos (ver `estandares-desarrollo`).
+- **La guía de usuario (`docs/guia-usuario.md`) se actualiza en el mismo
+  commit** que cambia lo que el usuario ve: un comando, un flag, una pantalla,
+  una tecla, un mensaje que cita, la instalación o la config. `make check`
+  avisa si cambian `cmd/`, `internal/tui/`, `internal/config/` o
+  `scripts/install.*` sin tocar la guía; si el cambio no se ve, se explica en
+  la bitácora.
 
 Skills obligatorias (`.claude/skills/`):
 

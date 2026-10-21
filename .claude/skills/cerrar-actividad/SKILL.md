@@ -31,6 +31,11 @@ description: Cierra una actividad de draco — verificaciones (build, vet, gofmt
    `.claude/terminos-privados.txt` (ignorado por git): un término por línea con
    nombres reales que nunca deben llegar al repo.
 
+   La sección «Guía de usuario» avisa si cambian `cmd/`, `internal/tui/`,
+   `internal/config/` o `scripts/install.*` sin tocar `docs/guia-usuario.md`:
+   actualiza la guía en el mismo commit, o explica en la bitácora por qué el
+   cambio no se ve.
+
 4. **Un solo commit por actividad.**
    - Sin commits en la rama: `git add` de los archivos de la actividad (nunca
      `-A` a ciegas: revisa `git status`) y commit.
