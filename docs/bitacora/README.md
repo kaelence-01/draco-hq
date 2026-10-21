@@ -64,6 +64,12 @@ Sin entradas: se hizo antes de que existiera la bitácora.
 | [032](./fase-4/032-tui-publicar.md) | Generar en la TUI (2): vista previa, ubicación y publicación | `feature/tui-publicar` | 2026-10-20 | Vista previa (Markdown en `viewport`, `NotPreserved` con `s`), ubicación con filtro, publicar sin salida a medias y `LinkErr`; filtro compartido; texto largo ajustado, no cortado |
 | [033](./fase-4/033-cierre-fase-4.md) | Cierre de la fase 4 | `docs/cierre-fase-4` | 2026-10-20 | `draco help` menciona el modo visual; fase 4 cerrada; release `v0.2.0` y su verificación a cargo del autor |
 
+### Fase 5 — Resto de pantallas
+
+| # | Actividad | Rama | Fecha | Resumen |
+|---|---|---|---|---|
+| [034](./fase-5/034-plan-fase-5.md) | Diseño de las pantallas y plan de la fase 5 | `docs/plan-fase-5` | 2026-10-20 | Exportar, Backlog y QA en `tui.md` §6; núcleo del backlog fuera de `cmd` y `Scan` con `context`; vista previa, ubicación y publicar compartidos con QA; la fase en 6 actividades |
+
 ## Formato de cada entrada
 
 Archivo `fase-N/NNN-<tema>.md`: `N` es la fase del roadmap, `NNN` el número
