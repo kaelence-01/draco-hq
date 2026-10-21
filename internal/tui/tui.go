@@ -9,6 +9,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/kaelence-01/draco-hq/internal/config"
+	"github.com/kaelence-01/draco-hq/internal/profile"
 )
 
 // Deps are what the command mode passes in; its tests replace them.
@@ -19,6 +20,8 @@ type Deps struct {
 	// environment, so a token from ATLASSIAN_TOKEN is not written to disk.
 	LoadFile   func() (*config.Config, error)
 	SaveConfig func(*config.Config) error
+	// OpenProfile builds the adapters of a profile (profile.Open).
+	OpenProfile func(*config.Config, profile.Options) (*profile.Bundle, error)
 }
 
 // Run shows the visual mode on a terminal until the user quits.

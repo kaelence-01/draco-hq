@@ -6,7 +6,8 @@ recorrer **los mismos flujos** que el modo comando; no tiene lógica propia de
 negocio.
 
 Estado: **en implementación** (roadmap, fase 4). Implementado: la base
-(entrada, marco, pila de pantallas, pantalla principal) y Proyectos. Se
+(entrada, marco, pila de pantallas, pantalla principal), Proyectos y Generar
+hasta los archivos leídos (vista previa y publicación: actividad 4b). Se
 actualiza al implementar cada actividad. Las reglas para escribir una pantalla
 están en el §10 y son obligatorias.
 
@@ -68,7 +69,9 @@ internal/tui/
   home.go       pantalla principal (menú y panel de la función elegida)
   projects.go   Proyectos: lista con filtro, activo, por defecto, borrar
   projectform.go  formulario de Huh para crear y editar un proyecto
-  generate.go   Generar documento
+  generate.go   Generar: tarea y proyecto (formulario); abre el perfil
+  commits.go    Generar: selector de commits por lado, con hash a mano
+  progress.go   Generar: pasos de deploy.Session con progreso y cancelación
 ```
 
 `cmd` importa `tui`; `tui` nunca importa `cmd`. Lo que `cmd` reemplaza en los
@@ -109,7 +112,7 @@ habla con los flujos; nunca con un adaptador.
   | Interfaz | Para qué |
   |---|---|
   | `captures(k tea.KeyPressMsg) bool` | Quitarle una tecla global (`?`, `esc`) al marco mientras la pantalla la necesita: un campo de texto, un filtro, una confirmación. `ctrl+c` nunca se captura |
-  | `init() tea.Cmd` | Arrancar al abrirse (el formulario de Huh enfoca su primer campo) |
+  | `init() tea.Cmd` | Arrancar al mostrarse: al abrirse y al volver a quedar arriba. El formulario de Huh enfoca su primer campo (y, si ya se envió, se rehace con los mismos valores); una pantalla con pasos los lanza una sola vez |
   | `close()` | Soltar lo que la pantalla lanzó al cerrarse: cancela el `context` de un paso en curso |
 
   `open(s)` apila; `esc` (o el mensaje `back`) cierra la de arriba, llama a
@@ -183,23 +186,32 @@ mismas decisiones que pregunta `draco g`:
 
 | # | Pantalla | Paso del flujo | Decisión del usuario |
 |---|---|---|---|
-| 1 | Tarea y proyecto (formulario) | — | Clave de la tarea, proyecto (por defecto, el activo) |
-| 2 | Commits | `ChangeSource.RecentCommits` por lado | Marcar commits de backend y de frontend; `h` agrega un hash a mano |
-| 3 | Progreso | `Resolve`, `profile.Open`, `FetchIssue`, `FindExisting` | Si ya existe: actualizar, crear otro o cancelar |
-| 4 | Progreso | `ReadCommits` | Si falla un lado, aviso y seguir con el otro |
+| 1 | Tarea y proyecto (formulario) | `deploy.ProjectSides`, `profile.Open` | Clave de la tarea, proyecto (por defecto, el activo) |
+| 2 | Commits | `ChangeSource.CurrentBranch` y `RecentCommits` por lado | Marcar commits de backend y de frontend; `h` agrega un hash a mano |
+| 3 | Preparar documento (progreso) | `Resolve`, `FetchIssue`, `FindExisting` | Si ya existe: `1` actualizar, `2` crear otro, `3` cancelar |
+| 4 | Preparar documento (progreso) | `ReadCommits` | Si falla un lado, aviso y seguir con el otro |
 | 5 | Vista previa | `DraftCreate` / `DraftUpdate` | Pestañas: archivos por carpeta y documento (Markdown en `viewport`). Si `NotPreserved`, confirmar |
 | 6 | Ubicación (solo al crear) | `Locations` | Elegir de la lista con búsqueda; aviso si `TeamWide` u `OwnerUnknown` |
 | 7 | Confirmación y resultado | `Publish` | Confirmar; resultado con la URL y `LinkErr` si falló el enlace |
 
 - **Los repos antes del `Resolve`.** `deploy.Resolve` exige los hashes, pero
   el selector de commits necesita antes las carpetas de los repos del
-  proyecto. Se extrae del flujo una función pura que devuelve los repos de un
-  proyecto, y `Resolve` la usa también; la TUI no repite esa lógica.
+  proyecto. `deploy.ProjectSides` (función pura) devuelve los lados del
+  proyecto y su space, y `Sides.Deployable` dice qué lados tienen un clon
+  (sin ruta de frontend, el backend siempre: su clon o el directorio actual).
+  `Resolve` usa la misma función; la TUI no repite esa lógica.
+- **El perfil se abre en el paso 1**, con el space del proyecto como alcance:
+  una credencial o un space que faltan se explican en el formulario, antes de
+  elegir commits, y el selector usa el `ChangeSource` del perfil.
 - **Orden de los commits.** El documento enlaza el primer hash de cada lado.
   Los marcados se pasan en el orden de la lista (el más reciente primero); el
   hash manual va al final.
 - **Rama actual.** `RecentCommits` lee la rama en la que está el clon. Un
-  commit de otra rama se agrega con `h`; la pantalla dice en qué rama está.
+  commit de otra rama se agrega con `h`; la pantalla dice en qué rama está
+  (`CurrentBranch`). Cada lado es una pestaña (`tab`), para caber en 80
+  columnas; la pestaña cuenta los commits marcados.
+- **Hasta la 4b**, el paso 3 termina con los archivos leídos por carpeta y el
+  comando equivalente con `--dry-run`, para ver el documento hoy.
 - La vista previa reemplaza a `--dry-run`: salir ahí no publica nada.
 - Los centinelas se explican con texto de la pantalla: `ErrNoSpace` y
   `ErrNoCredentials` (al abrir el perfil), `ErrNoLocations` (propone un perfil
@@ -218,6 +230,9 @@ mismas decisiones que pregunta `draco g`:
 - Guardar se prueba con un archivo en memoria (`fakeFile`) cuyo `LoadConfig`
   agrega un token, como haría `ATLASSIAN_TOKEN`: cada test que guarda
   comprueba que el token no llegó al archivo.
+- La cancelación se prueba con un tracker que espera al `context` del paso:
+  `esc` debe cancelarlo, y un resultado que llega de un paso cancelado no
+  cambia la pantalla nueva.
 - Los pasos del flujo usan los dobles del modo comando: config en memoria,
   tracker y git simulados, adaptador Markdown real en una carpeta temporal.
 - Un test recorre Generar de punta a punta y comprueba el archivo publicado.
@@ -241,7 +256,9 @@ Terminal y una terminal de Linux o WSL.
 | La `Session` no se lee mientras un paso corre | El paso escribe desde otra goroutine |
 | Proyecto activo en memoria; «por defecto» en la config | Cambiar de proyecto para una tarea no debe cambiar la config |
 | Entradas futuras del menú atenuadas con su comando | Muestra lo que existe y cómo usarlo hoy |
-| Función pura de repos del proyecto en `deploy` | El selector de commits la necesita antes de `Resolve`; la TUI no reimplementa el flujo |
+| Función pura de repos del proyecto en `deploy` (`ProjectSides`) | El selector de commits la necesita antes de `Resolve`; la TUI no reimplementa el flujo |
+| El perfil se abre al enviar la tarea, no después de los commits | Un error de credenciales o de space se ve antes de elegir commits, y el selector necesita el `ChangeSource` del perfil |
+| `CurrentBranch` en el puerto `ChangeSource` | La pantalla dice de qué rama son los commits; sin eso, un commit de otra rama parecería no existir |
 | Sin emojis en el marco | Ancho variable entre terminales |
 | Panel con la descripción y el comando equivalente en la principal | El modo visual enseña el modo comando; viene de la maqueta del modo visual |
 | Ruta con los títulos de la pila | Con pantallas apiladas (Proyectos › formulario) se pierde de vista dónde se está |

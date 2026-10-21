@@ -75,6 +75,7 @@ type QATracker interface {
 type ChangeSource interface {
     ChangedFiles(ctx context.Context, workDir string, hashes []string) ([]string, error)
     RecentCommits(ctx context.Context, workDir string, n int) ([]Commit, error)
+    CurrentBranch(ctx context.Context, workDir string) (string, error)
 }
 ```
 
@@ -92,8 +93,10 @@ type ChangeSource interface {
   (`atlassian.NewQATracker(c, qa_jira)`). Hoy el llamador construye el
   adaptador directamente; detectar la capacidad con una aserción de tipo sobre
   un `Tracker` cualquiera llega con los perfiles (actividad 7).
-- **`ChangeSource`** (`ChangedFiles`, `RecentCommits`); `git.Local` es el clon
-  local.
+- **`ChangeSource`** (`ChangedFiles`, `RecentCommits`, `CurrentBranch`);
+  `git.Local` es el clon local. `CurrentBranch` es la rama que lee
+  `RecentCommits` («HEAD» si está separada): el selector de commits de la TUI
+  la muestra.
 - **`DocStore.SearchTitle`** busca por título en todo el destino (CQL en
   Confluence). Lo usa el consolidado QA para sus ubicaciones: `Locations` solo
   revisa las páginas más nuevas, y un consolidado se crea una vez por sprint.

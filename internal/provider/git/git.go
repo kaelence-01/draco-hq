@@ -52,6 +52,15 @@ func (Local) RecentCommits(ctx context.Context, workDir string, n int) ([]provid
 	return parseLog(out), nil
 }
 
+// CurrentBranch returns the branch checked out in the clone.
+func (Local) CurrentBranch(ctx context.Context, workDir string) (string, error) {
+	out, err := run(ctx, workDir, "rev-parse", "--abbrev-ref", "HEAD")
+	if err != nil {
+		return "", fmt.Errorf("no se pudo leer la rama actual: %w", err)
+	}
+	return strings.TrimSpace(out), nil
+}
+
 func parseLog(out string) []provider.Commit {
 	var commits []provider.Commit
 	for _, line := range strings.Split(out, "\n") {
