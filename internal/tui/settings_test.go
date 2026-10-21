@@ -61,6 +61,8 @@ func newSettingsApp(t *testing.T, file *config.Config) *settingsEnv {
 func savedConfig() *config.Config {
 	return &config.Config{
 		AtlassianEmail: "tu@example.test", AtlassianToken: "token-del-archivo", BaseURL: "https://empresa.example.test",
+		Projects:       map[string]*config.ProjectConfig{"pagos": {BackendPath: "/repos/pagos-api", BackendRepo: "pagos-api"}},
+		DefaultProject: "pagos",
 		DefaultProfile: "equipo",
 		Profiles: map[string]*config.Profile{
 			"equipo":  {Tracker: config.ProviderConfig{Provider: "jira"}, Docs: config.ProviderConfig{Provider: "confluence", Space: "DEV"}},
@@ -79,7 +81,7 @@ func (e *settingsEnv) fill(values ...string) {
 func TestSettingsShowsEachSection(t *testing.T) {
 	e := newSettingsApp(t, savedConfig())
 	out := view(e.m)
-	for _, want := range []string{"Inicio › Configuración", "▸ Conexión con Atlassian", "✓ tu@example.test en https://empresa.example.test", "Perfiles", "✓ equipo: jira → confluence (space DEV)", "QA", "⚠ sin configurar"} {
+	for _, want := range []string{"Inicio › Configuración", "▸ Conexión con Atlassian", "✓ tu@example.test en https://empresa.example.test", "Proyectos", "✓ 1 proyecto; por defecto: pagos", "Opcional", "Perfiles", "✓ equipo: jira → confluence (space DEV)", "QA", "⚠ sin configurar"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("falta %q:\n%s", want, out)
 		}
@@ -104,9 +106,13 @@ func TestWizardFromAnEmptyConfig(t *testing.T) {
 	}
 	send(e.m, keyEnter)
 	e.fill("https://empresa.example.test/")
+	if out := view(e.m); !strings.Contains(out, "Space de Confluence") {
+		t.Fatalf("sin perfiles, la conexión pide el space, como gtt:\n%s", out)
+	}
+	e.fill("DEV")
 
-	if e.file.cfg.AtlassianToken != "secreto-123" || e.file.cfg.BaseURL != "https://empresa.example.test" {
-		t.Fatalf("se guarda el token escrito, no el del entorno, y la URL sin / final: %q %q", e.file.cfg.AtlassianToken, e.file.cfg.BaseURL)
+	if e.file.cfg.AtlassianToken != "secreto-123" || e.file.cfg.BaseURL != "https://empresa.example.test" || e.file.cfg.ConfluenceSpaceKey != "DEV" {
+		t.Fatalf("se guarda el token escrito, no el del entorno, la URL sin / final y el space: %q %q %q", e.file.cfg.AtlassianToken, e.file.cfg.BaseURL, e.file.cfg.ConfluenceSpaceKey)
 	}
 	out = view(e.m)
 	if strings.Contains(out, "secreto-123") || !strings.Contains(out, "Autenticado como Ana Pérez (ana@example.test)") || !strings.Contains(out, "no es el de la cuenta autenticada") {
@@ -120,29 +126,36 @@ func TestWizardFromAnEmptyConfig(t *testing.T) {
 		t.Fatalf("s usa el email de la cuenta: %q\n%s", e.file.cfg.AtlassianEmail, view(e.m))
 	}
 
-	send(e.m, keyEnter)
-	if out := view(e.m); !strings.Contains(out, "Primer perfil") || !strings.Contains(out, "equipo") {
-		t.Fatalf("enter sigue con el primer perfil:\n%s", out)
+	if out := view(e.m); !strings.Contains(out, "enter sigue con el primer proyecto") {
+		t.Fatalf("sin proyectos, la verificación sigue con el primero:\n%s", out)
 	}
 	send(e.m, keyEnter)
+	if out := view(e.m); !strings.Contains(out, "Configuración › Proyectos › Nuevo proyecto") {
+		t.Fatalf("enter abre el formulario de Proyectos:\n%s", out)
+	}
+	e.fill("pagos", "/repos/pagos-api", "", "", "", "", "mi-org", "")
+
+	if p := e.file.cfg.Projects["pagos"]; p == nil || p.BackendRepo != "pagos-api" || p.VCSOrg != "mi-org" || e.file.cfg.DefaultProject != "pagos" {
+		t.Fatalf("el primer proyecto se guarda por defecto: %+v %q", p, e.file.cfg.DefaultProject)
+	}
+	if len(e.file.cfg.Profiles) != 0 {
+		t.Errorf("el asistente, como draco init, no crea perfiles: %v", e.file.cfg.ProfileNames())
+	}
+	send(e.m, keyEsc)
+	out = view(e.m)
+	for _, want := range []string{"✓ 1 proyecto; por defecto: pagos", "Opcional", "✓ ninguno: se usa jira → confluence (space DEV)", "space DEV"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("Configuración muestra %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestProjectsIsASectionOfSettings(t *testing.T) {
+	e := newSettingsApp(t, savedConfig())
 	send(e.m, keyDown)
 	send(e.m, keyEnter)
-	e.fill("./docs/despliegues")
-
-	got := e.file.cfg.Profiles["equipo"]
-	if got == nil || got.Docs.Provider != "markdown" || got.Docs.Path != "./docs/despliegues" || e.file.cfg.DefaultProfile != "equipo" {
-		t.Fatalf("el primer perfil se guarda por defecto: %+v, %q", got, e.file.cfg.DefaultProfile)
-	}
-	if _, ok := e.file.cfg.Profiles[config.LegacyProfile]; ok {
-		t.Error("el asistente, como draco init, no guarda el perfil implícito")
-	}
-	out = view(e.m)
-	if len(e.m.stack) != 2 || !strings.Contains(out, "✓ Perfil guardado: equipo (jira → markdown)") || !strings.Contains(out, "p crea el primer proyecto") {
-		t.Fatalf("vuelve a Configuración y ofrece un proyecto:\n%s", out)
-	}
-	typeText(e.m, "p")
-	if out := view(e.m); !strings.Contains(out, "Proyectos › Nuevo proyecto") {
-		t.Errorf("p abre el formulario de Proyectos:\n%s", out)
+	if out := view(e.m); !strings.Contains(out, "Configuración › Proyectos") || !strings.Contains(out, "pagos") {
+		t.Errorf("enter en Proyectos abre la lista:\n%s", out)
 	}
 }
 
@@ -151,6 +164,9 @@ func TestConnectionKeepsTheTokenWhenEmpty(t *testing.T) {
 	send(e.m, keyEnter)
 	if out := view(e.m); !strings.Contains(out, "Vacío conserva el actual") || !strings.Contains(out, "tu@example.test") || strings.Contains(out, "token-del-archivo") {
 		t.Fatalf("el formulario parte del archivo y no muestra el token:\n%s", out)
+	}
+	if out := view(e.m); strings.Contains(out, "Space de Confluence") {
+		t.Errorf("con perfiles, el space es de cada perfil y la conexión no lo pide:\n%s", out)
 	}
 	e.fill("", "", "")
 	if e.file.cfg.AtlassianToken != "token-del-archivo" || e.file.saves != 1 {
@@ -197,6 +213,7 @@ func TestFailedCheckKeepsWhatWasSaved(t *testing.T) {
 
 func (e *settingsEnv) toProfiles(t *testing.T) {
 	t.Helper()
+	send(e.m, keyDown)
 	send(e.m, keyDown)
 	send(e.m, keyEnter)
 	if out := view(e.m); !strings.Contains(out, "Configuración › Perfiles") {

@@ -48,7 +48,7 @@ func newHome(st *state) *home {
 		{label: "Backlog técnico", example: "draco backlog scan", open: func(st *state) screen { return newBacklogForm(st) },
 			desc: "Detecta deuda técnica en tus repos locales y la propone como tareas. Sin red."},
 		{label: "Configuración", example: "draco init", open: func(st *state) screen { return newSettings(st) },
-			desc: "Credenciales, perfiles (tracker y destino de los documentos) y el primer proyecto."},
+			desc: "Conexión con Atlassian y proyectos, lo que necesita el documento. Opcionales: perfiles, QA y tema."},
 	}}
 }
 

@@ -1,24 +1,23 @@
 package tui
 
 import (
+	"fmt"
+
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 )
 
-var projectKey = key.NewBinding(key.WithKeys("p"), key.WithHelp("p", "crear un proyecto"))
-
-// settings is the configuration, by sections. When the file has no
-// credentials and no profiles, it starts with the connection, in the order of
-// draco init.
+// settings is the configuration, by sections: first what generating a
+// document needs, then the optional ones. When the file has no credentials
+// and no profiles, it starts with the connection, in the order of draco init.
 type settings struct {
-	st           *state
-	cursor       int
-	wizard       bool
-	started      bool
-	offerProject bool // the first profile was saved and there are no projects
-	note         string
-	failed       bool
+	st      *state
+	cursor  int
+	wizard  bool
+	started bool
+	note    string
+	failed  bool
 }
 
 func newSettings(st *state) *settings {
@@ -31,12 +30,7 @@ func newSettings(st *state) *settings {
 
 func (s *settings) title() string { return "Configuración" }
 
-func (s *settings) keys() []key.Binding {
-	if s.offerProject {
-		return []key.Binding{upKey, downKey, enterKey, projectKey}
-	}
-	return []key.Binding{upKey, downKey, enterKey}
-}
+func (s *settings) keys() []key.Binding { return []key.Binding{upKey, downKey, enterKey} }
 
 func (s *settings) init() tea.Cmd {
 	if !s.wizard || s.started || s.st.cfg == nil {
@@ -49,7 +43,7 @@ func (s *settings) init() tea.Cmd {
 // section is one entry of the list, with what it has or what it lacks.
 type section struct {
 	name, status string
-	ok           bool
+	ok, optional bool
 }
 
 func (s *settings) sections() []section {
@@ -57,17 +51,30 @@ func (s *settings) sections() []section {
 	conn := section{name: "Conexión con Atlassian", status: "faltan el email, el token o la URL del sitio"}
 	if c.HasAtlassianCredentials() {
 		conn.ok, conn.status = true, c.AtlassianEmail+" en "+c.BaseURL
-	}
-	prof := section{name: "Perfiles"}
-	if p, name, err := c.Profile(""); err != nil {
-		prof.status = err.Error()
-	} else {
-		prof.ok, prof.status = true, name+": "+profileSummary(p)
-		if len(c.Profiles) == 0 {
-			prof.status += " (implícito)"
+		if len(c.Profiles) == 0 && c.ConfluenceSpaceKey != "" {
+			conn.status += " · space " + c.ConfluenceSpaceKey
 		}
 	}
-	qa := section{name: "QA", status: "sin configurar: solo hace falta para el consolidado QA"}
+	proj := section{name: "Proyectos", status: "ninguno: hace falta uno para generar el documento"}
+	switch n := len(c.Projects); {
+	case n == 1:
+		proj.ok, proj.status = true, "1 proyecto"
+	case n > 1:
+		proj.ok, proj.status = true, fmt.Sprintf("%d proyectos", n)
+	}
+	if c.DefaultProject != "" {
+		proj.status += "; por defecto: " + c.DefaultProject
+	}
+	prof := section{name: "Perfiles", optional: true}
+	switch p, name, err := c.Profile(""); {
+	case err != nil:
+		prof.status = err.Error()
+	case len(c.Profiles) == 0:
+		prof.ok, prof.status = true, "ninguno: se usa "+profileSummary(p)
+	default:
+		prof.ok, prof.status = true, name+": "+profileSummary(p)
+	}
+	qa := section{name: "QA", status: "sin configurar: solo hace falta para el consolidado QA", optional: true}
 	switch {
 	case c.QAJira == nil:
 	case c.QAJira.Validate() != nil:
@@ -77,14 +84,14 @@ func (s *settings) sections() []section {
 	default:
 		qa.ok, qa.status = true, "proyecto "+c.QAJira.Project+"; publica "+c.QAEmail
 	}
-	look := section{name: "Tema", ok: true, status: knownTheme(c.Theme)}
+	look := section{name: "Tema", ok: true, status: knownTheme(c.Theme), optional: true}
 	switch {
 	case c.Theme == "":
 		look.status += " (por defecto)"
 	case knownTheme(c.Theme) != c.Theme:
 		look.ok, look.status = false, "«"+c.Theme+"» no existe: se usa "+defaultTheme
 	}
-	return []section{conn, prof, qa, look}
+	return []section{conn, proj, prof, qa, look}
 }
 
 func (s *settings) update(msg tea.Msg) (screen, tea.Cmd) {
@@ -103,24 +110,15 @@ func (s *settings) update(msg tea.Msg) (screen, tea.Cmd) {
 		case 0:
 			return s, open(newConnection(s))
 		case 1:
-			return s, open(newProfiles(s.st))
+			return s, open(newProjects(s.st))
 		case 2:
+			return s, open(newProfiles(s.st))
+		case 3:
 			return s, open(newQAConfig(s))
 		}
 		return s, open(newThemePicker(s))
-	case key.Matches(k, projectKey) && s.offerProject:
-		s.offerProject = false
-		ps := newProjects(s.st)
-		return s, tea.Sequence(open(ps), open(newProjectForm(ps, "")))
 	}
 	return s, nil
-}
-
-// firstProfile reports the first profile saved by the wizard.
-func (s *settings) firstProfile(note string, err error) {
-	s.done(note, err)
-	s.offerProject = err == nil && len(s.st.cfg.Projects) == 0
-	s.cursor = 1
 }
 
 func (s *settings) done(note string, err error) {
@@ -136,7 +134,12 @@ func (s *settings) view(width, height int) string {
 		return pad(lipgloss.NewStyle().Width(width - 2).Render(warnStyle.Render("⚠ " + s.st.notice)))
 	}
 	lines := []string{faintStyle.Render("Se guarda en config.yaml, legible solo por tu usuario."), ""}
+	optional := false
 	for i, sec := range s.sections() {
+		if sec.optional && !optional {
+			optional = true
+			lines = append(lines, "", faintStyle.Render("Opcional"))
+		}
 		cursor, name := "  ", sec.name
 		if i == s.cursor {
 			cursor, name = accentStyle.Render("▸ "), accentStyle.Bold(true).Render(name)
@@ -152,9 +155,6 @@ func (s *settings) view(width, height int) string {
 		lines = append(lines, "", errStyle.Render("✗ "+s.note))
 	case s.note != "":
 		lines = append(lines, "", okStyle.Render("✓ ")+s.note)
-	}
-	if s.offerProject {
-		lines = append(lines, faintStyle.Render("Configuración lista. Si quieres, p crea el primer proyecto."))
 	}
 	return pad(lipgloss.NewStyle().Width(width - 2).Render(lipgloss.JoinVertical(lipgloss.Left, lines...)))
 }
