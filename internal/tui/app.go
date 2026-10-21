@@ -68,7 +68,7 @@ func (m *app) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
-		m.help.SetWidth(msg.Width)
+		m.help.SetWidth(msg.Width - 1) // the footer starts with a space
 		return m, nil
 	case tea.KeyPressMsg:
 		if key.Matches(msg, quitKey) {
