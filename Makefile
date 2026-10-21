@@ -15,7 +15,7 @@ PLATFORMS := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64
 VERSION_PKG := github.com/kaelence-01/draco-hq/internal/build
 GOFILES = $(shell git ls-files --cached --others --exclude-standard '*.go')
 
-.PHONY: help sync start push pr finish prune build run test vet fmt lint golden fuzz check ci release-build release
+.PHONY: help sync start push pr finish prune build run test vet fmt lint golden fuzz check ci release-build promote release
 
 ##@ Git
 
@@ -102,6 +102,9 @@ release-build: ## Binarios de todas las plataformas y checksums.txt en dist/: ma
 	done
 	@cd dist && { if command -v sha256sum >/dev/null; then sha256sum draco-*; else shasum -a 256 draco-*; fi; } > checksums.txt
 	@echo "  dist/checksums.txt"
+
+promote: ## Lleva develop a main (lo corre el autor): PR con merge commit, fusión confirmada, main y develop al día
+	@bash scripts/promote.sh
 
 release: ## Publica un release desde main (lo corre el autor): make release bump=patch|minor|major | ver=vX.Y.Z
 	@bash scripts/release.sh "$(bump)" "$(ver)"

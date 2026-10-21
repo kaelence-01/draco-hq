@@ -17,19 +17,31 @@ confían en ese archivo (P-006): un binario que no coincide no se instala.
 
 ## Pasos
 
-1. **Llevar `develop` a `main`** con un PR. Fusiónalo con *merge commit*,
+1. **Llevar `develop` a `main`** con un PR fusionado con *merge commit*,
    nunca con *rebase and merge* ni *squash*: esos copian los commits con otros
    hashes, las ramas dejan de compartir historia y el siguiente PR choca en
    cada archivo (bitácora 026).
 
    ```bash
-   gh pr create --base main --head develop --title "Release v0.1.0" --fill
+   make promote
    ```
 
-2. **Publicar desde `main` al día:**
+   `scripts/promote.sh`:
+   - se detiene si `gh` no está autenticado, si hay cambios sin commitear o
+     si `develop` local tiene commits que no están en `origin/develop`; si
+     `main` ya tiene todo `develop`, no hace nada;
+   - muestra las actividades que llegan a `main` y crea el PR (o reutiliza el
+     que ya está abierto), con esa lista como descripción;
+   - pregunta antes de fusionar; con `N`, el PR queda abierto para revisarlo
+     en GitHub y se puede volver a correr;
+   - fusiona con `gh pr merge --merge`, sin `--delete-branch` (borraría
+     `develop`);
+   - deja `main` y `develop` locales al día, solo con *fast-forward*, y te
+     deja en `main`.
+
+2. **Publicar desde `main` al día** (`make promote` ya te deja ahí):
 
    ```bash
-   git switch main && git pull --ff-only
    make release bump=patch       # o minor / major, o ver=vX.Y.Z
    ```
 
