@@ -282,7 +282,12 @@ func (b *cmdBar) run() (tea.Cmd, bool) {
 	case l.cmd.Names[0] == "version":
 		b.note, b.failed = "draco "+b.st.deps.Version, false
 	default:
-		b.note, b.failed = "La línea es válida, pero la barra todavía no abre «"+l.cmd.Names[0]+"»: elígelo en el menú.", false
+		cmd, err := openFromBar(b.st, l)
+		if err != nil {
+			b.note, b.failed = err.Error(), true
+			return nil, false
+		}
+		return cmd, true
 	}
 	return nil, false
 }

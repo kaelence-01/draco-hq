@@ -37,17 +37,20 @@ func newQAForm(st *state) *qaForm {
 
 func (f *qaForm) build() *huh.Form {
 	return newForm(
-		huh.NewInput().Title("Sprint").Placeholder("12 (vacío: modo Kanban, últimos 10 días hábiles)").Value(&f.sprint).Validate(func(s string) error {
-			if s = strings.TrimSpace(s); s == "" {
-				return nil
-			}
-			if n, err := strconv.Atoi(s); err != nil || n < 1 {
-				return errors.New("el sprint debe ser un número positivo")
-			}
-			return nil
-		}),
+		huh.NewInput().Title("Sprint").Placeholder("12 (vacío: modo Kanban, últimos 10 días hábiles)").Value(&f.sprint).Validate(validSprint),
 		huh.NewInput().Title("Módulo").Placeholder("Pagos (solo en modo Sprint)").Value(&f.module),
 	)
+}
+
+// validSprint accepts a positive number, or nothing for Kanban mode.
+func validSprint(s string) error {
+	if s = strings.TrimSpace(s); s == "" {
+		return nil
+	}
+	if n, err := strconv.Atoi(s); err != nil || n < 1 {
+		return errors.New("el sprint debe ser un número positivo")
+	}
+	return nil
 }
 
 func (f *qaForm) title() string       { return "Consolidado QA" }

@@ -85,6 +85,7 @@ Sin entradas: se hizo antes de que existiera la bitácora.
 | [043](./fase-6/043-tui-config-qa.md) | Configuración en la TUI (2): QA | `feature/tui-config-qa` | 2026-10-21 | `qa_email`, `qa_report` y `qa_jira` en un formulario de cuatro páginas; `Validate` muestra todos los problemas sin guardar; `qa_jira` vacío no se guarda; lo guardado lo acepta `qa.Resolve` |
 | [044](./fase-6/044-tui-aviso.md) | Aviso de versión nueva en la TUI | `feature/tui-aviso` | 2026-10-21 | `Deps.CheckUpdate` con la caché y las reglas del aviso de texto (`updatesOff` compartido); la cabecera y la principal lo muestran; actualizar sigue fuera de la TUI |
 | [045](./fase-6/045-tui-barra.md) | Barra de comandos (1): descripción de los comandos, sugerencias y Ayuda | `feature/tui-barra` | 2026-10-21 | `internal/cli` con el parser y la descripción de cada comando (flags con `Desc`); barra en la principal con sugerencias de comandos, flags y valores; Ayuda general y de cada comando con el texto de `draco help` |
+| [046](./fase-6/046-tui-barra-ejecutar.md) | Barra de comandos (2): cada comando abre su pantalla | `feature/tui-barra-ejecutar` | 2026-10-21 | `openFromBar`: formularios enviados con los datos de la línea, hashes marcados en Commits, flags sin pantalla explicados; un `-p` desconocido es un error, como en el modo comando |
 
 ## Formato de cada entrada
 

@@ -37,6 +37,24 @@ type side struct {
 	cursor  int
 	picked  map[string]bool
 	manual  []string // hashes typed by hand, in order
+	given   []string // hashes from the command bar, marked when the side loads
+}
+
+// mark marks the given hashes: one in the list (by prefix, either way) is
+// picked; any other is added as typed by hand.
+func (s *side) mark() {
+	for _, h := range s.given {
+		i := slices.IndexFunc(s.commits, func(c provider.Commit) bool {
+			return strings.HasPrefix(c.ShortHash, h) || strings.HasPrefix(h, c.ShortHash)
+		})
+		switch {
+		case i >= 0:
+			s.picked[s.commits[i].ShortHash] = true
+		case !slices.Contains(s.manual, h):
+			s.manual = append(s.manual, h)
+		}
+	}
+	s.given = nil
 }
 
 // hashes are the marked commits in the order of the list (newest first, the
@@ -92,6 +110,25 @@ func newCommits(st *state, bundle *profile.Bundle, sides *deploy.Sides, issue st
 	return c
 }
 
+// preset takes the hashes of the command bar (-b, -f); each side marks its
+// own when it loads.
+func (c *commits) preset(back, front []string) {
+	for _, g := range []struct {
+		label, flag string
+		hashes      []string
+	}{{"Backend", "-b", back}, {"Frontend", "-f", front}} {
+		if len(g.hashes) == 0 {
+			continue
+		}
+		i := slices.IndexFunc(c.sides, func(s *side) bool { return s.label == g.label })
+		if i < 0 {
+			c.note = "El proyecto no tiene " + strings.ToLower(g.label) + ": se ignoró " + g.flag
+			continue
+		}
+		c.sides[i].given = g.hashes
+	}
+}
+
 func (c *commits) title() string { return "Commits de " + c.issue }
 
 func (c *commits) keys() []key.Binding {
@@ -138,6 +175,7 @@ func (c *commits) update(msg tea.Msg) (screen, tea.Cmd) {
 		}
 		s := c.sides[msg.side]
 		s.loading, s.branch, s.commits, s.err = false, msg.branch, msg.commits, msg.err
+		s.mark()
 		return c, nil
 	case spinner.TickMsg:
 		var cmd tea.Cmd
