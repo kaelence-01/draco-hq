@@ -76,6 +76,12 @@ Sin entradas: se hizo antes de que existiera la bitácora.
 | [039](./fase-5/039-cierre-fase-5.md) | Cierre de la fase 5 | `docs/cierre-fase-5` | 2026-10-21 | Fase 5 cerrada sin las pruebas manuales (decisión del autor); fases 5 y 6 como *patch* de `v0.2.x`: release `v0.2.1` a cargo del autor |
 | [040](./fase-5/040-make-promote.md) | `make promote`: develop → main | `feature/make-promote` | 2026-10-21 | PR de `develop` a `main` creado o reutilizado, fusión confirmada solo con *merge commit* y ramas locales al día con *fast-forward*; probado con un remoto local y un `gh` simulado |
 
+### Fase 6 — Configuración, barra de comandos y temas
+
+| # | Actividad | Rama | Fecha | Resumen |
+|---|---|---|---|---|
+| [041](./fase-6/041-plan-fase-6.md) | Diseño de las pantallas y plan de la fase 6 | `docs/plan-fase-6` | 2026-10-21 | Configuración, aviso de versión, barra, Ayuda y temas en `tui.md` §6; reglas de `init`/`profile` y descripción de los comandos fuera de `cmd`; la barra abre pantallas con datos; la fase en 8 actividades, release `v0.2.2` |
+
 ## Formato de cada entrada
 
 Archivo `fase-N/NNN-<tema>.md`: `N` es la fase del roadmap, `NNN` el número

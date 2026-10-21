@@ -50,8 +50,8 @@ de Windows (`cmd`) se ve más limitado.
 | 2 | Core: portar la lógica de gtt, separar los flujos y desacoplar los proveedores | ✅ |
 | 3 | Modo comando (`cmd/`, `main.go`), instalador, updater, releases | ✅ `v0.1.0` |
 | 4 | Modo visual mínimo: pantalla principal, proyectos, generar documento | ✅ `v0.2.0` |
-| 5 | Resto de pantallas: backlog, QA, exportar | ✅ (`v0.2.1`: lo publica el autor) |
-| 6 | Barra de comandos con autocompletado, temas, ayuda | ⬜ (`v0.2.x`) |
+| 5 | Resto de pantallas: backlog, QA, exportar | ✅ `v0.2.1` |
+| 6 | Configuración en formularios, aviso de versión nueva, barra de comandos con autocompletado, ayuda, temas | 🔄 (`v0.2.2`) |
 | v1.0 | Instaladores, checksums, migración desde gtt, README completo | ⬜ |
 
 ### Fase 2 — hecho
@@ -176,9 +176,9 @@ interfaz. Diseño completo en **`docs/arquitectura/tui.md`**.
 - **4:** pantalla principal, proyectos, generar documento con selector de
   commits, vista previa, selector de ubicación y confirmación.
 - **5:** backlog (tabla filtrable), QA (progreso en vivo), exportar.
-- **6:** barra de comandos con los mismos comandos del modo comando y
-  autocompletado, configuración en formularios, temas, ayuda, aviso de
-  versión nueva.
+- **6:** configuración en formularios, aviso de versión nueva, barra de
+  comandos con los mismos comandos del modo comando y autocompletado,
+  ayuda, temas.
 
 La pantalla de inicio no puede mostrar el logo como imagen (la mayoría de las
 terminales no lo soporta): necesita el nombre en letras grandes con caracteres.
@@ -241,6 +241,34 @@ las bitácoras 035 a 038 en este cierre: Exportar, Backlog y QA no se probaron
 contra Jira y Confluence reales, ni Generar de punta a punta después de la
 038. Quedan a cargo del autor el release `v0.2.1` (`docs/release.md`) y su
 verificación con `draco update` desde `v0.2.0`.
+
+### Fase 6 — configuración, barra de comandos y temas (en curso)
+
+Configuración deja de estar atenuada en el menú, y el modo visual suma lo
+que no es una función nueva sino una forma de usar las que ya tiene: la
+barra de comandos, la ayuda, el aviso de versión nueva y los temas. El
+diseño está en `docs/arquitectura/tui.md` §6, con las normas del §10. Como
+en la fase 5, lo que hoy vive en `cmd` y la TUI necesita se extrae antes de
+usarlo: las reglas de `init` y `profile`, y la descripción de los comandos y
+su parser. El release de la fase es `v0.2.2` (ver decisiones).
+
+| # | Actividad | Rama | Criterio de cierre |
+|---|---|---|---|
+| 1 | ✅ Diseño de las pantallas y plan de la fase | `docs/plan-fase-6` | `docs/arquitectura/tui.md` §6 y actividades con criterio de cierre |
+| 2 | ⬜ Configuración (1): reglas de `init` y `profile` de `cmd` a funciones puras; Conexión (token oculto, verificación de la cuenta), Perfiles y asistente sin configuración | `feature/tui-config` | Una config nueva creada desde la TUI sin tocar el YAML; el token del entorno nunca llega al archivo; `draco init` y `draco profile` sin cambios (sus tests pasan igual) |
+| 3 | ⬜ Configuración (2): QA (`qa_email`, `qa_report`, `qa_jira`) | `feature/tui-config-qa` | `qa.Resolve` acepta una config de QA creada solo desde la TUI; `Validate` muestra todos los problemas en la pantalla |
+| 4 | ⬜ Aviso de versión nueva en el marco (`Deps.CheckUpdate`) | `feature/tui-aviso` | Con un aviso simulado, la cabecera y la principal lo muestran; sin aviso en `dev` ni con `DRACO_NO_UPDATE_CHECK`; ningún test usa la red |
+| 5a | ⬜ Barra (1): descripción de los comandos y parser de `cmd` a un paquete neutro, flags con descripción; barra con autocompletado y pantalla Ayuda | `feature/tui-barra` | `draco help` y los tests de `cmd` sin cambios; cada flag en la ayuda de su comando; sugerencias de comandos, flags y valores probadas con tablas |
+| 5b | ⬜ Barra (2): cada comando abre su pantalla con los datos cargados | `feature/tui-barra-ejecutar` | `/g -i OPS-7 -b a1b2c3d` llega a Commits con el hash marcado (test); un flag sin pantalla se explica; los ejemplos del panel funcionan en la barra |
+| 6 | ⬜ Temas: `ansi`, `alto-contraste` y `mono`, elegidos en Configuración | `feature/tui-temas` | El tema se guarda en `config.yaml` y se aplica al abrir; cada tema funciona en 80 columnas; `mono` sin color |
+| 7 | ⬜ Cierre de la fase 6 y release `v0.2.2` | `docs/cierre-fase-6` | `v0.2.2` instalado con `draco update`; Configuración y la barra abiertas desde el binario instalado |
+
+Configuración va primero: es la única entrada atenuada del menú, y sin ella
+quien instala draco tiene que salir a `draco init`. El aviso de versión
+nueva es corto y no depende de nada. La barra va después porque abre todas
+las pantallas, Configuración incluida, y se divide como Generar y QA:
+primero escribir y sugerir, después ejecutar. Los temas van al final porque
+son lo de menor valor.
 
 ### v1.0
 
