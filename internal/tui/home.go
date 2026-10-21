@@ -40,7 +40,7 @@ func newHome(st *state) *home {
 			desc: "Lee la tarea y los archivos de tus commits y crea o actualiza su documento de despliegue, conservando lo que el equipo escribió a mano."},
 		{label: "Proyectos", example: "draco project list", open: func(st *state) screen { return newProjects(st) },
 			desc: "Rutas de los repos, nombres en el VCS y space de cada proyecto, en formularios en vez de editar el YAML."},
-		{label: "Consolidado QA", example: "draco qa -s 12 -m Pagos",
+		{label: "Consolidado QA", example: "draco qa -s 12 -m Pagos", open: func(st *state) screen { return newQAForm(st) },
 			desc: "Evalúa las tareas del sprint o de la ventana Kanban y publica el consolidado de pruebas."},
 		{label: "Exportar página", example: "draco f -i OPS-7", open: func(st *state) screen { return newExportForm(st) },
 			desc: "Busca el documento de una tarea y lo guarda como texto."},
