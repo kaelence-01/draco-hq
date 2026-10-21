@@ -153,10 +153,13 @@ func (p *qaProgress) title() string { return "Evaluar" }
 func (p *qaProgress) close()        { p.cancel() }
 
 func (p *qaProgress) keys() []key.Binding {
-	if p.step == qaDone && len(p.rows) > 0 {
-		return []key.Binding{upKey, downKey}
+	switch {
+	case p.step != qaDone:
+		return nil
+	case len(p.rows) > 0:
+		return []key.Binding{upKey, downKey, previewKey}
 	}
-	return nil
+	return []key.Binding{previewKey}
 }
 
 func (p *qaProgress) init() tea.Cmd {
@@ -210,6 +213,8 @@ func (p *qaProgress) update(msg tea.Msg) (screen, tea.Cmd) {
 			p.cursor = max(p.cursor-1, 0)
 		case key.Matches(msg, downKey):
 			p.cursor = min(p.cursor+1, max(len(p.rows)-1, 0))
+		case key.Matches(msg, previewKey):
+			return p, open(newPreview(&qaRun{bundle: p.bundle, session: p.session, command: p.command()}))
 		}
 	}
 	return p, nil
@@ -316,7 +321,7 @@ func (p *qaProgress) view(width, height int) string {
 		foot = append(foot, p.status("Buscando el consolidado publicado"))
 	case p.step == qaDone:
 		foot = append(foot, p.detail(wrap)...)
-		foot = append(foot, "", p.outcome(wrap), wrap.Render(faintStyle.Render("Para publicar, en modo comando: ")+"$ "+p.command()))
+		foot = append(foot, "", p.outcome(wrap), faintStyle.Render("enter abre la vista previa; nada se publica hasta que lo confirmes."))
 	}
 
 	room := max(height-len(head)-lipgloss.Height(strings.Join(foot, "\n"))-4, 3)

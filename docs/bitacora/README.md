@@ -72,6 +72,7 @@ Sin entradas: se hizo antes de que existiera la bitácora.
 | [035](./fase-5/035-tui-exportar.md) | Exportar en la TUI | `feature/tui-exportar` | 2026-10-20 | Formulario, documentos con filtro (uno solo sigue sin preguntar) y texto con ruta editable y confirmación al reemplazar; formulario y filas de documentos compartidos con Generar, filas recortadas al ancho |
 | [036](./fase-5/036-tui-backlog.md) | Backlog en la TUI | `feature/tui-backlog` | 2026-10-20 | Núcleo del backlog de `cmd` a `internal/backlog` y `Scan` con `context`; formulario en dos páginas, progreso por repo y hallazgos con filtro, detalle y guardado |
 | [037](./fase-5/037-tui-qa.md) | QA en la TUI (1): cuenta, tareas y evaluación en vivo | `feature/tui-qa` | 2026-10-20 | Formulario de sprint o Kanban; cuenta, tareas y una fila por tarea al evaluarse, con copia propia de las filas; `ErrNotQAAccount` y `ErrNoQA` explicados; `Deps.Now` |
+| [038](./fase-5/038-tui-qa-publicar.md) | QA en la TUI (2): vista previa, ubicación y publicar compartidos | `feature/tui-qa-publicar` | 2026-10-20 | `docRun` con adaptadores de Generar y QA; el consolidado se publica desde la TUI; tests de Generar sin cambios; pie de teclas dentro del ancho |
 
 ## Formato de cada entrada
 

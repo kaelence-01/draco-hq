@@ -7,9 +7,8 @@ negocio.
 
 Estado: **fase 5 en curso** (Exportar, Backlog y Consolidado QA, diseñadas en
 el §6). Implementado: la base (entrada, marco, pila de pantallas, pantalla
-principal), Proyectos, Generar completo, de la tarea a la publicación,
-Exportar, Backlog y QA hasta la tabla evaluada (la publicación de QA es la
-actividad 4b). Se actualiza al implementar cada actividad. Las reglas para escribir una pantalla están en el
+principal), Proyectos, Generar y QA completos, de la tarea o el sprint a la
+publicación, Exportar y Backlog. Se actualiza al implementar cada actividad. Las reglas para escribir una pantalla están en el
 §10 y son obligatorias.
 
 ## 1. Alcance por fase
@@ -73,15 +72,15 @@ internal/tui/
   generate.go   Generar: tarea y proyecto (formulario); abre el perfil
   commits.go    Generar: selector de commits por lado, con hash a mano
   progress.go   Generar: pasos de deploy.Session con progreso y cancelación
-  preview.go    Generar: vista previa (archivos y Markdown) y secciones no conservadas
-  locations.go  Generar: ubicación del documento nuevo, con filtro
-  publish.go    Generar: confirmación, publicación y resultado
+  preview.go    Generar y QA: vista previa (Markdown y archivos) y secciones no conservadas
+  locations.go  Generar y QA: ubicación del documento nuevo, con filtro
+  publish.go    Generar y QA: confirmación, publicación y resultado
   filter.go     filtro de una lista (/), compartido por Proyectos, Ubicación y Exportar
   export.go     Exportar: tarea, documentos que la mencionan, texto y guardado
   backlog.go    Backlog: formulario y progreso por repo
   findings.go   Backlog: hallazgos con filtro y detalle
   qa.go         QA: formulario y evaluación en vivo
-  docrun.go     lo que Generar y QA comparten: vista previa, ubicación y publicar (fase 5)
+  docrun.go     docRun: lo que vista previa, ubicación y publicar piden a Generar y a QA
 ```
 
 `cmd` importa `tui`; `tui` nunca importa `cmd`. Lo que `cmd` reemplaza en los
@@ -332,12 +331,30 @@ Los pasos de `qa.Session`, con las decisiones de `draco qa`:
 
 ### Vista previa, ubicación y publicar: compartidos
 
-Las pantallas de Generar reciben hoy tipos de `deploy`. Para QA no se copian:
-reciben una interfaz de la TUI (`docrun.go`) con lo que cada una usa (el
-borrador, las ubicaciones, publicar y el comando equivalente), y Generar y QA
-la implementan con adaptadores que solo traducen tipos. Lo propio de Generar
-(pestaña Archivos, `TeamWide`/`OwnerUnknown`, `LinkErr`) es opcional en la
-interfaz. Los tests de Generar pasan sin cambios.
+Las tres pantallas reciben `docRun` (`docrun.go`), no tipos de un flujo:
+
+```go
+type docRun interface {
+    about() docAbout        // sustantivo, qué busca Ubicación, destino, tarea, comando
+    updating() bool         // el borrador reemplaza un documento publicado
+    draft(ctx) (*docDraft, error)
+    locations(ctx) (*docLocations, error)
+    publish(ctx, sibling) (*docResult, error)  // publica el borrador de draft
+}
+```
+
+- `genRun` (Generar) y `qaRun` (QA) la implementan con adaptadores que solo
+  traducen tipos y guardan el borrador tipado entre `draft` y `publish`.
+- Lo propio de Generar es opcional: la pestaña Archivos (`docDraft.files`),
+  `TeamWide`/`OwnerUnknown`, el enlace desde la tarea (`docAbout.issue`) y
+  `LinkErr`. Sin ellos, la pantalla no los muestra.
+- Cada adaptador explica sus errores: `deploy.ErrNoLocations` propone un
+  perfil Markdown; `qa.ErrNoLocations` agrega el título que falta.
+- La vista previa arma el borrador siempre en un `tea.Cmd`, también al
+  crear (es instantáneo); el texto del spinner depende de `updating`.
+- En QA, `enter` al terminar la evaluación abre la vista previa; el
+  resultado dice «Consolidado creado» o «actualizado».
+- Los tests de Generar pasaron sin cambios.
 
 ## 7. Tests
 
@@ -396,6 +413,7 @@ Terminal y una terminal de Linux o WSL.
 | Exportar con ruta editable, sin el diálogo nativo | Una ventana del sistema abierta desde la TUI la deja esperando sin señal visible, y en un test abriría una ventana real (en WSL, de Windows) |
 | Resolución de repos y opciones del backlog de `cmd` a `internal/backlog` | La TUI no importa `cmd`; copiar esas reglas daría dos backlogs que analizan distinto |
 | `backlog.Scan` con `context` | Un análisis largo debe detenerse con `esc`, no seguir de fondo |
+| El pie de teclas se mide con un espacio menos que la terminal | El marco antepone un espacio a la ayuda; con teclas que medían justo el ancho, la línea se pasaba una columna |
 | Formulario de Backlog en dos páginas (`newPagedForm`) | Sus seis campos no caben en 24 líneas: la pregunta de dependencias quedaba fuera de la vista |
 | Hallazgos sin límite, en una lista desplazable | `--limit` existe porque la salida de texto no se desplaza |
 | QA evalúa una tarea por comando | Progreso en vivo y cancelación entre tareas, sin tocar el flujo |
