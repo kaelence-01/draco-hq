@@ -53,6 +53,17 @@ Sin entradas: se hizo antes de que existiera la bitácora.
 | [026](./fase-3/026-historia-main.md) | Unir la historia de `main` y `develop` | `fix/historia-main` | 2026-10-19 | `main` recibió la fase 2 por *rebase and merge*; merge `ours` sin cambiar código y regla de *merge commit* hacia `main` |
 | [027](./fase-3/027-cierre-fase-3.md) | Cierre de la fase 3 | `docs/cierre-fase-3` | 2026-10-19 | `v0.1.0` instalado desde el release; pie de la ayuda al repo; actualización a verificar con `v0.1.1` |
 
+### Fase 4 — Modo visual mínimo
+
+| # | Actividad | Rama | Fecha | Resumen |
+|---|---|---|---|---|
+| [028](./fase-4/028-plan-fase-4.md) | Diseño de la TUI y plan de la fase 4 | `docs/plan-fase-4` | 2026-10-20 | `docs/arquitectura/tui.md` (Charm v2, pila de pantallas, pasos como comandos, tests sin terminal); la fase 4 en 5 actividades |
+| [029](./fase-4/029-tui-base.md) | Base de la TUI | `feature/tui-base` | 2026-10-20 | `draco` sin argumentos abre la TUI en una terminal; pila de pantallas, marco, principal con DRACO en letras grandes; tests sin terminal |
+| [030](./fase-4/030-tui-proyectos.md) | Proyectos en la TUI y normas del modo visual | `feature/tui-proyectos` | 2026-10-20 | Proyectos (lista con filtro, activo, por defecto, formulario de Huh); panel y ruta en el marco; `captures`/`close`; normas obligatorias en `tui.md` §10, `CLAUDE.md` y `estandares-desarrollo` |
+| [031](./fase-4/031-tui-generar.md) | Generar en la TUI (1): tarea, commits y progreso | `feature/tui-generar` | 2026-10-20 | `deploy.ProjectSides`; `ChangeSource.CurrentBranch`; formulario, selector de commits por lado con hash a mano y pasos con progreso y cancelación con `esc` |
+| [032](./fase-4/032-tui-publicar.md) | Generar en la TUI (2): vista previa, ubicación y publicación | `feature/tui-publicar` | 2026-10-20 | Vista previa (Markdown en `viewport`, `NotPreserved` con `s`), ubicación con filtro, publicar sin salida a medias y `LinkErr`; filtro compartido; texto largo ajustado, no cortado |
+| [033](./fase-4/033-cierre-fase-4.md) | Cierre de la fase 4 | `docs/cierre-fase-4` | 2026-10-20 | `draco help` menciona el modo visual; fase 4 cerrada; release `v0.2.0` y su verificación a cargo del autor |
+
 ## Formato de cada entrada
 
 Archivo `fase-N/NNN-<tema>.md`: `N` es la fase del roadmap, `NNN` el número

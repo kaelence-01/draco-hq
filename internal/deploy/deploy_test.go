@@ -87,6 +87,10 @@ func (changesFunc) RecentCommits(context.Context, string, int) ([]provider.Commi
 	panic("no usado por el flujo")
 }
 
+func (changesFunc) CurrentBranch(context.Context, string) (string, error) {
+	panic("no usado por el flujo")
+}
+
 func newSession(api *fakeAPI, files changesFunc, t *Target) *Session {
 	return NewSession(api, api, files, t)
 }
@@ -145,6 +149,47 @@ func TestResolveSpacePrecedence(t *testing.T) {
 		if got.SpaceKey != c.want {
 			t.Errorf("%s: space = %q, esperaba %q", c.name, got.SpaceKey, c.want)
 		}
+	}
+}
+
+func TestProjectSides(t *testing.T) {
+	cfg := &config.Config{
+		DefaultProject: "pagos",
+		Projects: map[string]*config.ProjectConfig{
+			"pagos":       {BackendPath: "~/code/pagos-api", BackendRepo: "pagos-api", FrontendPath: "~/code/pagos-web", ConfluenceSpaceKey: "PAG"},
+			"facturacion": {FrontendPath: "~/code/facturacion-web"},
+			"vacio":       {},
+		},
+	}
+	cases := []struct {
+		project       string
+		back, front   bool
+		backDir, name string
+	}{
+		{"", true, true, "~/code/pagos-api", "pagos"},
+		{"facturacion", false, true, "", "facturacion"},
+		{"vacio", true, false, "", "vacio"},
+	}
+	for _, c := range cases {
+		s, err := ProjectSides(cfg, c.project)
+		if err != nil {
+			t.Fatalf("%q: %v", c.project, err)
+		}
+		back, front := s.Deployable()
+		if back != c.back || front != c.front || s.Backend.WorkDir != c.backDir || s.Project != c.name {
+			t.Errorf("%q: backend %v, frontend %v, %+v", c.project, back, front, s)
+		}
+	}
+	if s, _ := ProjectSides(cfg, ""); s.SpaceKey != "PAG" || s.Backend.Name != "pagos-api" {
+		t.Errorf("los lados traen el repo y el space del proyecto: %+v", s)
+	}
+	if s, err := ProjectSides(&config.Config{}, ""); err != nil || s.Project != "" {
+		t.Errorf("sin proyectos, el backend es el directorio actual: %+v, %v", s, err)
+	} else if back, front := s.Deployable(); !back || front {
+		t.Errorf("sin proyectos solo el backend: %v %v", back, front)
+	}
+	if _, err := ProjectSides(cfg, "otro"); err == nil {
+		t.Error("un proyecto que no existe es un error")
 	}
 }
 

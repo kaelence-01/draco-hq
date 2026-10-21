@@ -157,6 +157,8 @@ type ChangeSource interface {
 	// first appearance.
 	ChangedFiles(ctx context.Context, workDir string, hashes []string) ([]string, error)
 	RecentCommits(ctx context.Context, workDir string, n int) ([]Commit, error)
+	// CurrentBranch is the branch RecentCommits reads; "HEAD" when detached.
+	CurrentBranch(ctx context.Context, workDir string) (string, error)
 }
 
 // NormalizeHeading is how every destination compares section titles: case,

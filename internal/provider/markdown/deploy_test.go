@@ -31,6 +31,7 @@ func (changes) ChangedFiles(context.Context, string, []string) ([]string, error)
 func (changes) RecentCommits(context.Context, string, int) ([]provider.Commit, error) {
 	return nil, nil
 }
+func (changes) CurrentBranch(context.Context, string) (string, error) { return "develop", nil }
 
 // publish runs the deploy workflow the way the CLI or the TUI will.
 func publish(t *testing.T, s *deploy.Session) *deploy.Result {

@@ -72,6 +72,7 @@ func TestLocalReadsATemporaryRepo(t *testing.T) {
 	write("app/Pago.php")
 	gitIn("add", ".")
 	gitIn("commit", "-q", "-m", "Primer commit")
+	gitIn("checkout", "-q", "-b", "filtro-pagos")
 	write("app/Cobro.php")
 	write("app/Pago.php.bak")
 	gitIn("add", ".")
@@ -84,6 +85,9 @@ func TestLocalReadsATemporaryRepo(t *testing.T) {
 	}
 	if len(commits) != 2 || commits[0].Subject != "Segundo commit" || commits[0].Author != "Ana" {
 		t.Fatalf("commits = %+v", commits)
+	}
+	if branch, err := (Local{}).CurrentBranch(ctx, dir); err != nil || branch != "filtro-pagos" {
+		t.Errorf("rama = %q, %v", branch, err)
 	}
 
 	files, err := Local{}.ChangedFiles(ctx, dir, []string{commits[0].Hash, commits[1].Hash, commits[0].Hash})
