@@ -18,15 +18,15 @@ var pickKey = key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "elegi
 
 type locationsMsg struct {
 	owner *locations
-	loc   *deploy.Locations
+	loc   *docLocations
 	err   error
 }
 
 // locations picks where a new document goes: next to one of the recent ones.
 type locations struct {
-	run     *genRun
-	draft   *deploy.Draft
-	loc     *deploy.Locations
+	run     docRun
+	draft   *docDraft
+	loc     *docLocations
 	err     error
 	started bool
 	cursor  int
@@ -36,7 +36,7 @@ type locations struct {
 	cancel  context.CancelFunc
 }
 
-func newLocations(r *genRun, d *deploy.Draft) *locations {
+func newLocations(r docRun, d *docDraft) *locations {
 	l := &locations{run: r, draft: d, spinner: spinner.New(spinner.WithSpinner(spinner.MiniDot))}
 	l.ctx, l.cancel = context.WithCancel(context.Background())
 	return l
@@ -59,9 +59,9 @@ func (l *locations) init() tea.Cmd {
 		return nil
 	}
 	l.started = true
-	s, ctx := l.run.session, l.ctx
+	r, ctx := l.run, l.ctx
 	return tea.Batch(l.spinner.Tick, func() tea.Msg {
-		loc, err := s.Locations(ctx)
+		loc, err := r.locations(ctx)
 		return locationsMsg{owner: l, loc: loc, err: err}
 	})
 }
@@ -69,7 +69,7 @@ func (l *locations) init() tea.Cmd {
 // docs are the locations that match the filter, in the destination's order.
 func (l *locations) docs() []provider.DocRef {
 	var out []provider.DocRef
-	for _, d := range l.loc.Docs {
+	for _, d := range l.loc.docs {
 		if l.filter.matches(d.Title) {
 			out = append(out, d)
 		}
@@ -116,14 +116,14 @@ func (l *locations) update(msg tea.Msg) (screen, tea.Cmd) {
 func (l *locations) view(width, height int) string {
 	switch {
 	case l.err != nil:
-		return pad(errStyle.Render("✗ " + explainLocations(l.err).Error()))
+		return pad(lipgloss.NewStyle().Width(width - 2).Render(errStyle.Render("✗ " + l.err.Error())))
 	case l.loc == nil:
-		return pad(l.spinner.View() + " Buscando documentos de despliegue recientes…")
+		return pad(l.spinner.View() + " Buscando " + l.run.about().recent + "…")
 	}
 	lines := []string{faintStyle.Render("El documento nuevo se crea junto al que elijas (en la misma carpeta o página padre).")}
-	if l.loc.OwnerUnknown {
+	if l.loc.ownerUnknown {
 		lines = append(lines, warnStyle.Render("⚠ No se pudo verificar tu usuario: se muestran documentos de todo el equipo."))
-	} else if l.loc.TeamWide {
+	} else if l.loc.teamWide {
 		lines = append(lines, warnStyle.Render("⚠ No tienes documentos propios aquí: se muestran los de todo el equipo como referencia."))
 	}
 	lines = append(lines, "")
@@ -134,16 +134,7 @@ func (l *locations) view(width, height int) string {
 	if len(docs) == 0 {
 		lines = append(lines, faintStyle.Render("Ningún documento coincide"))
 	}
-	rows := max((height-len(lines)-2)/2, 1)
-	cur := min(l.cursor, max(len(docs)-1, 0))
-	start := min(max(cur-rows/2, 0), max(len(docs)-rows, 0))
-	for i := start; i < min(start+rows, len(docs)); i++ {
-		cursor, title := "  ", docs[i].Title
-		if i == cur {
-			cursor, title = accentStyle.Render("▸ "), accentStyle.Bold(true).Render(title)
-		}
-		lines = append(lines, cursor+title, "    "+faintStyle.Render(docs[i].URL))
-	}
+	lines = append(lines, docRows(docs, l.cursor, max((height-len(lines)-2)/2, 1), width-2)...)
 	return pad(lipgloss.NewStyle().Width(width - 2).Render(lipgloss.JoinVertical(lipgloss.Left, lines...)))
 }
 
@@ -153,4 +144,21 @@ func explainLocations(err error) error {
 		return fmt.Errorf("%w (o usa un perfil con destino Markdown, que no lo necesita)", err)
 	}
 	return err
+}
+
+// docRows draws up to rows documents around the cursor: title and URL, each
+// cut to width.
+func docRows(docs []provider.DocRef, cursor, rows, width int) []string {
+	row := lipgloss.NewStyle().MaxWidth(width)
+	var lines []string
+	cur := min(cursor, max(len(docs)-1, 0))
+	start := window(cur, len(docs), rows)
+	for i := start; i < min(start+rows, len(docs)); i++ {
+		mark, title := "  ", docs[i].Title
+		if i == cur {
+			mark, title = accentStyle.Render("▸ "), accentStyle.Bold(true).Render(title)
+		}
+		lines = append(lines, row.Render(mark+title), row.Render("    "+faintStyle.Render(docs[i].URL)))
+	}
+	return lines
 }

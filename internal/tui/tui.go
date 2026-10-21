@@ -5,9 +5,11 @@ package tui
 import (
 	"context"
 	"io"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/kaelence-01/draco-hq/internal/backlog"
 	"github.com/kaelence-01/draco-hq/internal/config"
 	"github.com/kaelence-01/draco-hq/internal/profile"
 )
@@ -22,6 +24,10 @@ type Deps struct {
 	SaveConfig func(*config.Config) error
 	// OpenProfile builds the adapters of a profile (profile.Open).
 	OpenProfile func(*config.Config, profile.Options) (*profile.Bundle, error)
+	// Scan analyzes one repo for technical debt (backlog.Scan).
+	Scan func(context.Context, string, backlog.ScanOptions) (*backlog.Report, error)
+	// Now is the time of the QA report and its Kanban window.
+	Now func() time.Time
 }
 
 // Run shows the visual mode on a terminal until the user quits.

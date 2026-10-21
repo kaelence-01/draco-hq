@@ -9,10 +9,11 @@ detecta **deuda técnica** en tus repos. Sin IA.
 > están terminados: `help`, `version`, `update`, `init`, `project`, `profile` y
 > `template` (configuración), `g` (documento de despliegue), `qa`
 > (consolidado), `f` (exportar) y `backlog scan` (deuda técnica); los que
-> publican, con `--dry-run`. El modo visual mínimo (fase 4) también: `draco`
-> sin argumentos abre la pantalla principal, Proyectos y Generar, de la tarea a
-> la publicación; QA, Exportar y Backlog llegan en la fase 5. Los binarios se
-> publican en Releases desde `v0.1.0`. Ver [`docs/roadmap.md`](docs/roadmap.md).
+> publican, con `--dry-run`. El modo visual también: `draco` sin argumentos
+> abre la pantalla principal, Proyectos, Generar y Consolidado QA (hasta la
+> publicación), Exportar y Backlog (fases 4 y 5); Configuración llega en la
+> fase 6. Los binarios se publican en Releases desde `v0.1.0`. Ver
+> [`docs/roadmap.md`](docs/roadmap.md).
 
 ## Qué hace
 

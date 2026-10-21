@@ -64,6 +64,17 @@ Sin entradas: se hizo antes de que existiera la bitácora.
 | [032](./fase-4/032-tui-publicar.md) | Generar en la TUI (2): vista previa, ubicación y publicación | `feature/tui-publicar` | 2026-10-20 | Vista previa (Markdown en `viewport`, `NotPreserved` con `s`), ubicación con filtro, publicar sin salida a medias y `LinkErr`; filtro compartido; texto largo ajustado, no cortado |
 | [033](./fase-4/033-cierre-fase-4.md) | Cierre de la fase 4 | `docs/cierre-fase-4` | 2026-10-20 | `draco help` menciona el modo visual; fase 4 cerrada; release `v0.2.0` y su verificación a cargo del autor |
 
+### Fase 5 — Resto de pantallas
+
+| # | Actividad | Rama | Fecha | Resumen |
+|---|---|---|---|---|
+| [034](./fase-5/034-plan-fase-5.md) | Diseño de las pantallas y plan de la fase 5 | `docs/plan-fase-5` | 2026-10-20 | Exportar, Backlog y QA en `tui.md` §6; núcleo del backlog fuera de `cmd` y `Scan` con `context`; vista previa, ubicación y publicar compartidos con QA; la fase en 6 actividades |
+| [035](./fase-5/035-tui-exportar.md) | Exportar en la TUI | `feature/tui-exportar` | 2026-10-20 | Formulario, documentos con filtro (uno solo sigue sin preguntar) y texto con ruta editable y confirmación al reemplazar; formulario y filas de documentos compartidos con Generar, filas recortadas al ancho |
+| [036](./fase-5/036-tui-backlog.md) | Backlog en la TUI | `feature/tui-backlog` | 2026-10-20 | Núcleo del backlog de `cmd` a `internal/backlog` y `Scan` con `context`; formulario en dos páginas, progreso por repo y hallazgos con filtro, detalle y guardado |
+| [037](./fase-5/037-tui-qa.md) | QA en la TUI (1): cuenta, tareas y evaluación en vivo | `feature/tui-qa` | 2026-10-20 | Formulario de sprint o Kanban; cuenta, tareas y una fila por tarea al evaluarse, con copia propia de las filas; `ErrNotQAAccount` y `ErrNoQA` explicados; `Deps.Now` |
+| [038](./fase-5/038-tui-qa-publicar.md) | QA en la TUI (2): vista previa, ubicación y publicar compartidos | `feature/tui-qa-publicar` | 2026-10-20 | `docRun` con adaptadores de Generar y QA; el consolidado se publica desde la TUI; tests de Generar sin cambios; pie de teclas dentro del ancho |
+| [039](./fase-5/039-cierre-fase-5.md) | Cierre de la fase 5 | `docs/cierre-fase-5` | 2026-10-21 | Fase 5 cerrada sin las pruebas manuales (decisión del autor); fases 5 y 6 como *patch* de `v0.2.x`: release `v0.2.1` a cargo del autor |
+
 ## Formato de cada entrada
 
 Archivo `fase-N/NNN-<tema>.md`: `N` es la fase del roadmap, `NNN` el número

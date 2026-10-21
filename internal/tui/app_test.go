@@ -121,7 +121,16 @@ func TestPanelFollowsTheMenu(t *testing.T) {
 	send(m, keyDown)
 	send(m, keyDown)
 	out := view(m)
-	for _, want := range []string{"▸ Consolidado QA", "Todavía no está en el modo visual", "$ draco qa -s 12 -m Pagos"} {
+	for _, want := range []string{"▸ Consolidado QA", "$ draco qa -s 12 -m Pagos"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("falta %q en el panel:\n%s", want, out)
+		}
+	}
+	for range 3 {
+		send(m, keyUp)
+	}
+	out = view(m)
+	for _, want := range []string{"▸ Configuración", "Todavía no está en el modo visual", "$ draco init"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("falta %q en el panel:\n%s", want, out)
 		}
@@ -130,7 +139,7 @@ func TestPanelFollowsTheMenu(t *testing.T) {
 
 func TestWithoutRoomForThePanelCommandsGoInTheMenu(t *testing.T) {
 	out := view(newTestApp(t, testConfig(), nil, 80, 30))
-	if strings.Contains(out, "$ draco") || !strings.Contains(out, "draco backlog scan") || strings.Contains(out, "Proyectos   draco project") {
+	if strings.Contains(out, "$ draco") || !strings.Contains(out, "draco init") || strings.Contains(out, "draco qa") || strings.Contains(out, "draco backlog") {
 		t.Errorf("sin panel, cada función sin pantalla muestra su comando en el menú:\n%s", out)
 	}
 }
@@ -159,11 +168,8 @@ func TestMenuMovesAndPointsToTheCommand(t *testing.T) {
 	if out := view(m); !strings.Contains(out, "▸ Configuración") {
 		t.Fatalf("subir desde el primero va al último:\n%s", out)
 	}
-	for range 3 {
-		send(m, keyDown)
-	}
 	send(m, keyEnter)
-	if out := view(m); !strings.Contains(out, "«Consolidado QA» todavía no está en el modo visual: usa draco qa") {
+	if out := view(m); !strings.Contains(out, "«Configuración» todavía no está en el modo visual: usa draco init") {
 		t.Errorf("una función sin pantalla indica su comando:\n%s", out)
 	}
 	send(m, keyDown)

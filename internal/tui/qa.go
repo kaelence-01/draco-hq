@@ -1,0 +1,408 @@
+package tui
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"slices"
+	"strconv"
+	"strings"
+
+	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/spinner"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/huh/v2"
+	"charm.land/lipgloss/v2"
+
+	"github.com/kaelence-01/draco-hq/internal/config"
+	"github.com/kaelence-01/draco-hq/internal/profile"
+	"github.com/kaelence-01/draco-hq/internal/provider"
+	"github.com/kaelence-01/draco-hq/internal/qa"
+)
+
+// qaForm asks for the sprint and module; without a sprint, Kanban mode.
+type qaForm struct {
+	st     *state
+	sprint string
+	module string
+	form   *huh.Form
+	err    string
+}
+
+func newQAForm(st *state) *qaForm {
+	f := &qaForm{st: st}
+	f.form = f.build()
+	return f
+}
+
+func (f *qaForm) build() *huh.Form {
+	return newForm(
+		huh.NewInput().Title("Sprint").Placeholder("12 (vacío: modo Kanban, últimos 10 días hábiles)").Value(&f.sprint).Validate(func(s string) error {
+			if s = strings.TrimSpace(s); s == "" {
+				return nil
+			}
+			if n, err := strconv.Atoi(s); err != nil || n < 1 {
+				return errors.New("el sprint debe ser un número positivo")
+			}
+			return nil
+		}),
+		huh.NewInput().Title("Módulo").Placeholder("Pagos (solo en modo Sprint)").Value(&f.module),
+	)
+}
+
+func (f *qaForm) title() string       { return "Consolidado QA" }
+func (f *qaForm) keys() []key.Binding { return []key.Binding{nextFieldKey, prevFieldKey} }
+
+func (f *qaForm) captures(k tea.KeyPressMsg) bool { return !key.Matches(k, backKey) }
+
+func (f *qaForm) init() tea.Cmd {
+	if f.form.State != huh.StateNormal {
+		f.form = f.build()
+	}
+	return f.form.Init()
+}
+
+func (f *qaForm) update(msg tea.Msg) (screen, tea.Cmd) {
+	m, cmd := f.form.Update(msg)
+	f.form = m.(*huh.Form)
+	if f.form.State != huh.StateCompleted {
+		return f, cmd
+	}
+	next, err := f.next()
+	if err != nil {
+		f.err = err.Error()
+		f.form = f.build()
+		return f, f.form.Init()
+	}
+	f.err = ""
+	return f, open(next)
+}
+
+func (f *qaForm) next() (screen, error) {
+	if f.st.cfg == nil {
+		return nil, errors.New(f.st.notice)
+	}
+	sprint, _ := strconv.Atoi(strings.TrimSpace(f.sprint))
+	bundle, err := f.st.deps.OpenProfile(f.st.cfg, profile.Options{Name: f.st.profile})
+	if err != nil {
+		return nil, explainProfile(err)
+	}
+	tracker, err := bundle.QA()
+	if errors.Is(err, profile.ErrNoQA) {
+		return nil, fmt.Errorf("%w: usa un perfil con tracker jira", err)
+	}
+	if err != nil {
+		return nil, err
+	}
+	target, err := qa.Resolve(f.st.cfg, qa.Request{Sprint: sprint, Module: f.module, Template: bundle.Profile.TemplateDir("qa")}, f.st.deps.Now())
+	if err != nil {
+		return nil, err
+	}
+	return newQAProgress(f.st, bundle, qa.NewSession(tracker, bundle.Docs, target)), nil
+}
+
+func (f *qaForm) view(width, height int) string { return formView(f.form, f.err, width) }
+
+type qaStep int
+
+const (
+	qaAccount qaStep = iota
+	qaCollect
+	qaEvaluate
+	qaFind
+	qaDone
+)
+
+type qaStepMsg struct {
+	owner    *qaProgress
+	step     qaStep
+	task     int // the task evaluated, in qaEvaluate
+	warnings []string
+	err      error
+}
+
+// qaProgress checks the account, collects the tasks and evaluates them one by
+// one, adding each row as it arrives. It keeps its own copy of the rows: the
+// step running writes the Session from its goroutine.
+type qaProgress struct {
+	st       *state
+	bundle   *profile.Bundle
+	session  *qa.Session
+	step     qaStep
+	err      error
+	account  string
+	rows     []provider.QAIssue // collected; the first done are evaluated
+	own      int                // tasks of the QA account
+	done     int                // rows evaluated
+	warnings []string
+	existing *provider.DocRef
+	cursor   int
+	started  bool
+	spinner  spinner.Model
+	ctx      context.Context
+	cancel   context.CancelFunc
+}
+
+func newQAProgress(st *state, bundle *profile.Bundle, s *qa.Session) *qaProgress {
+	p := &qaProgress{st: st, bundle: bundle, session: s, spinner: spinner.New(spinner.WithSpinner(spinner.MiniDot))}
+	p.ctx, p.cancel = context.WithCancel(context.Background())
+	return p
+}
+
+func (p *qaProgress) title() string { return "Evaluar" }
+func (p *qaProgress) close()        { p.cancel() }
+
+func (p *qaProgress) keys() []key.Binding {
+	switch {
+	case p.step != qaDone:
+		return nil
+	case len(p.rows) > 0:
+		return []key.Binding{upKey, downKey, previewKey}
+	}
+	return []key.Binding{previewKey}
+}
+
+func (p *qaProgress) init() tea.Cmd {
+	if p.started {
+		return nil
+	}
+	p.started = true
+	return tea.Batch(p.spinner.Tick, p.run(qaAccount, 0))
+}
+
+func (p *qaProgress) run(st qaStep, task int) tea.Cmd {
+	p.step = st
+	s, ctx := p.session, p.ctx
+	return func() tea.Msg {
+		msg := qaStepMsg{owner: p, step: st, task: task}
+		switch st {
+		case qaAccount:
+			msg.err = s.CheckAccount(ctx)
+		case qaCollect:
+			msg.err = s.Collect(ctx)
+		case qaEvaluate:
+			msg.warnings = s.EvaluateTask(ctx, task)
+			msg.err = ctx.Err()
+		case qaFind:
+			msg.err = s.FindExisting(ctx)
+		}
+		return msg
+	}
+}
+
+func (p *qaProgress) update(msg tea.Msg) (screen, tea.Cmd) {
+	switch msg := msg.(type) {
+	case qaStepMsg:
+		if msg.owner != p || p.ctx.Err() != nil {
+			return p, nil
+		}
+		return p, p.finished(msg)
+	case spinner.TickMsg:
+		if p.step == qaDone || p.err != nil {
+			return p, nil
+		}
+		var cmd tea.Cmd
+		p.spinner, cmd = p.spinner.Update(msg)
+		return p, cmd
+	case tea.KeyPressMsg:
+		if p.step != qaDone {
+			return p, nil
+		}
+		switch {
+		case key.Matches(msg, upKey):
+			p.cursor = max(p.cursor-1, 0)
+		case key.Matches(msg, downKey):
+			p.cursor = min(p.cursor+1, max(len(p.rows)-1, 0))
+		case key.Matches(msg, previewKey):
+			return p, open(newPreview(&qaRun{bundle: p.bundle, session: p.session, command: p.command()}))
+		}
+	}
+	return p, nil
+}
+
+// finished takes in what a step found and starts the next one.
+func (p *qaProgress) finished(msg qaStepMsg) tea.Cmd {
+	s := p.session
+	if msg.err != nil {
+		p.err = msg.err
+		if msg.step == qaAccount && errors.Is(msg.err, qa.ErrNotQAAccount) {
+			p.err = notQAAccount(msg.err, s.Account, s.Target.QAEmail)
+		}
+		return nil
+	}
+	switch msg.step {
+	case qaAccount:
+		p.account = s.Account.Email
+		return p.run(qaCollect, 0)
+	case qaCollect:
+		p.rows, p.own = slices.Clone(s.Tasks), len(s.QATasks)
+		if len(p.rows) == 0 {
+			return p.run(qaFind, 0)
+		}
+		return p.run(qaEvaluate, 0)
+	case qaEvaluate:
+		p.rows[msg.task] = s.Tasks[msg.task]
+		p.done = msg.task + 1
+		p.cursor = msg.task
+		p.warnings = append(p.warnings, msg.warnings...)
+		if p.done < len(p.rows) {
+			return p.run(qaEvaluate, p.done)
+		}
+		return p.run(qaFind, 0)
+	case qaFind:
+		p.existing = s.Existing
+		p.step = qaDone
+	}
+	return nil
+}
+
+// notQAAccount says which account answered and where to change qa_email.
+func notQAAccount(err error, me *provider.User, configured string) error {
+	if configured == "" {
+		configured = "(sin configurar)"
+	}
+	where := "la configuración"
+	if path, perr := config.ConfigPath(); perr == nil {
+		where = path
+	}
+	email := ""
+	if me != nil {
+		email = me.Email
+	}
+	return fmt.Errorf("%w.\nCuenta autenticada: %s\nqa_email del config: %s\nSi te corresponde generar el consolidado, ajusta qa_email en %s", err, email, configured, where)
+}
+
+// command is the same report in the command mode.
+func (p *qaProgress) command() string {
+	t := p.session.Target
+	if t.Kanban {
+		return "draco qa   (Enter en el sprint: modo Kanban)"
+	}
+	return "draco qa -s " + strconv.Itoa(t.Sprint) + " -m " + shellQuote(t.Module)
+}
+
+func (p *qaProgress) view(width, height int) string {
+	t := p.session.Target
+	wrap := lipgloss.NewStyle().Width(width - 2)
+	mode := "Sprint " + strconv.Itoa(t.Sprint) + " · " + t.Module
+	if t.Kanban {
+		mode = "Kanban · " + t.Period
+	}
+	head := []string{boldStyle.Render(mode) + faintStyle.Render("  "+t.Title)}
+	for _, w := range t.Warnings {
+		head = append(head, wrap.Render(warnStyle.Render("⚠ "+w)))
+	}
+	head = append(head, "")
+
+	if p.step == qaAccount {
+		head = append(head, p.status("Verificando la cuenta de QA"))
+		return pad(lipgloss.JoinVertical(lipgloss.Left, head...))
+	}
+	account := okStyle.Render("✓ ") + "Cuenta " + p.account
+	if p.step == qaCollect {
+		head = append(head, account, p.status("Buscando tareas"))
+		return pad(lipgloss.JoinVertical(lipgloss.Left, head...))
+	}
+	own := faintStyle.Render(" · " + plural(p.own, "tarea QA propia", "tareas QA propias"))
+	if len(p.rows) == 0 {
+		head = append(head, account, wrap.Render(warnStyle.Render("⚠ No hay tareas en revisión para este período")+own))
+	} else {
+		head = append(head, wrap.Render(account+" · "+plural(len(p.rows), "tarea", "tareas")+" para revisión"+own))
+	}
+
+	var foot []string
+	for _, w := range p.warnings {
+		foot = append(foot, wrap.Render(warnStyle.Render("⚠ "+w)))
+	}
+	switch {
+	case p.step == qaEvaluate:
+		foot = append(foot, p.status("Evaluando "+p.rows[p.done].Key+" ("+strconv.Itoa(p.done+1)+" de "+strconv.Itoa(len(p.rows))+")"))
+	case p.step == qaFind:
+		foot = append(foot, p.status("Buscando el consolidado publicado"))
+	case p.step == qaDone:
+		foot = append(foot, p.detail(wrap)...)
+		foot = append(foot, "", p.outcome(wrap), faintStyle.Render("enter abre la vista previa; nada se publica hasta que lo confirmes."))
+	}
+
+	room := max(height-len(head)-lipgloss.Height(strings.Join(foot, "\n"))-4, 3)
+	body := append(head, "")
+	if len(p.rows) > 0 {
+		body = append(body, p.table(room, width-2)...)
+	}
+	return pad(lipgloss.JoinVertical(lipgloss.Left, append(append(body, ""), foot...)...))
+}
+
+// status is the line of the step running, or its error.
+func (p *qaProgress) status(running string) string {
+	if p.err != nil {
+		return errStyle.Render("✗ ") + running + "\n  " + errStyle.Render(strings.ReplaceAll(p.err.Error(), "\n", "\n  "))
+	}
+	return p.spinner.View() + " " + running + "…"
+}
+
+// table is one row per task, with the marks of the ones evaluated.
+func (p *qaProgress) table(height, width int) []string {
+	row := lipgloss.NewStyle().MaxWidth(width)
+	keyWidth := len("Tarea")
+	for _, r := range p.rows {
+		keyWidth = max(keyWidth, lipgloss.Width(r.Key))
+	}
+	out := []string{row.Render(faintStyle.Render("  " + padRight("Tarea", keyWidth) + "  Err Dev Doc PR   Resumen"))}
+	rows := max(height-1, 1)
+	start := window(p.cursor, len(p.rows), rows)
+	for i := start; i < min(start+rows, len(p.rows)); i++ {
+		r := p.rows[i]
+		mark := "  "
+		if i == p.cursor && p.step == qaDone {
+			mark = accentStyle.Render("▸ ")
+		}
+		marks := faintStyle.Render(" ·   ·   ·   · ")
+		if i < p.done {
+			marks = " " + check(!r.HasCodingErrors) + "   " + check(!r.HasDevReturns) + "   " + docMark(r) + "   " + check(r.PRMerged) + " "
+		}
+		out = append(out, row.Render(mark+padRight(r.Key, keyWidth)+"  "+marks+"  "+r.Summary))
+	}
+	return out
+}
+
+func padRight(s string, n int) string { return s + strings.Repeat(" ", max(n-lipgloss.Width(s), 0)) }
+
+func check(ok bool) string {
+	if ok {
+		return okStyle.Render("✓")
+	}
+	return errStyle.Render("✗")
+}
+
+// docMark is the deploy document check; ? when the lookup failed.
+func docMark(r provider.QAIssue) string {
+	if r.DeployDocUnknown {
+		return warnStyle.Render("?")
+	}
+	return check(r.HasDeployDoc)
+}
+
+// detail is the review task and observations of the task under the cursor.
+func (p *qaProgress) detail(wrap lipgloss.Style) []string {
+	if len(p.rows) == 0 {
+		return nil
+	}
+	r := p.rows[min(p.cursor, len(p.rows)-1)]
+	line := boldStyle.Render(r.Key)
+	if r.ReviewTaskKey != "" {
+		line += faintStyle.Render(" · revisión ") + r.ReviewTaskKey
+	}
+	out := []string{wrap.Render(line)}
+	if r.Observations != "" {
+		out = append(out, wrap.Render(faintStyle.Render("Observaciones: ")+r.Observations))
+	}
+	return out
+}
+
+// outcome says what publishing would do.
+func (p *qaProgress) outcome(wrap lipgloss.Style) string {
+	if p.existing != nil {
+		return wrap.Render(okStyle.Render("✓ ") + "Ya existe «" + p.existing.Title + "»: se actualizará conservando lo escrito a mano.")
+	}
+	return wrap.Render(okStyle.Render("✓ ") + "No hay un consolidado publicado: se creará «" + p.session.Target.Title + "».")
+}

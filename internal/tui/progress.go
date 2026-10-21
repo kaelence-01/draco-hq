@@ -147,7 +147,7 @@ func (p *progress) update(msg tea.Msg) (screen, tea.Cmd) {
 		return p, cmd
 	case tea.KeyPressMsg:
 		if p.step == stepDone && key.Matches(msg, previewKey) {
-			return p, open(newPreview(&genRun{st: p.st, bundle: p.bundle, session: p.session, replace: p.replace, command: p.command()}))
+			return p, open(newPreview(&genRun{bundle: p.bundle, session: p.session, replace: p.replace, command: p.command()}))
 		}
 		if p.step != stepChoose || p.err != nil {
 			return p, nil

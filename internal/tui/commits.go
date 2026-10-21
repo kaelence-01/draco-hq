@@ -283,7 +283,7 @@ func (c *commits) list(s *side, height, width int) []string {
 		}
 		return nil
 	}
-	start := min(max(s.cursor-height/2, 0), max(s.rows()-height, 0))
+	start := window(s.cursor, s.rows(), height)
 	var out []string
 	for i := start; i < min(start+height, s.rows()); i++ {
 		var mark, text string

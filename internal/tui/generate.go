@@ -32,16 +32,28 @@ func newGenerate(st *state) *generate {
 }
 
 func (g *generate) build() *huh.Form {
-	fields := []huh.Field{huh.NewInput().Title("Tarea").Placeholder("OPS-7").Value(&g.issue).Validate(func(s string) error {
+	fields := []huh.Field{taskInput(&g.issue)}
+	if g.st.cfg != nil && len(g.st.cfg.Projects) > 0 {
+		fields = append(fields, huh.NewSelect[string]().Title("Proyecto").Options(huh.NewOptions(g.st.cfg.ProjectNames()...)...).Value(&g.project))
+	}
+	return newForm(fields...)
+}
+
+// taskInput is the required task key of a form.
+func taskInput(v *string) *huh.Input {
+	return huh.NewInput().Title("Tarea").Placeholder("OPS-7").Value(v).Validate(func(s string) error {
 		if strings.TrimSpace(s) == "" {
 			return errors.New("falta la clave de la tarea")
 		}
 		return nil
-	})}
-	if g.st.cfg != nil && len(g.st.cfg.Projects) > 0 {
-		fields = append(fields, huh.NewSelect[string]().Title("Proyecto").Options(huh.NewOptions(g.st.cfg.ProjectNames()...)...).Value(&g.project))
-	}
-	return huh.NewForm(huh.NewGroup(fields...)).WithShowHelp(false).WithTheme(huh.ThemeFunc(huh.ThemeBase16)).WithWidth(64)
+	})
+}
+
+func newForm(fields ...huh.Field) *huh.Form { return newPagedForm(huh.NewGroup(fields...)) }
+
+// newPagedForm is a form of several pages, for what does not fit in 24 lines.
+func newPagedForm(pages ...*huh.Group) *huh.Form {
+	return huh.NewForm(pages...).WithShowHelp(false).WithTheme(huh.ThemeFunc(huh.ThemeBase16)).WithWidth(64)
 }
 
 func (g *generate) title() string       { return "Generar documento" }
@@ -101,10 +113,13 @@ func explainProfile(err error) error {
 	return err
 }
 
-func (g *generate) view(width, height int) string {
-	body := g.form.View()
-	if g.err != "" {
-		body = lipgloss.JoinVertical(lipgloss.Left, errStyle.Render("✗ "+g.err), "", body)
+func (g *generate) view(width, height int) string { return formView(g.form, g.err, width) }
+
+// formView is a form with the error of its last submission above it.
+func formView(f *huh.Form, err string, width int) string {
+	body := f.View()
+	if err != "" {
+		body = lipgloss.JoinVertical(lipgloss.Left, lipgloss.NewStyle().Width(max(width-4, 10)).Render(errStyle.Render("✗ "+err)), "", body)
 	}
 	return lipgloss.NewStyle().Padding(1, 2).MaxWidth(width).Render(body)
 }
