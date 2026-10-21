@@ -36,7 +36,7 @@ type home struct {
 
 func newHome(st *state) *home {
 	return &home{st: st, items: []menuItem{
-		{label: "Generar documento de despliegue", example: "draco g -i OPS-7 -b a1b2c3d",
+		{label: "Generar documento de despliegue", example: "draco g -i OPS-7 -b a1b2c3d", open: func(st *state) screen { return newGenerate(st) },
 			desc: "Lee la tarea y los archivos de tus commits y crea o actualiza su documento de despliegue, conservando lo que el equipo escribió a mano."},
 		{label: "Proyectos", example: "draco project list", open: func(st *state) screen { return newProjects(st) },
 			desc: "Rutas de los repos, nombres en el VCS y space de cada proyecto, en formularios en vez de editar el YAML."},

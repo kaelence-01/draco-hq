@@ -42,6 +42,7 @@ func (fakeChanges) ChangedFiles(_ context.Context, _ string, hashes []string) ([
 func (fakeChanges) RecentCommits(context.Context, string, int) ([]provider.Commit, error) {
 	return nil, nil
 }
+func (fakeChanges) CurrentBranch(context.Context, string) (string, error) { return "develop", nil }
 
 // fakeEnv makes every command use an empty config, the fake tracker and a
 // Markdown folder; it returns the folder.

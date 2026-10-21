@@ -23,7 +23,7 @@ type (
 	// screen needs it, for example while the user types. ctrl+c is never
 	// captured.
 	keyCapturer interface{ captures(k tea.KeyPressMsg) bool }
-	// initer starts the screen when it is opened.
+	// initer starts the screen when it is shown: opened, or back on top.
 	initer interface{ init() tea.Cmd }
 	// closer releases what the screen started (a step's context) when it is
 	// closed.
@@ -91,6 +91,9 @@ func (m *app) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				c.close()
 			}
 			m.stack = m.stack[:len(m.stack)-1]
+			if i, ok := m.top().(initer); ok {
+				return m, i.init()
+			}
 		}
 		return m, nil
 	}

@@ -45,6 +45,41 @@ type Repo struct {
 	Hashes  []string // commits of this side; none means the side is not deployed
 }
 
+// Sides is what a deploy takes from a project before the commits are chosen:
+// the visual mode lists the commits of each side with it.
+type Sides struct {
+	Project  string // empty when no project applies
+	Backend  Repo
+	Frontend Repo
+	SpaceKey string // the project's destination scope; empty: the profile's
+}
+
+// ProjectSides returns the sides of a project; empty is default_project.
+func ProjectSides(cfg *config.Config, project string) (*Sides, error) {
+	proj, name, err := cfg.GetProject(project)
+	if err != nil {
+		return nil, err
+	}
+	return sidesOf(proj, name), nil
+}
+
+func sidesOf(proj *config.ProjectConfig, name string) *Sides {
+	s := &Sides{Project: name}
+	if proj != nil {
+		s.Backend = Repo{Name: proj.BackendRepo, WorkDir: proj.BackendPath}
+		s.Frontend = Repo{Name: proj.FrontendRepo, WorkDir: proj.FrontendPath}
+		s.SpaceKey = proj.ConfluenceSpaceKey
+	}
+	return s
+}
+
+// Deployable reports the sides with a clone to read commits from. Without a
+// frontend path the backend is always one: its clone, or the current directory.
+func (s *Sides) Deployable() (backend, frontend bool) {
+	frontend = s.Frontend.WorkDir != ""
+	return s.Backend.WorkDir != "" || !frontend, frontend
+}
+
 // Target is a Request resolved against config.
 type Target struct {
 	Issue       string
@@ -78,19 +113,20 @@ func Resolve(cfg *config.Config, req Request) (*Target, error) {
 		return nil, err
 	}
 
+	sides := sidesOf(proj, projName)
 	t := &Target{
 		Issue:       req.Issue,
 		ProjectName: projName,
+		SpaceKey:    req.Space,
 		VCSHost:     req.VCSHost,
 		VCSOrg:      req.VCSOrg,
-		Backend:     Repo{Hashes: req.BackendHashes},
-		Frontend:    Repo{Hashes: req.FrontendHashes},
+		Backend:     sides.Backend,
+		Frontend:    sides.Frontend,
 		Checklist:   cfg.ResolveDeployChecklist(proj),
 	}
+	t.Backend.Hashes, t.Frontend.Hashes = req.BackendHashes, req.FrontendHashes
 
 	if proj != nil {
-		t.Backend.WorkDir, t.Backend.Name = proj.BackendPath, proj.BackendRepo
-		t.Frontend.WorkDir, t.Frontend.Name = proj.FrontendPath, proj.FrontendRepo
 		if t.VCSHost == "" {
 			t.VCSHost = proj.VCSHost
 		}
@@ -98,10 +134,8 @@ func Resolve(cfg *config.Config, req Request) (*Target, error) {
 			t.VCSOrg = proj.VCSOrg
 		}
 	}
-
-	t.SpaceKey = req.Space
-	if t.SpaceKey == "" && proj != nil {
-		t.SpaceKey = proj.ConfluenceSpaceKey
+	if t.SpaceKey == "" {
+		t.SpaceKey = sides.SpaceKey
 	}
 
 	if t.Template, err = loadTemplate(req.Template, t.Backend.WorkDir); err != nil {
