@@ -59,6 +59,7 @@ Sin entradas: se hizo antes de que existiera la bitácora.
 |---|---|---|---|---|
 | [028](./fase-4/028-plan-fase-4.md) | Diseño de la TUI y plan de la fase 4 | `docs/plan-fase-4` | 2026-10-20 | `docs/arquitectura/tui.md` (Charm v2, pila de pantallas, pasos como comandos, tests sin terminal); la fase 4 en 5 actividades |
 | [029](./fase-4/029-tui-base.md) | Base de la TUI | `feature/tui-base` | 2026-10-20 | `draco` sin argumentos abre la TUI en una terminal; pila de pantallas, marco, principal con DRACO en letras grandes; tests sin terminal |
+| [030](./fase-4/030-tui-proyectos.md) | Proyectos en la TUI y normas del modo visual | `feature/tui-proyectos` | 2026-10-20 | Proyectos (lista con filtro, activo, por defecto, formulario de Huh); panel y ruta en el marco; `captures`/`close`; normas obligatorias en `tui.md` §10, `CLAUDE.md` y `estandares-desarrollo` |
 
 ## Formato de cada entrada
 
