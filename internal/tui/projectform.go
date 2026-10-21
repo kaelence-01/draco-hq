@@ -56,7 +56,7 @@ func newProjectForm(parent *projects, name string) *projectForm {
 		huh.NewInput().Title("Organización o workspace del VCS").Placeholder("mi-org").Value(&f.v.VCSOrg),
 		huh.NewInput().Title("Space de Confluence del proyecto").Description("Vacío: el del perfil").Value(&f.v.ConfluenceSpaceKey),
 	)
-	f.form = huh.NewForm(huh.NewGroup(fields...)).WithShowHelp(false).WithTheme(huh.ThemeFunc(huh.ThemeBase16)).WithWidth(64)
+	f.form = newForm(fields...)
 	return f
 }
 

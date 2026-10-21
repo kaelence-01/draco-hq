@@ -7,8 +7,8 @@ negocio.
 
 Estado: **fase 5 en curso** (Exportar, Backlog y Consolidado QA, diseñadas en
 el §6). Implementado: la base (entrada, marco, pila de pantallas, pantalla
-principal), Proyectos y Generar completo, de la tarea a la publicación. Se
-actualiza al implementar cada actividad. Las reglas para escribir una pantalla están en el
+principal), Proyectos, Generar completo, de la tarea a la publicación, y
+Exportar. Se actualiza al implementar cada actividad. Las reglas para escribir una pantalla están en el
 §10 y son obligatorias.
 
 ## 1. Alcance por fase
@@ -75,8 +75,8 @@ internal/tui/
   preview.go    Generar: vista previa (archivos y Markdown) y secciones no conservadas
   locations.go  Generar: ubicación del documento nuevo, con filtro
   publish.go    Generar: confirmación, publicación y resultado
-  filter.go     filtro de una lista (/), compartido por Proyectos y Ubicación
-  export.go     Exportar: tarea, documentos que la mencionan, texto y guardado (fase 5)
+  filter.go     filtro de una lista (/), compartido por Proyectos, Ubicación y Exportar
+  export.go     Exportar: tarea, documentos que la mencionan, texto y guardado
   backlog.go    Backlog: formulario y progreso por repo (fase 5)
   findings.go   Backlog: hallazgos con filtro y detalle (fase 5)
   qa.go         QA: formulario y evaluación en vivo (fase 5)
@@ -258,9 +258,14 @@ Los pasos de `fetch.Session`, con las decisiones de `draco f`:
 
 - `ErrNoPages` se explica en la pantalla, con la tarea y dónde se buscó.
 - **Ruta editable, sin diálogo nativo.** El campo trae la carpeta actual y
-  el nombre sugerido (`OPS-7_Titulo.txt`). Si el archivo existe, pide `s`
-  antes de reemplazarlo. El resultado muestra la ruta y el comando
-  equivalente (`draco f -i OPS-7 -o <ruta>`).
+  el nombre sugerido (`OPS-7_Titulo.txt`) y tiene el foco: `↑↓` y
+  `pgup`/`pgdn` desplazan el texto, lo demás se escribe en la ruta (también
+  `?`). Si el archivo existe, pide `s` antes de reemplazarlo y `esc` vuelve
+  a la ruta. El resultado muestra la ruta y el comando equivalente
+  (`draco f -i OPS-7 -o <ruta>`, entre comillas si tiene espacios); `enter`
+  o `esc` vuelven a la principal.
+- Las filas de documentos (título y URL) son las de Ubicación (`docRows`),
+  recortadas al ancho: son filas de una lista.
 
 ### Backlog técnico
 

@@ -42,7 +42,7 @@ func newHome(st *state) *home {
 			desc: "Rutas de los repos, nombres en el VCS y space de cada proyecto, en formularios en vez de editar el YAML."},
 		{label: "Consolidado QA", example: "draco qa -s 12 -m Pagos",
 			desc: "Evalúa las tareas del sprint o de la ventana Kanban y publica el consolidado de pruebas."},
-		{label: "Exportar página", example: "draco f -i OPS-7",
+		{label: "Exportar página", example: "draco f -i OPS-7", open: func(st *state) screen { return newExportForm(st) },
 			desc: "Busca el documento de una tarea y lo guarda como texto."},
 		{label: "Backlog técnico", example: "draco backlog scan",
 			desc: "Detecta deuda técnica en tus repos locales y la propone como tareas. Sin red."},

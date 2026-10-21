@@ -69,6 +69,7 @@ Sin entradas: se hizo antes de que existiera la bitácora.
 | # | Actividad | Rama | Fecha | Resumen |
 |---|---|---|---|---|
 | [034](./fase-5/034-plan-fase-5.md) | Diseño de las pantallas y plan de la fase 5 | `docs/plan-fase-5` | 2026-10-20 | Exportar, Backlog y QA en `tui.md` §6; núcleo del backlog fuera de `cmd` y `Scan` con `context`; vista previa, ubicación y publicar compartidos con QA; la fase en 6 actividades |
+| [035](./fase-5/035-tui-exportar.md) | Exportar en la TUI | `feature/tui-exportar` | 2026-10-20 | Formulario, documentos con filtro (uno solo sigue sin preguntar) y texto con ruta editable y confirmación al reemplazar; formulario y filas de documentos compartidos con Generar, filas recortadas al ancho |
 
 ## Formato de cada entrada
 
