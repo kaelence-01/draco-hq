@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"path/filepath"
 	"text/tabwriter"
 
 	"github.com/kaelence-01/draco-hq/internal/cli"
@@ -150,19 +149,18 @@ func (a *App) addProject(cfg *config.Config, name string) error {
 			return err
 		}
 		if *side.path == "" {
-			*side.repo = ""
 			continue
 		}
 		def := *side.repo
 		if def == "" {
-			def = filepath.Base(filepath.Clean(*side.path))
+			def = config.DefaultRepoName(*side.path)
 		}
 		if *side.repo, err = a.askValue("Nombre del repositorio "+side.label+" en el VCS", def, true); err != nil {
 			return err
 		}
 	}
-	if p.BackendPath == "" && p.FrontendPath == "" {
-		a.warn("sin rutas de backend ni de frontend: el proyecto no se guardó")
+	if err := p.Complete(); err != nil {
+		a.warn(err.Error() + ": el proyecto no se guardó")
 		return nil
 	}
 	if p.VCSHost, err = a.askValue("Host del VCS (ej: https://github.com)", p.VCSHost, false); err != nil {
