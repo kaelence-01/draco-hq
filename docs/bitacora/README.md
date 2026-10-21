@@ -82,6 +82,7 @@ Sin entradas: se hizo antes de que existiera la bitácora.
 |---|---|---|---|---|
 | [041](./fase-6/041-plan-fase-6.md) | Diseño de las pantallas y plan de la fase 6 | `docs/plan-fase-6` | 2026-10-21 | Configuración, aviso de versión, barra, Ayuda y temas en `tui.md` §6; reglas de `init`/`profile` y descripción de los comandos fuera de `cmd`; la barra abre pantallas con datos; la fase en 8 actividades, release `v0.2.2` |
 | [042](./fase-6/042-tui-config.md) | Configuración en la TUI (1): conexión, perfiles y asistente | `feature/tui-config` | 2026-10-21 | Reglas de `init`/`profile` a funciones puras; conexión con token sin eco y verificación de la cuenta; perfiles con filtro y formulario; asistente sin configuración; aviso del entorno sin leerlo |
+| [043](./fase-6/043-tui-config-qa.md) | Configuración en la TUI (2): QA | `feature/tui-config-qa` | 2026-10-21 | `qa_email`, `qa_report` y `qa_jira` en un formulario de cuatro páginas; `Validate` muestra todos los problemas sin guardar; `qa_jira` vacío no se guarda; lo guardado lo acepta `qa.Resolve` |
 
 ## Formato de cada entrada
 

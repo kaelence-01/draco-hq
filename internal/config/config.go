@@ -140,6 +140,23 @@ func (q *QAJiraConfig) SprintNameFor(module string, sprint int) string {
 	return strings.NewReplacer("{module}", module, "{sprint}", strconv.Itoa(sprint)).Replace(tmpl)
 }
 
+// Empty reports whether nothing of qa_jira is set: QA is optional.
+func (q *QAJiraConfig) Empty() bool {
+	return q.Project == "" && len(q.Statuses) == 0 && q.TestingStatus == "" && q.SprintName == "" &&
+		q.Fields == (QAJiraFields{}) && len(q.ReviewPrefixes) == 0 && q.ObservationMarker == ""
+}
+
+// SplitList reads a comma-separated list, without spaces or empty items.
+func SplitList(s string) []string {
+	var out []string
+	for _, v := range strings.Split(s, ",") {
+		if v = strings.TrimSpace(v); v != "" {
+			out = append(out, v)
+		}
+	}
+	return out
+}
+
 var customFieldRe = regexp.MustCompile(`^customfield_\d+$`)
 
 // Validate reports every missing or malformed value at once.

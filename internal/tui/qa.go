@@ -92,7 +92,7 @@ func (f *qaForm) next() (screen, error) {
 		return nil, fmt.Errorf("%w: usa un perfil con tracker jira", err)
 	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w\nCompleta lo que falta en Configuración › QA", err)
 	}
 	target, err := qa.Resolve(f.st.cfg, qa.Request{Sprint: sprint, Module: f.module, Template: bundle.Profile.TemplateDir("qa")}, f.st.deps.Now())
 	if err != nil {
@@ -269,7 +269,7 @@ func notQAAccount(err error, me *provider.User, configured string) error {
 	if me != nil {
 		email = me.Email
 	}
-	return fmt.Errorf("%w.\nCuenta autenticada: %s\nqa_email del config: %s\nSi te corresponde generar el consolidado, ajusta qa_email en %s", err, email, configured, where)
+	return fmt.Errorf("%w.\nCuenta autenticada: %s\nqa_email del config: %s\nSi te corresponde generar el consolidado, ajusta qa_email en Configuración › QA (%s)", err, email, configured, where)
 }
 
 // command is the same report in the command mode.
