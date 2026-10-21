@@ -89,6 +89,7 @@ Sin entradas: se hizo antes de que existiera la bitácora.
 | [047](./fase-6/047-tui-temas.md) | Temas del modo visual | `feature/tui-temas` | 2026-10-21 | `ansi`, `alto-contraste` y `mono` con `applyTheme` (estilos, pie y formularios); `theme` en la config; Configuración › Tema con vista previa en vivo; `mono` sin códigos de color |
 | [048](./fase-6/048-cierre-fase-6.md) | Cierre de la fase 6 | `docs/cierre-fase-6` | 2026-10-21 | Fase 6 cerrada; pruebas manuales pendientes reunidas; release `v0.2.2` (primer uso de `make promote`) a cargo del autor |
 | [049](./fase-6/049-version-v0-3-0.md) | La fase 6 salió como `v0.3.0` | `docs/version-v0-3-0` | 2026-10-21 | El autor publicó *minor* en vez del *patch* planeado; roadmap, `CLAUDE.md` y la guía de release al día; numeración hasta la v1.0, pendiente |
+| [050](./fase-6/050-install-y-guia.md) | Instalación con un comando y guía de usuario | `feature/install-y-guia` | 2026-10-21 | `install.sh` e `install.ps1` verifican `checksums.txt` antes de instalar; `docs/guia-usuario.md` pública y completa; `make check` avisa si cambia lo que el usuario ve sin tocar la guía |
 
 ## Formato de cada entrada
 

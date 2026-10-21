@@ -288,13 +288,15 @@ y `make release bump=minor` (bitácora 049). Quedan a cargo del autor:
 
 ### v1.0
 
-- Instaladores (script, Homebrew tap, Scoop/winget). El paquete `draco` de
-  Homebrew, Debian y MacPorts es Google Draco (compresión 3D): publicar con otro
-  nombre de paquete; el comando sigue siendo `draco`.
+- Instaladores: ✅ script de un comando (`scripts/install.sh` e
+  `install.ps1`, bitácora 050); faltan Homebrew tap y Scoop/winget. El paquete
+  `draco` de Homebrew, Debian y MacPorts es Google Draco (compresión 3D):
+  publicar con otro nombre de paquete; el comando sigue siendo `draco`.
 - Migración desde gtt: leer `~/.config/gtt/config.yaml` para no repetir el
   asistente (pendiente de confirmar).
-- Guía de usuario y completar el README con la instalación (la base existe
-  desde la fase 3); bitácora enlazada por versión
+- ✅ Guía de usuario (`docs/guia-usuario.md`, bitácora 050) y README con la
+  instalación; la guía se actualiza en el mismo commit que cambia lo que el
+  usuario ve (`make check` lo avisa). Falta: bitácora enlazada por versión
   (Solicitud → Motivación → Diseño técnico → Archivos → Cómo verificar).
 
 ## Decisiones tomadas

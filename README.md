@@ -29,27 +29,34 @@ detecta **deuda técnica** en tus repos. Sin IA.
 
 ## Instalación
 
-Descarga el binario de tu sistema desde
-[Releases](https://github.com/kaelence-01/draco-hq/releases/latest) junto con
-`checksums.txt`, verifícalo y ejecútalo: la primera vez ofrece instalarse
-(`~/.local/bin` o `%LOCALAPPDATA%\Programs\draco`) y agregarse al PATH.
+**Windows (PowerShell):**
 
-```bash
-# Linux (en macOS: draco-darwin-arm64 o -amd64 y shasum -a 256 -c)
-curl -LO https://github.com/kaelence-01/draco-hq/releases/latest/download/draco-linux-amd64
-curl -LO https://github.com/kaelence-01/draco-hq/releases/latest/download/checksums.txt
-sha256sum -c checksums.txt --ignore-missing
-chmod +x draco-linux-amd64 && ./draco-linux-amd64
-draco init                           # credenciales, perfil y primer proyecto
+```powershell
+iwr -useb https://raw.githubusercontent.com/kaelence-01/draco-hq/main/scripts/install.ps1 | iex
 ```
 
-En Windows descarga `draco-windows-amd64.exe` y ábrelo; compara antes su hash
-(`Get-FileHash draco-windows-amd64.exe`) con `checksums.txt`. Los binarios no
-están firmados: Windows SmartScreen pide «Más información → Ejecutar de todas
-formas» y macOS puede pedir `xattr -d com.apple.quarantine <binario>`.
+**Linux, macOS y WSL:**
 
-Después, `draco update` instala cada versión nueva verificando su SHA-256, y
-draco avisa al usarlo cuando hay una.
+```bash
+curl -fsSL https://raw.githubusercontent.com/kaelence-01/draco-hq/main/scripts/install.sh | sh
+```
+
+El script descarga el binario del último release, verifica su SHA-256 contra
+`checksums.txt`, lo copia a `%LOCALAPPDATA%\Programs\draco` o `~/.local/bin`
+y agrega esa carpeta al PATH. En una terminal nueva:
+
+```bash
+draco init        # credenciales, perfil y primer proyecto (o draco › Configuración)
+```
+
+También se puede descargar a mano desde
+[Releases](https://github.com/kaelence-01/draco-hq/releases/latest). Después,
+`draco update` instala cada versión nueva verificando su SHA-256, y draco
+avisa al usarlo cuando hay una.
+
+**Guía de usuario completa:** [`docs/guia-usuario.md`](docs/guia-usuario.md)
+(instalación, configuración, modo visual, comandos, plantillas y solución de
+problemas).
 
 ## Dos formas de usarlo
 
@@ -64,7 +71,7 @@ draco backlog scan                   # deuda técnica
 
 **Modo visual**: `draco` sin argumentos abre una interfaz dentro de la terminal,
 con menús, listas para elegir commits, vista previa del documento, búsqueda de
-ubicación y una barra de comandos con autocompletado (fases 4 a 6).
+ubicación y una barra de comandos (`/`) con autocompletado.
 
 ## No depende de una plataforma
 
@@ -117,8 +124,11 @@ internal/
   profile/               arma los adaptadores según el perfil
   config/                config.yaml y variables de entorno
   installer/ updater/    instalación en el primer uso y draco update
-scripts/release.sh       publica un release (make release)
+scripts/
+  install.sh, install.ps1  instalación con un comando
+  release.sh, promote.sh   release y develop → main (make release, make promote)
 docs/
+  guia-usuario.md        guía de usuario
   roadmap.md             fases, estado y decisiones
   release.md             cómo se publica una versión
   arquitectura/          diseño de proveedores y plantillas

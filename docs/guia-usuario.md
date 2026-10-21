@@ -1,0 +1,501 @@
+# Guía de usuario de draco
+
+draco documenta despliegues desde la terminal:
+
+- arma el **documento de despliegue** de una tarea a partir del issue y de sus
+  commits;
+- publica el **consolidado de QA** de un sprint o de los últimos días;
+- **exporta** a texto el documento de una tarea;
+- detecta **deuda técnica** en tus repos locales.
+
+Trabaja con Jira y Confluence, o con una carpeta de archivos Markdown en lugar
+de Confluence. No usa IA.
+
+Esta guía corresponde a la versión de draco del mismo commit: la de `main` es
+la del último release. Para cualquier comando, `draco help <comando>` muestra
+su ayuda completa.
+
+**Contenido**
+
+1. [Instalación](#1-instalación)
+2. [Primeros pasos](#2-primeros-pasos)
+3. [Conceptos: perfiles, proyectos y configuración](#3-conceptos-perfiles-proyectos-y-configuración)
+4. [Modo visual](#4-modo-visual)
+5. [Modo comando](#5-modo-comando)
+6. [Plantillas](#6-plantillas)
+7. [Solución de problemas](#7-solución-de-problemas)
+8. [Desinstalar](#8-desinstalar)
+
+---
+
+## 1. Instalación
+
+### Con un comando
+
+**Windows (PowerShell):**
+
+```powershell
+iwr -useb https://raw.githubusercontent.com/kaelence-01/draco-hq/main/scripts/install.ps1 | iex
+```
+
+**Linux, macOS y WSL:**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/kaelence-01/draco-hq/main/scripts/install.sh | sh
+```
+
+El script:
+
+1. descarga el binario de tu sistema del último release;
+2. verifica su SHA-256 contra el `checksums.txt` del mismo release, y si no
+   coincide no instala nada;
+3. lo copia a `%LOCALAPPDATA%\Programs\draco` (Windows) o `~/.local/bin`
+   (Linux y macOS);
+4. agrega esa carpeta a tu PATH si no está (Windows: el PATH de tu usuario;
+   Linux y macOS: una línea en `~/.bashrc` o `~/.zshrc`).
+
+Abre una terminal nueva y comprueba con `draco version`.
+
+Opciones:
+
+| Variable | Para qué |
+|---|---|
+| `DRACO_VERSION=v0.3.0` | Instala esa versión en lugar de la última |
+| `DRACO_INSTALL_DIR=<carpeta>` | Otra carpeta de instalación (solo `install.sh`) |
+
+En PowerShell, la variable va antes del comando: `$env:DRACO_VERSION = "v0.3.0"`.
+
+WSL y Windows son sistemas distintos: si usas draco en los dos, instálalo en
+cada uno.
+
+### A mano
+
+1. Descarga de [Releases](https://github.com/kaelence-01/draco-hq/releases/latest)
+   el binario de tu sistema (`draco-windows-amd64.exe`, `draco-linux-amd64`,
+   `draco-linux-arm64`, `draco-darwin-amd64` o `draco-darwin-arm64`) y
+   `checksums.txt`.
+2. Verifica el hash:
+   - Windows: `Get-FileHash .\draco-windows-amd64.exe` y compáralo con su
+     línea de `checksums.txt`;
+   - Linux: `sha256sum -c checksums.txt --ignore-missing`;
+   - macOS: `shasum -a 256 -c checksums.txt --ignore-missing`.
+3. Ejecútalo. La primera vez ofrece instalarse en la misma carpeta que el
+   script y agregarla al PATH.
+
+Los binarios no están firmados:
+
+- **Windows SmartScreen** puede pedir «Más información → Ejecutar de todas
+  formas»;
+- **macOS** puede pedir `xattr -d com.apple.quarantine <binario>`.
+
+### Actualizar
+
+```bash
+draco update            # descarga, verifica el SHA-256 y reemplaza el ejecutable
+draco update --check    # solo consulta si hay una versión nueva
+```
+
+draco avisa cuando hay una versión nueva: en el modo comando, al terminar un
+comando; en el modo visual, en la cabecera. Consulta GitHub como mucho una vez
+al día y nunca en pipes ni en CI. `DRACO_NO_UPDATE_CHECK=1` lo apaga.
+
+---
+
+## 2. Primeros pasos
+
+Necesitas:
+
+- tu **email** de Atlassian;
+- un **API token**, que se crea en
+  <https://id.atlassian.com/manage-profile/security/api-tokens>;
+- la **URL de tu sitio** (`https://<tu-sitio>.atlassian.net`).
+
+Tienes dos caminos:
+
+- **Modo visual:** corre `draco` y abre **Configuración**. Si no hay
+  configuración, arranca sola como asistente: conexión, verificación de la
+  cuenta, primer perfil y, si quieres, un proyecto.
+- **Modo comando:** `draco init` pregunta lo mismo por texto.
+
+El token no se muestra al escribirlo. Todo se guarda en
+`~/.config/draco/config.yaml` (en Windows,
+`%USERPROFILE%\.config\draco\config.yaml`), legible solo por tu usuario.
+
+Después, prueba sin publicar nada:
+
+```bash
+draco g -i OPS-7 -b a1b2c3d --dry-run
+```
+
+Si prefieres no publicar en Confluence mientras pruebas, crea un perfil con
+destino **Carpeta Markdown local**: los documentos quedan como archivos `.md`.
+
+---
+
+## 3. Conceptos: perfiles, proyectos y configuración
+
+### Perfil
+
+Un perfil dice **de dónde salen las tareas** (el tracker, hoy Jira) y **a
+dónde van los documentos** (Confluence con su space, o una carpeta Markdown).
+Opcionalmente, también qué plantillas usar.
+
+- Los comandos usan el perfil por defecto, u otro con `--profile`.
+- Una configuración sin perfiles funciona como el perfil implícito
+  `atlassian` (Jira y Confluence). Al agregar el primer perfil, el implícito
+  también se guarda, para que nada cambie.
+
+### Proyecto
+
+Un proyecto describe dónde están tus repos y cómo enlazarlos:
+
+- `backend_path` y `frontend_path`: las carpetas de los clones locales;
+- `backend_repo` y `frontend_repo`: sus nombres en el VCS (si se dejan
+  vacíos, el nombre de la carpeta);
+- `vcs_host` y `vcs_org`: el host y la organización o workspace del VCS;
+- `confluence_space_key`: el space de sus documentos, si no es el del perfil.
+
+El proyecto por defecto lo usan Generar y Backlog cuando no indicas otro con
+`-p`.
+
+### El archivo de configuración
+
+Ejemplo completo, con datos ficticios. No hace falta escribirlo a mano:
+Configuración (modo visual), `draco init`, `draco project` y `draco profile`
+lo crean.
+
+```yaml
+atlassian_email: tu@example.test
+atlassian_token: <tu token>
+base_url: https://empresa.atlassian.net
+
+default_profile: equipo
+profiles:
+  equipo:
+    tracker: { provider: jira }
+    docs:    { provider: confluence, space: DEV }
+  local:
+    tracker: { provider: jira }
+    docs:    { provider: markdown, path: ~/documentos/despliegues }
+    template: ~/plantillas/equipo        # opcional: carpeta con deploy/ y qa/
+
+default_project: pagos
+projects:
+  pagos:
+    backend_path: ~/code/pagos-api
+    backend_repo: pagos-api
+    frontend_path: ~/code/pagos-web
+    frontend_repo: pagos-web
+    vcs_host: https://github.com
+    vcs_org: mi-org
+    deploy_checklist:                    # opcional: reemplaza al global
+      - Ejecutar migraciones
+
+deploy_checklist:                        # «A considerar» de un documento nuevo
+  - Respaldo de la base de datos
+
+# Solo para el consolidado QA
+qa_email: qa@example.test                # la cuenta que publica el consolidado
+qa_report: { lider_tecnico: Ana, pmo: Luis, qa: Sofía }
+qa_jira:
+  project: OPS
+  statuses: ["10001", "En QA"]           # estados de una tarea que ya llegó a QA
+  testing_status: Testing                # abre la ventana Kanban
+  sprint_name: "{module}_Sprint {sprint}"
+  fields:
+    coding_errors: customfield_10001
+    dev_returns: customfield_10002
+    dev_status: customfield_10003
+  review_prefixes: ["Revisión de Tarea"]
+  observation_marker: "Novedad::"
+
+theme: ansi                              # ansi, alto-contraste o mono
+```
+
+Guardar desde draco reescribe el archivo, así que los comentarios escritos a
+mano se pierden.
+
+### Variables de entorno
+
+| Variable | Efecto |
+|---|---|
+| `ATLASSIAN_EMAIL`, `ATLASSIAN_TOKEN`, `ATLASSIAN_BASE_URL` | Ganan sobre el archivo. draco nunca las copia al archivo |
+| `CONFLUENCE_SPACE_KEY` | Space por defecto si la config no trae uno |
+| `DRACO_NO_UPDATE_CHECK=1` | Sin aviso de versión nueva |
+| `NO_COLOR=1` | Sin colores, en los dos modos |
+
+---
+
+## 4. Modo visual
+
+`draco` sin argumentos, en una terminal, abre el modo visual. En un pipe o en
+CI muestra la ayuda. Funciona en Windows Terminal, PowerShell, Linux y macOS;
+en la consola clásica de Windows (`cmd`) se ve más limitado.
+
+### La pantalla principal
+
+- A la izquierda, el **menú**. A la derecha (desde 96 columnas), un **panel**
+  con qué hace la función elegida y el mismo trabajo en modo comando.
+- Arriba, la cabecera: versión, perfil y proyecto activos, y el aviso si hay
+  una versión nueva.
+- Abajo, el pie: las teclas de la pantalla actual.
+
+### Teclas en todas las pantallas
+
+| Tecla | Acción |
+|---|---|
+| `ctrl+c` | Sale de draco, siempre |
+| `esc` | Vuelve a la pantalla anterior |
+| `?` | Muestra todas las teclas de la pantalla |
+| `q` | Sale, desde la principal |
+| `enter` / `tab` / `shift+tab` | En un formulario: siguiente campo / siguiente / anterior |
+
+### Barra de comandos
+
+En la principal, `/` abre una línea para escribir un comando como en la
+terminal, con `draco` o sin él: `/g -i OPS-7 -b a1b2c3d`.
+
+- Mientras escribes, sugiere comandos, sus flags (con descripción) y los
+  valores que conoce tu config: proyectos tras `-p`, perfiles tras
+  `--profile`, `backend` o `frontend` tras `-r`.
+- `tab` completa la sugerencia, `↑↓` la elige, `enter` ejecuta y `esc`
+  cierra.
+- **Ejecutar abre la pantalla del comando con los datos cargados**, en el
+  primer paso que tienes que revisar. `/g -i OPS-7 -b a1b2c3d` llega a
+  Commits con el hash marcado, y `esc` vuelve al formulario con lo que
+  escribiste.
+- Un flag desconocido o sin valor es un error, como en la terminal. Los flags
+  que el modo visual no necesita (`--dry-run`, `--template`, `-o`…) se
+  explican sin abrir nada.
+- `/help` muestra la ayuda general y `/help g`, la de un comando.
+
+### Generar documento
+
+1. **Tarea y proyecto.** Aquí se abre el perfil: si falta una credencial o un
+   space, lo dice antes de seguir.
+2. **Commits.** Muestra la lista de commits recientes de cada repo, con la
+   rama en la que está el clon.
+   - `espacio` marca un commit;
+   - `tab` cambia entre backend y frontend;
+   - `h` agrega un hash a mano (por ejemplo, de otra rama);
+   - `enter` continúa.
+3. **Preparar documento.** Lee la tarea, busca si ya hay un documento y lee
+   los archivos de los commits. Si el documento existe, pregunta si
+   actualizarlo, crear otro o cancelar. `esc` cancela el paso.
+4. **Vista previa.** `tab` cambia entre el documento y los archivos. Salir de
+   aquí no publica nada. Al actualizar, si el documento actual no tiene una
+   sección que se conserva, lo avisa y pide `s` para seguir.
+5. **Ubicación** (solo al crear). `/` filtra la lista y `enter` elige dónde
+   crear el documento.
+6. **Publicar.** `enter` publica. Mientras publica, `esc` no sale, para no
+   dejar el documento sin su enlace en la tarea. Al terminar muestra la URL;
+   si falló el enlace en Jira, lo dice.
+
+Lo que el equipo escribió a mano en «A considerar» se conserva al actualizar.
+
+### Consolidado QA
+
+1. **Sprint y módulo.** Sin sprint, modo Kanban: las tareas que pasaron a
+   Testing en los últimos 10 días hábiles.
+2. **Evaluación.** Se suma una fila por tarea a medida que se evalúa. `esc`
+   cancela entre tareas. En las columnas, `✓` es un control que pasa y `✗`
+   uno que falla. `?` significa que la consulta falló: nunca se publica como
+   un control fallido.
+3. `enter` abre la **vista previa**, y después **Ubicación** y **Publicar**,
+   como en Generar.
+
+Solo la cuenta de `qa_email` publica el consolidado. Es una protección contra
+errores, no un permiso: los permisos reales son los de Atlassian. Un
+consolidado con el mismo título se actualiza, y se conserva lo escrito a mano
+en «Observación» y «Consideraciones».
+
+### Exportar página
+
+1. **Tarea y space o carpeta** (vacío: el del perfil; en Confluence sin
+   space, todos).
+2. **Documentos** que mencionan la tarea, el más reciente primero. `/`
+   filtra; con uno solo, sigue sin preguntar.
+3. **Texto.** `↑↓` desplaza, y el campo de abajo tiene la ruta donde se
+   guarda (la carpeta actual y un nombre sugerido). `enter` guarda; si el
+   archivo existe, pide `s` para reemplazarlo.
+
+### Backlog técnico
+
+1. **Formulario:** proyecto, repos, carpeta y, en la segunda página,
+   período, módulos y dependencias.
+2. **Análisis**, repo por repo. `esc` lo cancela, y un repo que falla no
+   detiene al otro.
+3. **Hallazgos:**
+   - `tab` cambia de repo;
+   - `/` filtra por texto;
+   - el detalle del elegido aparece al lado o debajo;
+   - `s` guarda el reporte completo en JSON.
+
+No usa internet (salvo la revisión de dependencias) ni credenciales.
+
+### Proyectos
+
+Muestra la lista con filtro y el detalle del proyecto elegido.
+
+| Tecla | Acción |
+|---|---|
+| `enter` | Lo usa en esta sesión (no cambia la config) |
+| `d` | Lo guarda como proyecto por defecto |
+| `n` | Crea un proyecto |
+| `e` | Edita el proyecto (conserva checklist y backlog) |
+| `x` | Elimina el proyecto (pide `s`) |
+| `/` | Filtra la lista |
+
+### Configuración
+
+| Sección | Qué contiene |
+|---|---|
+| **Conexión** | Email, token y URL. Al guardar, verifica la cuenta y ofrece corregir el email si no es el de la cuenta. Un token vacío conserva el actual. Si una variable `ATLASSIAN_*` gana sobre el archivo, lo avisa |
+| **Perfiles** | Lista con `d`, `n`, `e` y `x`, como Proyectos |
+| **QA** | `qa_email`, los nombres del encabezado y `qa_jira`, en cuatro páginas. Las listas van separadas por comas. Si falta algo, muestra todos los problemas a la vez y no guarda |
+| **Tema** | `↑↓` prueba cada tema en toda la pantalla, `enter` guarda y `esc` vuelve al anterior |
+
+Los temas son tres:
+
+- `ansi`: los colores de tu terminal, por defecto;
+- `alto-contraste`: colores brillantes y negrita en lo importante;
+- `mono`: sin colores.
+
+---
+
+## 5. Modo comando
+
+Para scripts, CI y quien ya conoce los comandos. Los flags aceptan
+`-i OPS-7`, `-i=OPS-7` y `--issue OPS-7`. Un flag desconocido es un error,
+nunca se ignora.
+
+| Código de salida | Significado |
+|---|---|
+| `0` | Bien |
+| `1` | Error |
+| `2` | Uso incorrecto (flag desconocido, falta un valor) |
+
+| Comando | Para qué |
+|---|---|
+| `draco g`, `gen`, `generate` | Documento de despliegue |
+| `draco qa` | Consolidado QA |
+| `draco f`, `fetch` | Exportar un documento a texto |
+| `draco backlog scan` | Deuda técnica |
+| `draco init` | Configuración inicial |
+| `draco project` | Proyectos: `list`, `add`, `default`, `remove` |
+| `draco profile` | Perfiles: `list`, `add`, `default`, `remove` |
+| `draco template` | Plantillas: `init`, `list`, `validate`, `preview` |
+| `draco update` | Actualizar draco |
+| `draco version` | Versión instalada |
+
+### Documento de despliegue
+
+```bash
+draco g -i OPS-7 -b a1b2c3d -f e4f5a6b              # backend y frontend
+draco g -i OPS-7 -b a1b2c3d,9f8e7d6                 # varios commits
+draco g -i OPS-7 -b a1b2c3d -p pagos --space DEV    # otro proyecto y space
+draco g -i OPS-7 -b a1b2c3d --profile local         # a la carpeta Markdown del perfil
+draco g -i OPS-7 -b a1b2c3d --dry-run               # vista previa sin publicar
+```
+
+Hace falta al menos uno de `-b` o `-f`. El space sale de `--space`, si no del
+proyecto y si no del perfil. Si el documento existe, pregunta si actualizarlo.
+
+### Consolidado QA
+
+```bash
+draco qa                          # Kanban: últimos 10 días hábiles
+draco qa -s 12 -m Pagos           # Sprint 12 del módulo Pagos
+draco qa -s 12 -m Pagos --dry-run
+```
+
+Necesita `qa_email` y `qa_jira` en la config (ver la sección 3).
+
+### Exportar
+
+```bash
+draco f -i OPS-7                  # abre el diálogo de guardar del sistema
+draco f -i OPS-7 -o despliegue.txt
+draco f -i OPS-7 --space DEV
+```
+
+### Backlog técnico
+
+```bash
+draco backlog scan                          # los repos del proyecto por defecto
+draco backlog scan -r frontend --since 30d  # solo el frontend, último mes
+draco backlog scan -m pagos                 # solo un módulo
+draco backlog scan -l 0                     # todos los hallazgos
+draco backlog scan -o                       # guarda el reporte completo en JSON
+draco backlog scan --path ~/repos/pagos-api # una carpeta que no es un proyecto
+```
+
+Detecta:
+
+- **hotspots:** archivos con muchos commits;
+- **clases sin tests:** requiere `class_globs` en la config del proyecto;
+- **TODO/FIXME/HACK** pendientes;
+- **archivos grandes;**
+- **dependencias vulnerables:** con `--deps`, usa internet.
+
+La configuración opcional por repo (`backlog:` dentro del proyecto) está en
+`draco help backlog`.
+
+---
+
+## 6. Plantillas
+
+La estructura de los documentos sale de plantillas editables. Puedes cambiar
+el checklist, el título o el documento entero sin recompilar.
+
+```bash
+draco template init deploy          # copia la plantilla a .draco/templates/deploy del repo
+draco template init qa --user       # a ~/.config/draco/templates/qa, para todos tus repos
+draco template list                 # qué carpetas se buscan y cuál está en uso
+draco template validate             # la llena con datos de ejemplo y avisa si falta algo
+draco template preview qa           # muestra el resultado con datos de ejemplo
+```
+
+Gana la primera carpeta que exista:
+
+1. `--template`, o la carpeta de plantillas del perfil;
+2. `.draco/templates/<tipo>` del repo;
+3. `~/.config/draco/templates/<tipo>`.
+
+La plantilla incluida es la base: una carpeta solo reemplaza lo que trae.
+
+---
+
+## 7. Solución de problemas
+
+| Mensaje | Qué hacer |
+|---|---|
+| «configuración incompleta de Atlassian. Corre: draco init» | Faltan el email, el token o la URL: completa Configuración › Conexión o corre `draco init` |
+| «No se pudo validar las credenciales» | Revisa el email, el token (que no haya expirado) y que la URL empiece con `https://` |
+| «Confluence space key no configurado» | Pon el space en el proyecto (Proyectos, `e`), en el perfil, o usa `--space` |
+| «este comando está pensado para la cuenta de QA y no coincide con la tuya» | Te autenticaste con otra cuenta. Si te toca publicar, ajusta `qa_email` en Configuración › QA |
+| «no se encontraron documentos de despliegue previos» (o «ningún consolidado QA previo») | draco crea cada documento junto a uno anterior del mismo tipo en el space. La primera vez, crea uno a mano en Confluence como referencia, o usa un perfil con carpeta Markdown |
+| «configuración de QA incompleta» | Completa Configuración › QA: lista todos los campos que faltan |
+| «proyecto 'x' no encontrado» | Revisa el nombre con `draco project list` |
+| «flag desconocido» | Revisa `draco help <comando>`. En la barra, las sugerencias muestran los flags válidos |
+| `draco` no se encuentra tras instalar | Abre una terminal nueva: el PATH se actualiza ahí. En Linux, también `source ~/.bashrc` |
+| «el SHA-256 no coincide» al instalar o actualizar | La descarga está incompleta o alterada. Vuelve a intentarlo; si se repite, abre un issue |
+| La TUI se ve con caracteres raros | Usa Windows Terminal en lugar de `cmd`, o prueba el tema `mono` |
+
+Para reportar un error:
+[issues del repo](https://github.com/kaelence-01/draco-hq/issues). Incluye
+la versión (`draco version`), el comando o la pantalla y el mensaje. **Nunca
+pegues tu token** ni datos de tu empresa.
+
+---
+
+## 8. Desinstalar
+
+1. Borra el ejecutable:
+   - Windows: `%LOCALAPPDATA%\Programs\draco`;
+   - Linux y macOS: `~/.local/bin/draco`.
+2. Quita esa carpeta del PATH:
+   - Windows: Configuración › Variables de entorno de tu usuario;
+   - Linux y macOS: la línea bajo `# draco` en `~/.bashrc` o `~/.zshrc`.
+3. Si no la vas a usar más, borra `~/.config/draco/`, que tiene tu
+   configuración, tu token y las plantillas propias.
