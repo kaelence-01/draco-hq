@@ -152,7 +152,7 @@ func docRows(docs []provider.DocRef, cursor, rows, width int) []string {
 	row := lipgloss.NewStyle().MaxWidth(width)
 	var lines []string
 	cur := min(cursor, max(len(docs)-1, 0))
-	start := min(max(cur-rows/2, 0), max(len(docs)-rows, 0))
+	start := window(cur, len(docs), rows)
 	for i := start; i < min(start+rows, len(docs)); i++ {
 		mark, title := "  ", docs[i].Title
 		if i == cur {

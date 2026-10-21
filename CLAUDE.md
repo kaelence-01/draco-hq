@@ -84,7 +84,8 @@ internal/
   config/      Config YAML + variables de entorno (env > archivo)
   document/    Documento de despliegue y consolidado QA en Markdown, desde
                plantillas (templates/ incluidas; ver arquitectura §7)
-  backlog/     Detectores de deuda técnica (sin red)
+  backlog/     Deuda técnica (sin red): detectores, repos y opciones del
+               análisis, reporte
   deploy/      Flujo del documento de despliegue, sin E/S de terminal
   qa/          Flujo del consolidado de QA, sin E/S de terminal
   fetch/       Flujo de exportar una página a texto, sin E/S de terminal

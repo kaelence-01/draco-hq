@@ -7,8 +7,8 @@ negocio.
 
 Estado: **fase 5 en curso** (Exportar, Backlog y Consolidado QA, diseñadas en
 el §6). Implementado: la base (entrada, marco, pila de pantallas, pantalla
-principal), Proyectos, Generar completo, de la tarea a la publicación, y
-Exportar. Se actualiza al implementar cada actividad. Las reglas para escribir una pantalla están en el
+principal), Proyectos, Generar completo, de la tarea a la publicación,
+Exportar y Backlog. Se actualiza al implementar cada actividad. Las reglas para escribir una pantalla están en el
 §10 y son obligatorias.
 
 ## 1. Alcance por fase
@@ -77,8 +77,8 @@ internal/tui/
   publish.go    Generar: confirmación, publicación y resultado
   filter.go     filtro de una lista (/), compartido por Proyectos, Ubicación y Exportar
   export.go     Exportar: tarea, documentos que la mencionan, texto y guardado
-  backlog.go    Backlog: formulario y progreso por repo (fase 5)
-  findings.go   Backlog: hallazgos con filtro y detalle (fase 5)
+  backlog.go    Backlog: formulario y progreso por repo
+  findings.go   Backlog: hallazgos con filtro y detalle
   qa.go         QA: formulario y evaluación en vivo (fase 5)
   docrun.go     lo que Generar y QA comparten: vista previa, ubicación y publicar (fase 5)
 ```
@@ -94,7 +94,7 @@ type Deps struct {
     LoadFile    func() (*config.Config, error)                                 // config.LoadFile (Proyectos)
     SaveConfig  func(*config.Config) error                                     // config.Save (Proyectos)
     OpenProfile func(*config.Config, profile.Options) (*profile.Bundle, error) // Generar (4a)
-    Scan        func(context.Context, string, backlog.ScanOptions) (*backlog.Report, error) // Backlog (fase 5)
+    Scan        func(context.Context, string, backlog.ScanOptions) (*backlog.Report, error) // Backlog
     Now         func() time.Time                                               // QA: ventana Kanban (fase 5)
 }
 ```
@@ -271,27 +271,29 @@ Los pasos de `fetch.Session`, con las decisiones de `draco f`:
 
 No usa red (salvo dependencias) ni perfil, como `draco backlog scan`.
 
-- **Antes de la pantalla, el núcleo sale de `cmd`.** La resolución de repos
-  (`--path`, `--repo`, el proyecto o la carpeta actual), las opciones del
-  repo con `--since` (`90d`, `12w`, `3m`), el nombre y el guardado del
-  reporte viven hoy en `cmd/backlog.go`, y la TUI no puede importarlos. Pasan
-  a `internal/backlog` como funciones puras; `cmd` las usa sin cambiar su
-  salida. Los mensajes que nombran un flag quedan en `cmd`.
+- **El núcleo vive en `internal/backlog`**, no en `cmd`: `Targets` (carpeta,
+  un repo del proyecto, todos o la carpeta actual), `OptionsFor` (la config
+  del repo con el período: `90d`, `12w`, `3m`), `ApplyModules` (con
+  `ErrNoModules`), `SplitModules`, `ReportName`, `SaveReport` y
+  `ModuleSummary`. `cmd` los usa sin cambiar su salida; los mensajes que
+  nombran un flag quedan en `cmd` (`ErrNoRepoPath` se explica con
+  `--path`).
 - **`Scan` recibe un `context`** y corre `git` y `composer` con él: `esc`
   detiene un análisis largo en vez de dejarlo corriendo de fondo.
 
 | # | Pantalla | Paso | Decisión del usuario |
 |---|---|---|---|
-| 1 | Analizar (formulario) | Repos del proyecto | Proyecto (por defecto, el activo) o una carpeta; repos (los que tienen ruta); período; módulos; dependencias (usa internet) |
-| 2 | Progreso | `Scan` por repo, uno tras otro | Un repo que falla se marca y se sigue con el otro, como el comando |
+| 1 | Analizar (formulario, dos páginas) | `Targets` | Proyecto (por defecto, el activo), repos y carpeta; luego período, módulos y dependencias (usa internet) |
+| 2 | Progreso | `Scan` y `ApplyModules` por repo, uno tras otro | Un repo que falla se marca y se sigue con el otro, como el comando; muestra el comando equivalente (`-l 0`) |
 | 3 | Hallazgos | — | Recorrer, filtrar, ver el detalle, guardar |
 
 - **Hallazgos:** una pestaña por repo (`tab`), como el selector de commits.
-  Cada fila: severidad (en su color), puntos, módulo y título; `/` filtra por
-  texto (título, tipo, módulo, archivo). El detalle del elegido (tipo, ID,
-  archivos con el separador local, evidencia) va al lado desde 96 columnas y
-  debajo en 80. Abajo, el total, los puntos y la cuenta por módulo; los
-  detectores omitidos, como aviso.
+  Arriba, el repo y su período, los detectores omitidos como aviso, y el
+  total, los puntos y la cuenta por módulo. Cada fila: severidad (en su
+  color), puntos, módulo y título; `/` filtra por texto (título, tipo,
+  severidad, módulo, archivo). El detalle del elegido (tipo, ID, archivos
+  con el separador local, evidencia) va al lado desde 96 columnas y debajo
+  en 80.
 - **Sin `--limit`:** la lista se desplaza; el límite existe porque la salida
   de texto no lo hace.
 - `s` guarda el reporte completo de cada repo donde lo deja `-o` sin ruta
@@ -387,6 +389,7 @@ Terminal y una terminal de Linux o WSL.
 | Exportar con ruta editable, sin el diálogo nativo | Una ventana del sistema abierta desde la TUI la deja esperando sin señal visible, y en un test abriría una ventana real (en WSL, de Windows) |
 | Resolución de repos y opciones del backlog de `cmd` a `internal/backlog` | La TUI no importa `cmd`; copiar esas reglas daría dos backlogs que analizan distinto |
 | `backlog.Scan` con `context` | Un análisis largo debe detenerse con `esc`, no seguir de fondo |
+| Formulario de Backlog en dos páginas (`newPagedForm`) | Sus seis campos no caben en 24 líneas: la pregunta de dependencias quedaba fuera de la vista |
 | Hallazgos sin límite, en una lista desplazable | `--limit` existe porque la salida de texto no se desplaza |
 | QA evalúa una tarea por comando | Progreso en vivo y cancelación entre tareas, sin tocar el flujo |
 | Vista previa, ubicación y publicar compartidos por una interfaz de la TUI | QA tiene los mismos pasos que Generar; copiarlas duplicaría las reglas de `NotPreserved` y de publicar sin salida a medias |

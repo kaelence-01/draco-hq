@@ -11,7 +11,7 @@ detecta **deuda técnica** en tus repos. Sin IA.
 > (consolidado), `f` (exportar) y `backlog scan` (deuda técnica); los que
 > publican, con `--dry-run`. El modo visual mínimo (fase 4) también: `draco`
 > sin argumentos abre la pantalla principal, Proyectos, Generar (de la tarea a
-> la publicación) y Exportar; QA y Backlog llegan en la fase 5 (en curso). Los
+> la publicación), Exportar y Backlog; QA llega en la fase 5 (en curso). Los
 > binarios se publican en Releases desde `v0.1.0`. Ver [`docs/roadmap.md`](docs/roadmap.md).
 
 ## Qué hace

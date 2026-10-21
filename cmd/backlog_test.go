@@ -1,92 +1,17 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/kaelence-01/draco-hq/internal/backlog"
 	"github.com/kaelence-01/draco-hq/internal/config"
 )
-
-func TestBacklogReportName(t *testing.T) {
-	if got := backlogReportName("pagos", "/repos/api", "frontend", nil); got != "pagos-frontend.json" {
-		t.Errorf("con proyecto: %q", got)
-	}
-	if got := backlogReportName("", filepath.Join("repos", "pagos-api"), "backend", nil); got != "pagos-api-backend.json" {
-		t.Errorf("sin proyecto usa el nombre de la carpeta: %q", got)
-	}
-	if got := backlogReportName("pagos", "/repos/api", "backend", []string{"Facturacion", "notas-credito"}); got != "pagos-backend-facturacion-notascredito.json" {
-		t.Errorf("un reporte filtrado nunca pisa el completo: %q", got)
-	}
-}
-
-func TestSplitModules(t *testing.T) {
-	if got := splitModules(" pagos, ,Facturacion "); !reflect.DeepEqual(got, []string{"pagos", "Facturacion"}) {
-		t.Errorf("splitModules: %#v", got)
-	}
-	if got := splitModules(""); got != nil {
-		t.Errorf("sin -m no hay filtro: %#v", got)
-	}
-}
-
-func TestFormatModuleCounts(t *testing.T) {
-	got := formatModuleCounts([]backlog.ModuleCount{{Module: "Pagos", Count: 24}, {Module: "", Count: 3}})
-	if got != "Pagos 24 · (sin módulo) 3" {
-		t.Errorf("formatModuleCounts: %q", got)
-	}
-}
-
-func TestSaveBacklogReportWritesUTF8JSON(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "sub", "reporte.json")
-	rep := &backlog.Report{Version: backlog.ReportVersion, Findings: []backlog.Finding{{Title: "Extraer módulo"}}}
-
-	saved, err := saveBacklogReport(rep, path, "ignorado.json")
-	if err != nil || saved != path {
-		t.Fatalf("saveBacklogReport: %q %v", saved, err)
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var back backlog.Report
-	if err := json.Unmarshal(data, &back); err != nil || back.Findings[0].Title != "Extraer módulo" {
-		t.Errorf("el archivo debe ser JSON UTF-8 legible: %v %#v", err, back)
-	}
-}
-
-func TestSaveBacklogReportDefaultsNextToConfig(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	t.Setenv("USERPROFILE", home)
-
-	saved, err := saveBacklogReport(&backlog.Report{}, "", "pagos-backend.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if want := filepath.Join(home, ".config", "draco", "backlog", "pagos-backend.json"); saved != want {
-		t.Errorf("sin ruta debe guardar junto al config.yaml: %q, want %q", saved, want)
-	}
-}
-
-func TestNormalizeSince(t *testing.T) {
-	for in, want := range map[string]string{
-		"90d":         "90 days ago",
-		"12w":         "12 weeks ago",
-		"3m":          "3 months ago",
-		"2026-07-01":  "2026-07-01",
-		"90 days ago": "90 days ago",
-		"":            "",
-	} {
-		if got := normalizeSince(in); got != want {
-			t.Errorf("normalizeSince(%q) = %q, want %q", in, got, want)
-		}
-	}
-}
 
 func TestParseBacklogLimit(t *testing.T) {
 	if n, err := parseBacklogLimit(""); err != nil || n != defaultBacklogLimit {
@@ -102,40 +27,16 @@ func TestParseBacklogLimit(t *testing.T) {
 	}
 }
 
-func TestResolveBacklogTargets(t *testing.T) {
-	both := &config.ProjectConfig{BackendPath: "/repos/api", FrontendPath: "/repos/web"}
-	onlyAPI := &config.ProjectConfig{BackendPath: "/repos/api"}
-
-	cases := []struct {
-		name, path, repo string
-		proj             *config.ProjectConfig
-		want             []backlogTarget
-	}{
-		{"sin flags analiza todos los repos del proyecto", "", "", both,
-			[]backlogTarget{{"backend", "/repos/api"}, {"frontend", "/repos/web"}}},
-		{"-r frontend analiza solo ese", "", "frontend", both, []backlogTarget{{"frontend", "/repos/web"}}},
-		{"-r backend analiza solo ese", "", "backend", both, []backlogTarget{{"backend", "/repos/api"}}},
-		{"proyecto con un solo repo", "", "", onlyAPI, []backlogTarget{{"backend", "/repos/api"}}},
-		{"--path gana y es uno solo", "/otro", "", both, []backlogTarget{{"backend", "/otro"}}},
-		{"--path con -r conserva la etiqueta", "/otro", "frontend", both, []backlogTarget{{"frontend", "/otro"}}},
-		{"sin proyecto usa la carpeta actual", "", "", nil, []backlogTarget{{"backend", "."}}},
-		{"proyecto sin rutas usa la carpeta actual", "", "", &config.ProjectConfig{}, []backlogTarget{{"backend", "."}}},
-	}
-	for _, c := range cases {
-		got, err := resolveBacklogTargets(c.path, c.repo, c.proj, "pagos")
-		if err != nil || !reflect.DeepEqual(got, c.want) {
-			t.Errorf("%s: %v %v, want %v", c.name, got, err, c.want)
-		}
-	}
-}
-
 func TestResolveBacklogTargetsErrors(t *testing.T) {
 	onlyAPI := &config.ProjectConfig{BackendPath: "/repos/api"}
-	if _, err := resolveBacklogTargets("", "frontend", onlyAPI, "pagos"); err == nil {
-		t.Error("pedir un repo sin ruta configurada no cae a la carpeta actual: debe ser error")
+	if _, err := resolveBacklogTargets("", "frontend", onlyAPI, "pagos"); err == nil || !strings.Contains(err.Error(), "el proyecto pagos no tiene frontend_path configurado. Usa --path") {
+		t.Errorf("un repo sin ruta se explica con los flags: %v", err)
 	}
-	if _, err := resolveBacklogTargets("", "movil", onlyAPI, "pagos"); err == nil {
-		t.Error("un --repo desconocido debe ser error")
+	if _, err := resolveBacklogTargets("", "movil", onlyAPI, "pagos"); err == nil || !strings.Contains(err.Error(), "--repo debe ser backend o frontend") {
+		t.Errorf("un --repo desconocido se explica con el flag: %v", err)
+	}
+	if got, err := resolveBacklogTargets("/otro", "", onlyAPI, "pagos"); err != nil || len(got) != 1 || got[0].Dir != "/otro" {
+		t.Errorf("--path analiza esa carpeta: %v %v", got, err)
 	}
 }
 
@@ -164,21 +65,6 @@ func TestBacklogOutputRules(t *testing.T) {
 	}
 }
 
-func TestBacklogOptionsLayering(t *testing.T) {
-	rc := &config.BacklogRepoConfig{Since: "30d", ClassGlobs: []string{"app/**/*.php"}, MaxLines: 500}
-
-	fromConfig := backlogOptions(rc, "")
-	if fromConfig.Since != "30 days ago" || fromConfig.MaxLines != 500 || !reflect.DeepEqual(fromConfig.ClassGlobs, rc.ClassGlobs) {
-		t.Errorf("config del proyecto: %#v", fromConfig)
-	}
-	if got := backlogOptions(rc, "7d").Since; got != "7 days ago" {
-		t.Errorf("--since debe ganarle a la config: %q", got)
-	}
-	if got := backlogOptions(nil, ""); !reflect.DeepEqual(got, backlog.Options{}) {
-		t.Errorf("sin config ni flag todo queda vacío para que apliquen los defaults: %#v", got)
-	}
-}
-
 // backlogEnv runs the command over cfg with a scanner that returns a fixed
 // report per folder, or fails for folders not in reports.
 func backlogEnv(t *testing.T, cfg *config.Config, reports map[string]*backlog.Report) *[]backlog.ScanOptions {
@@ -187,7 +73,7 @@ func backlogEnv(t *testing.T, cfg *config.Config, reports map[string]*backlog.Re
 	t.Cleanup(func() { loadConfig, scanRepo = prevLoad, prevScan })
 	loadConfig = func() (*config.Config, error) { return cfg, nil }
 	var seen []backlog.ScanOptions
-	scanRepo = func(dir string, so backlog.ScanOptions) (*backlog.Report, error) {
+	scanRepo = func(_ context.Context, dir string, so backlog.ScanOptions) (*backlog.Report, error) {
 		seen = append(seen, so)
 		rep, ok := reports[dir]
 		if !ok {

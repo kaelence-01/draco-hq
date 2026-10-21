@@ -55,6 +55,11 @@ func (f *filter) matches(s string) bool {
 	return strings.Contains(strings.ToLower(s), strings.ToLower(f.text))
 }
 
+// window is the first of rows rows of a list of n that keeps cursor in view.
+func window(cursor, n, rows int) int {
+	return min(max(cursor-rows/2, 0), max(n-rows, 0))
+}
+
 // view is the filter line of the list; empty without a filter.
 func (f *filter) view() string {
 	switch {

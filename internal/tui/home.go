@@ -44,7 +44,7 @@ func newHome(st *state) *home {
 			desc: "Evalúa las tareas del sprint o de la ventana Kanban y publica el consolidado de pruebas."},
 		{label: "Exportar página", example: "draco f -i OPS-7", open: func(st *state) screen { return newExportForm(st) },
 			desc: "Busca el documento de una tarea y lo guarda como texto."},
-		{label: "Backlog técnico", example: "draco backlog scan",
+		{label: "Backlog técnico", example: "draco backlog scan", open: func(st *state) screen { return newBacklogForm(st) },
 			desc: "Detecta deuda técnica en tus repos locales y la propone como tareas. Sin red."},
 		{label: "Configuración", example: "draco init",
 			desc: "Credenciales, perfiles (tracker y destino de los documentos) y el primer proyecto."},
