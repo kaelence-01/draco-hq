@@ -18,6 +18,7 @@ func (a *App) usage() {
 	a.title("draco "+build.Version, "documentación de despliegues desde la terminal")
 
 	a.section("Uso:")
+	a.printf("  draco                    Modo visual: menús, listas y formularios (en una terminal)\n")
 	a.printf("  draco <comando> [flags]\n")
 	a.printf("  draco help <comando>     Ayuda de un comando (también: draco <comando> -h)\n\n")
 

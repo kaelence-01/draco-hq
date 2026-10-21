@@ -62,6 +62,7 @@ Sin entradas: se hizo antes de que existiera la bitácora.
 | [030](./fase-4/030-tui-proyectos.md) | Proyectos en la TUI y normas del modo visual | `feature/tui-proyectos` | 2026-10-20 | Proyectos (lista con filtro, activo, por defecto, formulario de Huh); panel y ruta en el marco; `captures`/`close`; normas obligatorias en `tui.md` §10, `CLAUDE.md` y `estandares-desarrollo` |
 | [031](./fase-4/031-tui-generar.md) | Generar en la TUI (1): tarea, commits y progreso | `feature/tui-generar` | 2026-10-20 | `deploy.ProjectSides`; `ChangeSource.CurrentBranch`; formulario, selector de commits por lado con hash a mano y pasos con progreso y cancelación con `esc` |
 | [032](./fase-4/032-tui-publicar.md) | Generar en la TUI (2): vista previa, ubicación y publicación | `feature/tui-publicar` | 2026-10-20 | Vista previa (Markdown en `viewport`, `NotPreserved` con `s`), ubicación con filtro, publicar sin salida a medias y `LinkErr`; filtro compartido; texto largo ajustado, no cortado |
+| [033](./fase-4/033-cierre-fase-4.md) | Cierre de la fase 4 | `docs/cierre-fase-4` | 2026-10-20 | `draco help` menciona el modo visual; fase 4 cerrada; release `v0.2.0` y su verificación a cargo del autor |
 
 ## Formato de cada entrada
 
