@@ -72,6 +72,7 @@ func (st *state) load() {
 		return
 	}
 	st.cfg = cfg
+	applyTheme(cfg.Theme)
 	_, st.project, _ = cfg.GetProject("")
 	if _, ok := cfg.Projects[active]; ok {
 		st.project = active

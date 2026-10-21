@@ -213,6 +213,7 @@ func (m *app) footer() string {
 		bindings = append(bindings, helpKey)
 	}
 	bindings = append(bindings, quitKey)
+	m.help.Styles = helpStyles
 	return m.rule() + "\n " + m.help.View(keyMap(bindings))
 }
 
