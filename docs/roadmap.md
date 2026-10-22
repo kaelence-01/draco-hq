@@ -52,7 +52,7 @@ de Windows (`cmd`) se ve más limitado.
 | 4 | Modo visual mínimo: pantalla principal, proyectos, generar documento | ✅ `v0.2.0` |
 | 5 | Resto de pantallas: backlog, QA, exportar | ✅ `v0.2.1` |
 | 6 | Configuración en formularios, aviso de versión nueva, barra de comandos con autocompletado, ayuda, temas | ✅ `v0.3.0` |
-| v1.0 | Instaladores, checksums, migración desde gtt, README completo | ⬜ |
+| v1.0 | Instaladores, checksums, migración desde gtt (✅ adelantada), README completo | ⬜ |
 
 ### Fase 2 — hecho
 
@@ -292,8 +292,11 @@ y `make release bump=minor` (bitácora 049). Quedan a cargo del autor:
   `install.ps1`, bitácora 050); faltan Homebrew tap y Scoop/winget. El paquete
   `draco` de Homebrew, Debian y MacPorts es Google Draco (compresión 3D):
   publicar con otro nombre de paquete; el comando sigue siendo `draco`.
-- Migración desde gtt: leer `~/.config/gtt/config.yaml` para no repetir el
-  asistente (pendiente de confirmar).
+- ✅ Migración desde gtt, **adelantada a la `v0.3.x`** por pedido del autor
+  (bitácora 059): `draco init` y el asistente de Configuración ofrecen
+  importar `~/.config/gtt/config.yaml` cuando draco no tiene configuración.
+  Queda para después, si alguien lo necesita: encontrar la config de gtt de
+  Windows desde WSL (o al revés).
 - ✅ Guía de usuario (`docs/guia-usuario.md`, bitácora 050) y README con la
   instalación; la guía se actualiza en el mismo commit que cambia lo que el
   usuario ve (`make check` lo avisa). Falta: bitácora enlazada por versión
@@ -315,6 +318,7 @@ y `make release bump=minor` (bitácora 049). Quedan a cargo del autor:
 | `goldmark` para leer Markdown | Go puro, MIT, mantenido; soporta tablas y tareas GFM |
 | Ramas `main` → `develop` → `feature/<tema>`, un commit por actividad, PR a `develop` | Historial corto y legible; `main` solo recibe lo integrado |
 | Bitácora por actividad, agrupada por fase (`docs/bitacora/fase-N/`), y comentarios mínimos en el código | La historia de cada decisión en un solo lugar, el código limpio |
+| Migrar desde gtt importando su `config.yaml` tal cual, solo si draco no tiene configuración, sin tocar el de gtt | Sus campos son un subconjunto de los de draco; quien viene de gtt no vuelve a configurar nada (bitácora 059) |
 | La fase 5 se publicó como *patch* (`v0.2.1`) y la fase 6 como *minor* (`v0.3.0`) | Decisiones del autor (bitácoras 039 y 049). La 039 había fijado `v0.2.x` para las dos; al cerrar la 6, el autor eligió *minor*, que es lo que pide semver para funciones nuevas |
 
 ## Decisiones pendientes
@@ -326,7 +330,6 @@ y `make release bump=minor` (bitácora 049). Quedan a cargo del autor:
   sugiere que ejecuta despliegues, y no lo hace) o ninguno.
 - Nombre del paquete en Homebrew/Scoop (el repo es `draco-hq`).
 - Solo español o español e inglés desde el inicio.
-- Leer el config de gtt para migrar.
 - Portar o no la skill `backlog-tareas`.
 - Proveedores: mapeo de estados entre trackers, gestor de secretos del sistema
   para las credenciales, plantillas remotas (`docs/arquitectura/proveedores.md`).

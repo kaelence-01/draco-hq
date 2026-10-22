@@ -55,11 +55,12 @@ type Target struct {
 	Report   config.QAReportConfig
 	Date     time.Time // review date printed in the report
 
-	// Template renders the report; nil is the built-in one. DeployPrefix
-	// starts deploy document titles, which is how a task's link to its deploy
-	// document is recognized; empty is the built-in one.
-	Template     *document.Template
-	DeployPrefix string
+	// Template renders the report; nil is the built-in one. DeployPrefixes
+	// start the titles of the deploy documents draco g can publish with this
+	// config, which is how a task's link to its document is recognized; empty
+	// is the built-in one.
+	Template       *document.Template
+	DeployPrefixes []string
 
 	// ReviewPrefixes start the summaries of QA review tasks (qa_jira).
 	ReviewPrefixes []string
@@ -84,7 +85,7 @@ func Resolve(cfg *config.Config, req Request, now time.Time) (*Target, error) {
 		return nil, err
 	}
 	t.ReviewPrefixes = cfg.QAJira.Reviews()
-	if err := t.loadTemplates(req.Template); err != nil {
+	if err := t.loadTemplates(cfg, req.Template); err != nil {
 		return nil, err
 	}
 
@@ -126,28 +127,52 @@ func (t *Target) template() *document.Template {
 	return t.Template
 }
 
-func (t *Target) deployPrefix() string {
-	if t.DeployPrefix == "" {
-		return document.MustBuiltin("deploy").Manifest.Prefix
+func (t *Target) deployPrefixes() []string {
+	if len(t.DeployPrefixes) == 0 {
+		return []string{document.MustBuiltin("deploy").Manifest.Prefix}
 	}
-	return t.DeployPrefix
+	return t.DeployPrefixes
 }
 
 // loadTemplates resolves the QA template (explicit folder, then the current
-// repo's .draco/templates/qa, then the user's) and the deploy prefix the same
-// way, without an explicit folder.
-func (t *Target) loadTemplates(explicit string) error {
+// repo's .draco/templates/qa, then the user's) and the deploy prefixes.
+func (t *Target) loadTemplates(cfg *config.Config, explicit string) error {
 	user, _ := config.TemplatesDir()
 	var err error
 	if t.Template, err = document.LoadTemplate("qa", document.Dirs("qa", explicit, "", user)...); err != nil {
 		return err
 	}
-	deploy, err := document.LoadTemplate("deploy", document.Dirs("deploy", "", "", user)...)
-	if err != nil {
-		return err
-	}
-	t.DeployPrefix = deploy.Manifest.Prefix
+	t.DeployPrefixes = deployPrefixes(cfg, user, t.warn)
 	return nil
+}
+
+// deployPrefixes are the title prefixes of every deploy template draco g can
+// use with cfg: each project's (its profile's folder, its backend repo's, the
+// user's), the one without a project and the built-in one, so documents
+// published before a template changed its prefix still count. A template that
+// does not load is reported and skipped: draco g fails with it too.
+func deployPrefixes(cfg *config.Config, user string, warn func(string)) []string {
+	prefixes := []string{document.MustBuiltin("deploy").Manifest.Prefix}
+	add := func(label, profileName, repoDir string) {
+		p, _, err := cfg.Profile(profileName)
+		if err != nil {
+			warn(fmt.Sprintf("%s: %v; sus documentos de despliegue se reconocen solo por el prefijo de siempre.", label, err))
+			return
+		}
+		tpl, err := document.LoadTemplate("deploy", document.Dirs("deploy", p.TemplateDir("deploy"), repoDir, user)...)
+		if err != nil {
+			warn(fmt.Sprintf("%s: %v; sus documentos de despliegue se reconocen solo por el prefijo de siempre.", label, err))
+			return
+		}
+		if !slices.Contains(prefixes, tpl.Manifest.Prefix) {
+			prefixes = append(prefixes, tpl.Manifest.Prefix)
+		}
+	}
+	add("sin proyecto", "", "")
+	for _, name := range cfg.ProjectNames() {
+		add("proyecto "+name, cfg.ProfileFor("", name), config.ExpandHome(cfg.Projects[name].BackendPath))
+	}
+	return prefixes
 }
 
 func (t *Target) scope() provider.QAScope {
@@ -218,7 +243,7 @@ func (s *Session) EvaluateTask(ctx context.Context, i int) []string {
 	t := &s.Tasks[i]
 	var warnings []string
 
-	hasDoc, err := s.tracker.HasDocumentLink(ctx, t.Key, s.Target.deployPrefix())
+	hasDoc, err := s.tracker.HasDocumentLink(ctx, t.Key, s.Target.deployPrefixes())
 	t.HasDeployDoc = err == nil && hasDoc
 	t.DeployDocUnknown = err != nil
 	if err != nil {

@@ -457,6 +457,14 @@ formularios.
 
   Como `draco init`, no crea perfiles: sin ellos, la config es el perfil
   implícito (Jira → Confluence con `confluence_space_key`), igual que gtt.
+
+  Si el archivo está vacío (`Config.IsEmpty`) y `Deps.LoadGtt`
+  (`config.GttConfig`) encuentra la config de gtt, el asistente abre antes
+  **Importar de gtt** (`gttimport.go`): el resumen de `config.ImportNotes`,
+  sin el token; `enter` la guarda tal cual con `state.save` y sigue con la
+  verificación de la cuenta; `n` sigue con Conexión. Una config de gtt que no
+  se puede leer no detiene el asistente: Configuración dice por qué no se
+  ofreció (bitácora 059).
 - La entrada del menú deja de estar atenuada; su ejemplo sigue siendo
   `draco init`. El aviso de la principal dice «abre Configuración (o corre
   draco init)».

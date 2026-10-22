@@ -23,6 +23,9 @@ type Deps struct {
 	// environment, so a token from ATLASSIAN_TOKEN is not written to disk.
 	LoadFile   func() (*config.Config, error)
 	SaveConfig func(*config.Config) error
+	// LoadGtt reads the config of gtt to import it (config.GttConfig); nil
+	// never offers it.
+	LoadGtt func() (*config.Config, string, error)
 	// OpenProfile builds the adapters of a profile (profile.Open).
 	OpenProfile func(*config.Config, profile.Options) (*profile.Bundle, error)
 	// Scan analyzes one repo for technical debt (backlog.Scan).

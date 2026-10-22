@@ -219,8 +219,8 @@ func kanbanAssigneeJQL(s QASchema, sinceDate, assignee string) string {
 }
 
 // HasRemoteLink reports whether the issue has a remote link whose title starts
-// with prefix. An error means "could not check", not "no link".
-func (c *Client) HasRemoteLink(ctx context.Context, issueKey, prefix string) (bool, error) {
+// with any of prefixes. An error means "could not check", not "no link".
+func (c *Client) HasRemoteLink(ctx context.Context, issueKey string, prefixes []string) (bool, error) {
 	body, err := c.Get(ctx, fmt.Sprintf("/rest/api/3/issue/%s/remotelink", issueKey))
 	if err != nil {
 		return false, fmt.Errorf("error leyendo enlaces remotos de %s: %w", issueKey, err)
@@ -236,8 +236,10 @@ func (c *Client) HasRemoteLink(ctx context.Context, issueKey, prefix string) (bo
 	}
 
 	for _, l := range links {
-		if strings.HasPrefix(l.Object.Title, prefix) {
-			return true, nil
+		for _, p := range prefixes {
+			if p != "" && strings.HasPrefix(l.Object.Title, p) {
+				return true, nil
+			}
 		}
 	}
 	return false, nil

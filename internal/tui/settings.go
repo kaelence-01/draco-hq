@@ -6,24 +6,37 @@ import (
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+
+	"github.com/kaelence-01/draco-hq/internal/config"
 )
 
 // settings is the configuration, by sections: first what generating a
 // document needs, then the optional ones. When the file has no credentials
-// and no profiles, it starts with the connection, in the order of draco init.
+// and no profiles, it starts as draco init does: importing gtt's config when
+// the file is empty and gtt has one, else with the connection.
 type settings struct {
 	st      *state
 	cursor  int
 	wizard  bool
 	started bool
+	gtt     *config.Config
+	gttPath string
 	note    string
 	failed  bool
 }
 
 func newSettings(st *state) *settings {
 	s := &settings{st: st}
-	if f, err := st.deps.LoadFile(); err == nil {
-		s.wizard = !f.HasAtlassianCredentials() && len(f.Profiles) == 0
+	f, err := st.deps.LoadFile()
+	if err != nil {
+		return s
+	}
+	s.wizard = !f.HasAtlassianCredentials() && len(f.Profiles) == 0
+	if !f.IsEmpty() || st.deps.LoadGtt == nil {
+		return s
+	}
+	if s.gtt, s.gttPath, err = st.deps.LoadGtt(); err != nil {
+		s.note, s.failed = "Hay una configuración de gtt, pero no se pudo leer: "+err.Error(), true
 	}
 	return s
 }
@@ -37,6 +50,9 @@ func (s *settings) init() tea.Cmd {
 		return nil
 	}
 	s.started = true
+	if s.gtt != nil {
+		return open(&gttImport{parent: s})
+	}
 	return open(newConnection(s))
 }
 

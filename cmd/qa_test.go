@@ -34,7 +34,7 @@ func (*qaTracker) AssignedTasks(context.Context, provider.QAScope, string) ([]pr
 	return []provider.QAIssue{{Key: "OPS-20", URL: "https://example.test/browse/OPS-20", Summary: "Revisión de Tarea - OPS-7"}}, nil
 }
 
-func (*qaTracker) HasDocumentLink(_ context.Context, key, _ string) (bool, error) {
+func (*qaTracker) HasDocumentLink(_ context.Context, key string, _ []string) (bool, error) {
 	if key == "OPS-8" {
 		return false, os.ErrPermission
 	}

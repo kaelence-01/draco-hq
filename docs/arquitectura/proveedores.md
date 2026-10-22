@@ -68,7 +68,7 @@ type QATracker interface {
     Tracker
     ReviewTasks(ctx context.Context, scope QAScope) ([]QAIssue, error)
     AssignedTasks(ctx context.Context, scope QAScope, email string) ([]QAIssue, error)
-    HasDocumentLink(ctx context.Context, issueKey, prefix string) (bool, error)
+    HasDocumentLink(ctx context.Context, issueKey string, prefixes []string) (bool, error)
     Observations(ctx context.Context, issueKey string) (string, error)
 }
 
@@ -187,7 +187,9 @@ Implementado en la actividad 5 (`internal/document`):
   (`text/template`). El manifiesto tiene `title` (plantilla del título),
   `prefix` (inicio fijo de todo título, en el que se apoyan las búsquedas;
   un título que no lo respeta es un error) y `preserve` (secciones escritas a
-  mano).
+  mano). QA reconoce el enlace de una tarea a su documento con los prefijos
+  de todas las plantillas de despliegue que la config puede usar, más el de
+  la incluida (bitácora 060).
 - Las plantillas del documento de despliegue (`deploy`) y del consolidado
   (`qa`) vienen incluidas en el binario (`embed.FS`) y reproducen el documento
   anterior idéntico; el único cambio fue la fecha del consolidado, ahora en

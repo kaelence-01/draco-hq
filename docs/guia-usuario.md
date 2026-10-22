@@ -123,6 +123,28 @@ Es lo mismo que pedía gtt. Tienes dos caminos:
 Los perfiles son opcionales: no hace falta crear uno para publicar en
 Confluence.
 
+### ¿Vienes de gtt?
+
+No vuelvas a configurar nada. Si draco todavía no tiene configuración y
+existe la de gtt (`~/.config/gtt/config.yaml`, o `~/.config/deploy-doc/`
+en versiones viejas), los dos caminos ofrecen importarla:
+
+- `draco init` pregunta «¿Importarla?»; con Enter la importa y solo
+  verifica la cuenta;
+- el asistente de Configuración abre primero **Importar de gtt**: `enter`
+  la importa, `n` configura desde cero.
+
+Credenciales, space, proyectos (con su checklist y su backlog) y el
+proyecto por defecto pasan tal cual. Se muestra un resumen sin el token, y
+la configuración de gtt no se modifica: puedes seguir usando los dos.
+
+- **Consolidado QA:** gtt guardaba en su código el proyecto, los estados y
+  los campos de Jira; draco los lee de `qa_jira`. Si usabas el consolidado,
+  complétalo una vez en Configuración › QA.
+- **gtt y draco en sistemas distintos** (uno en Windows y otro en WSL):
+  cada uno tiene su carpeta personal y draco no encuentra la de gtt. Copia
+  el archivo a la carpeta de draco del otro sistema, o configura desde cero.
+
 El token no se muestra al escribirlo. Todo se guarda en
 `~/.config/draco/config.yaml` (en Windows,
 `%USERPROFILE%\.config\draco\config.yaml`), legible solo por tu usuario.
@@ -404,7 +426,8 @@ escrito se marca ahí mismo y no se guarda. El resto del backlog (`since`,
 ### Configuración
 
 Arriba, lo que necesita el documento de despliegue; debajo de **Opcional**,
-lo demás.
+lo demás. Sin configuración arranca como asistente; si encuentra la de gtt,
+empieza por **Importar de gtt** (ver «¿Vienes de gtt?» en la sección 2).
 
 | Sección | Qué contiene |
 |---|---|
@@ -527,6 +550,12 @@ Gana la primera carpeta que exista:
 3. `~/.config/draco/templates/<tipo>`.
 
 La plantilla incluida es la base: una carpeta solo reemplaza lo que trae.
+
+Si cambias el `prefix` de la plantilla de despliegue (el inicio fijo de
+todos los títulos), el consolidado QA lo sigue reconociendo: busca el enlace
+al documento con el prefijo de cada plantilla que tu configuración puede
+usar (la de cada proyecto, con su perfil y su repo) y con el de siempre, así
+que también cuentan los documentos publicados antes del cambio.
 
 Las plantillas son Markdown. Para lo que Markdown no expresa y Confluence sí,
 hay tres convenciones (en un destino Markdown no se ven):
