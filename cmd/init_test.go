@@ -120,6 +120,78 @@ func TestInitOnExistingConfigKeepsTheRest(t *testing.T) {
 	}
 }
 
+const gttConfigYAML = `atlassian_email: dev@example.test
+atlassian_token: token-de-gtt
+base_url: https://example.test
+confluence_space_key: DEV
+default_project: pagos
+projects:
+  pagos:
+    backend_path: /repos/pagos-api
+    backend_repo: pagos-api
+    vcs_org: mi-org
+`
+
+// writeGttConfig writes gtt's config.yaml next to draco's in the test home.
+func writeGttConfig(t *testing.T, dracoPath string) string {
+	t.Helper()
+	path := filepath.Join(filepath.Dir(filepath.Dir(dracoPath)), "gtt", "config.yaml")
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(gttConfigYAML), 0600); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func TestInitImportsTheGttConfig(t *testing.T) {
+	path := configHome(t)
+	gtt := writeGttConfig(t, path)
+	fakeAccount(t, &meTracker{user: &provider.User{Name: "Dev", Email: "dev@example.test"}})
+
+	code, out, errOut := runWith("\n", "init")
+	if code != exitOK {
+		t.Fatalf("código %d\n%s\n%s", code, out, errOut)
+	}
+	for _, want := range []string{"Se encontró la configuración de gtt en " + gtt, "Configuración importada de gtt", "dev@example.test en https://example.test", "Proyectos: 1 (por defecto: pagos)", "Autenticado como Dev", "Listo."} {
+		if !strings.Contains(out, want) {
+			t.Errorf("falta %q en:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "token-de-gtt") || strings.Contains(out, "API token") {
+		t.Errorf("importar no muestra el token ni lo vuelve a pedir:\n%s", out)
+	}
+	cfg := readConfig(t)
+	if cfg.AtlassianToken != "token-de-gtt" || cfg.ConfluenceSpaceKey != "DEV" || cfg.Projects["pagos"] == nil || cfg.Projects["pagos"].VCSOrg != "mi-org" {
+		t.Errorf("la config de draco queda igual a la de gtt: %+v", cfg)
+	}
+	if info, err := os.Stat(path); err != nil || info.Mode().Perm() != 0o600 {
+		t.Errorf("la config importada guarda el token: permisos 0600: %v %v", info.Mode(), err)
+	}
+	if raw, _ := os.ReadFile(gtt); string(raw) != gttConfigYAML {
+		t.Error("la configuración de gtt no se modifica")
+	}
+}
+
+func TestInitWithoutImportingGttAsksAsUsual(t *testing.T) {
+	path := configHome(t)
+	writeGttConfig(t, path)
+	fakeAccount(t, &meTracker{user: &provider.User{Name: "Dev", Email: "dev@example.test"}})
+	// No to gtt, the account's email and a project.
+	code, out, errOut := runWith("n\notra@example.test\nsecreto\nhttps://example.test\n\nn\nn\n", "init")
+	if code != exitOK || !strings.Contains(out, "API token") || strings.Contains(out, "importada") {
+		t.Fatalf("respondiendo n, init pregunta todo: %d\n%s\n%s", code, out, errOut)
+	}
+	if cfg := readConfig(t); cfg.AtlassianEmail != "otra@example.test" || len(cfg.Projects) != 0 {
+		t.Errorf("no se importó nada de gtt: %+v", cfg)
+	}
+
+	if _, out, _ := runWith("n\n", "init"); strings.Contains(out, "gtt") {
+		t.Errorf("con una config de draco no se ofrece importar:\n%s", out)
+	}
+}
+
 func TestInitReportsBadCredentialsAndEndOfInput(t *testing.T) {
 	configHome(t)
 	fakeAccount(t, &meTracker{err: errors.New("no autorizado (401)")})
