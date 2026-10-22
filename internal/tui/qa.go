@@ -86,7 +86,7 @@ func (f *qaForm) next() (screen, error) {
 		return nil, errors.New(f.st.notice)
 	}
 	sprint, _ := strconv.Atoi(strings.TrimSpace(f.sprint))
-	bundle, err := f.st.deps.OpenProfile(f.st.cfg, profile.Options{Name: f.st.profile})
+	bundle, err := f.st.deps.OpenProfile(f.st.cfg, profile.Options{})
 	if err != nil {
 		return nil, explainProfile(err)
 	}

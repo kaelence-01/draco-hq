@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/kaelence-01/draco-hq/internal/cli"
@@ -78,14 +79,14 @@ func runProjectList(a *App, args []string) error {
 		return nil
 	}
 	w := tabwriter.NewWriter(a.Out, 0, 0, 3, ' ', 0)
-	fmt.Fprintf(w, "  PROYECTO\tBACKEND\tFRONTEND\tSPACE\n")
+	fmt.Fprintf(w, "  PROYECTO\tBACKEND\tFRONTEND\tSPACE\tPERFIL\n")
 	for _, n := range cfg.ProjectNames() {
 		p := cfg.Projects[n]
 		mark := " "
 		if n == cfg.DefaultProject {
 			mark = "*"
 		}
-		fmt.Fprintf(w, "%s %s\t%s\t%s\t%s\n", mark, n, orDash(p.BackendPath), orDash(p.FrontendPath), orDash(p.ConfluenceSpaceKey))
+		fmt.Fprintf(w, "%s %s\t%s\t%s\t%s\t%s\n", mark, n, orDash(p.BackendPath), orDash(p.FrontendPath), orDash(p.ConfluenceSpaceKey), orDash(p.Profile))
 	}
 	if err := w.Flush(); err != nil {
 		return err
@@ -172,6 +173,16 @@ func (a *App) addProject(cfg *config.Config, name string) error {
 	if p.ConfluenceSpaceKey, err = a.askValue("Space de Confluence del proyecto (si no, el del perfil)", p.ConfluenceSpaceKey, false); err != nil {
 		return err
 	}
+	for len(cfg.Profiles) > 0 {
+		label := "Perfil del proyecto (" + strings.Join(cfg.ProfileNames(), ", ") + "; si no, el por defecto)"
+		if p.Profile, err = a.askValue(label, p.Profile, false); err != nil {
+			return err
+		}
+		if _, ok := cfg.Profiles[p.Profile]; ok || p.Profile == "" {
+			break
+		}
+		a.warn(fmt.Sprintf("el perfil '%s' no existe", p.Profile))
+	}
 
 	if err := cfg.SetProject(name, p); err != nil {
 		return err
@@ -244,6 +255,8 @@ func projectHelp(a *App) {
 	a.printf("  default <nombre>    Cambia el proyecto por defecto\n")
 	a.printf("  remove, rm <nombre> Elimina un proyecto\n\n")
 
+	a.printf("  Un proyecto puede llevar su perfil (profile): draco g -p <proyecto> lo usa\n")
+	a.printf("  sin --profile, con su destino y su plantilla. Sin él, el perfil por defecto.\n\n")
 	a.printf("  Se guarda en %s. Al reemplazar un proyecto se conserva lo que\n", configPathHint())
 	a.printf("  el asistente no pregunta (deploy_checklist, backlog). Guardar reescribe el\n")
 	a.printf("  archivo: los comentarios que tenga a mano se pierden.\n\n")

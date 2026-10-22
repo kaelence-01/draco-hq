@@ -24,6 +24,7 @@ type ProjectConfig struct {
 	VCSHost            string `yaml:"vcs_host,omitempty"`
 	VCSOrg             string `yaml:"vcs_org,omitempty"`
 	ConfluenceSpaceKey string `yaml:"confluence_space_key,omitempty"`
+	Profile            string `yaml:"profile,omitempty"` // empty: default_profile; see Config.ProfileFor
 
 	// DeployChecklist overrides the global one: deploy steps depend on the stack.
 	DeployChecklist []string `yaml:"deploy_checklist,omitempty"`

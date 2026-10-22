@@ -129,6 +129,49 @@ func TestMarkdownTableConventions(t *testing.T) {
 	}
 }
 
+func TestMarkdownBulletCell(t *testing.T) {
+	got := content(t, "| a | b | c |\n|---|---|---|\n| - x.php<br>- [link](https://example.test/c) | - solo | x<br>- y |\n")
+	cells := children(children(got[0])[1])
+	want := `[{"content":[{"content":[{"content":[{"text":"x.php","type":"text"}],"type":"paragraph"}],"type":"listItem"},{"content":[{"content":[{"marks":[{"attrs":{"href":"https://example.test/c"},"type":"link"}],"text":"link","type":"text"}],"type":"paragraph"}],"type":"listItem"}],"type":"bulletList"}]`
+	if got := asJSON(children(cells[0])); got != want {
+		t.Errorf("cada línea con «- » es una viñeta:\n got  %s\n want %s", got, want)
+	}
+	if node(children(cells[1])[0])["type"] != "bulletList" {
+		t.Errorf("una sola línea con «- » también es lista: %s", asJSON(cells[1]))
+	}
+	if node(children(cells[2])[0])["type"] != "paragraph" {
+		t.Errorf("si una línea no empieza con «- », la celda queda como texto: %s", asJSON(cells[2]))
+	}
+}
+
+func TestMarkdownDracoDirectives(t *testing.T) {
+	md := "<!-- draco:tabla anchos=63,697 -->\n|  |  |\n|---|---|\n| **Épica** | x |\n\n" +
+		"<!-- draco:tabla anchos=200,560 ancho=760 layout=full-width -->\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n" +
+		"<!-- draco:recuadro -->\n- [ ] Desplegar\n\n" +
+		"<!-- draco:tabla anchos=x -->\n\n<!-- nota -->\n"
+	got := content(t, md)
+	if len(got) != 5 {
+		t.Fatalf("las directivas no generan nodos propios: %s", asJSON(got))
+	}
+	kv := node(got[0])
+	if asJSON(kv["attrs"]) != `{"layout":"default","width":1800}` || asJSON(node(children(children(kv)[0])[1])["attrs"]) != `{"colwidth":[697]}` {
+		t.Errorf("anchos de gtt en la tabla siguiente: %s", asJSON(kv))
+	}
+	if asJSON(node(got[1])["attrs"]) != `{"layout":"full-width","width":760}` || asJSON(node(children(children(got[1])[0])[0])["attrs"]) != `{"colwidth":[200]}` {
+		t.Errorf("ancho y layout explícitos, también tras una línea en blanco: %s", asJSON(got[1]))
+	}
+	box := node(got[2])
+	cell := node(children(children(box)[0])[0])
+	if box["type"] != "table" || len(children(box)) != 1 || cell["type"] != "tableCell" || node(children(cell)[0])["type"] != "taskList" {
+		t.Errorf("el recuadro es una tabla de una celda con el bloque dentro: %s", asJSON(box))
+	}
+	for i, want := range []string{"<!-- draco:tabla anchos=x -->", "<!-- nota -->"} {
+		if txt := node(children(got[3+i])[0])["text"]; txt != want {
+			t.Errorf("una directiva inválida u otro comentario queda como texto, para que se note: %v", txt)
+		}
+	}
+}
+
 func TestMarkdownRawHTMLIsLiteral(t *testing.T) {
 	var texts []string
 	for _, p := range content(t, "hola <script>alert(1)</script>\n\n<div>bloque</div>") {
@@ -206,7 +249,7 @@ func TestGoldenPublishedADF(t *testing.T) {
 }
 
 func FuzzMarkdownToADF(f *testing.F) {
-	for _, seed := range []string{deploySample, "- [ ] a\n  - [x] b", "| a |\n|---|\n| **b** <br> ✔ |", "<https://x>", "> cita\n\n---\n\n```\ncódigo\n```"} {
+	for _, seed := range []string{deploySample, "<!-- draco:tabla anchos=1,2 -->\n| - a<br>- b | c |\n|---|---|\n\n<!-- draco:recuadro -->\n- [ ] x", "- [ ] a\n  - [x] b", "| a |\n|---|\n| **b** <br> ✔ |", "<https://x>", "> cita\n\n---\n\n```\ncódigo\n```"} {
 		f.Add(seed)
 	}
 	f.Fuzz(func(t *testing.T, md string) {

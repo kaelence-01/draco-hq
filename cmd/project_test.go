@@ -39,6 +39,24 @@ func TestProjectAddListDefaultRemove(t *testing.T) {
 	}
 }
 
+func TestProjectAddAsksItsProfile(t *testing.T) {
+	configHome(t)
+	writeConfig(t, &config.Config{DefaultProfile: "equipo", Profiles: map[string]*config.Profile{"equipo": {}, "servicios": {}}})
+	code, out, errOut := runWith("/repos/api-pagos\n\n\n\n\n\nnada\nservicios\n", "project", "add", "api-pagos")
+	if code != exitOK || !strings.Contains(out, "equipo, servicios") || !strings.Contains(out, "el perfil 'nada' no existe") {
+		t.Fatalf("pregunta el perfil entre los que hay: %d\n%s\n%s", code, out, errOut)
+	}
+	if p := readConfig(t).Projects["api-pagos"]; p == nil || p.Profile != "servicios" {
+		t.Errorf("se guarda el perfil del proyecto: %+v", p)
+	}
+	if _, out, _ := run("project", "list"); !strings.Contains(out, "PERFIL") || !strings.Contains(out, "servicios") {
+		t.Errorf("list muestra el perfil:\n%s", out)
+	}
+	if code, _, errOut := runWith("s\n", "profile", "rm", "servicios"); code == exitOK || !strings.Contains(errOut, "lo usan los proyectos api-pagos") {
+		t.Errorf("un perfil en uso no se elimina: %d %s", code, errOut)
+	}
+}
+
 func TestProjectAddReplaceKeepsWhatItDoesNotAsk(t *testing.T) {
 	configHome(t)
 	writeConfig(t, &config.Config{DefaultProject: "pagos", Projects: map[string]*config.ProjectConfig{"pagos": {

@@ -138,12 +138,17 @@ no expresa y el documento necesita, con la convención que lo recupera
 | Tabla clave/valor sin fila de encabezado | Fila de encabezado con todas las celdas vacías | Se omite la fila |
 | Primera columna resaltada | Celda cuyo contenido completo está en **negrita** | Celda de encabezado, sin la marca |
 | Varias líneas en una celda | `<br>` | Salto de línea |
-| Ancho de tablas | — | Todas a todo el ancho, columnas automáticas (anchos por plantilla en la actividad 5) |
+| Viñetas en una celda | Cada línea empieza con `- `, separadas por `<br>` | bulletList en la celda |
+| Anchos de columna | `<!-- draco:tabla anchos=63,697 [ancho=1800] [layout=default] -->` antes de la tabla | `colwidth` en cada celda, `layout` y `width` de la tabla, como gtt |
+| Recuadro | `<!-- draco:recuadro -->` antes de un bloque | Tabla de una celda con el bloque dentro |
+| Tabla sin directiva | — | A todo el ancho, columnas automáticas |
 
-Se pierden, aceptado: las viñetas dentro de celdas (pasan a líneas), las
-casillas dentro de una tabla (van debajo del título), el gris de los
-marcadores y los anchos de columna fijos. Cualquier otro HTML queda como
-texto literal, nunca se interpreta.
+Los comentarios `draco:` son invisibles en un destino Markdown. Uno mal
+escrito, y cualquier otro HTML, queda como texto literal: nunca se
+interpreta, y así se nota. Las viñetas, los anchos y el recuadro se habían
+aceptado como pérdidas al pasar a Markdown; se recuperaron en la bitácora 057
+porque el documento debía verse como el de gtt. Sigue sin recuperarse el
+gris de los marcadores.
 
 Por eso el criterio de «documento idéntico» aplica al pasar a puertos, cuando
 el builder no cambia; desde el paso a Markdown el criterio es **contenido

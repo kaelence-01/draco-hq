@@ -46,7 +46,7 @@ El script descarga el binario del último release, verifica su SHA-256 contra
 y agrega esa carpeta al PATH. En una terminal nueva:
 
 ```bash
-draco init        # credenciales, perfil y primer proyecto (o draco › Configuración)
+draco init        # credenciales, space y primer proyecto (o draco › Configuración)
 ```
 
 También se puede descargar a mano desde
@@ -139,7 +139,8 @@ docs/
 ### Cómo se trabaja
 
 - Cada cambio nace de `develop` en `feature/<tema>` (`make start name=<tema>`),
-  es **un solo commit** y llega a `develop` por PR (`make push`, `make pr`).
+  es **un solo commit** y llega a `develop` por PR (`make push`, `make pr`,
+  `make merge`, `make finish`; o todo junto con `make ship`).
   `main` solo recibe lo integrado.
 - Cada cambio lleva su entrada de bitácora en `docs/bitacora/fase-N/`;
   `make check` verifica eso, el formato y los tests antes del commit.

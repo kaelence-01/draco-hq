@@ -30,7 +30,7 @@ func clone(t *testing.T, c *config.Config) *config.Config {
 	return out
 }
 
-func newProjectsApp(t *testing.T) (*app, *fakeFile) {
+func newProjectsApp(t *testing.T, change ...func(*config.Config)) (*app, *fakeFile) {
 	t.Helper()
 	f := &fakeFile{cfg: &config.Config{
 		AtlassianEmail: "tu@example.test", BaseURL: "https://example.test",
@@ -45,6 +45,9 @@ func newProjectsApp(t *testing.T) (*app, *fakeFile) {
 			Tracker: config.ProviderConfig{Provider: "jira"}, Docs: config.ProviderConfig{Provider: "confluence", Space: "DEV"},
 		}},
 	}}
+	for _, c := range change {
+		c(f.cfg)
+	}
 	m := newApp(Deps{
 		Version: "v9.9.9",
 		LoadConfig: func() (*config.Config, error) {
@@ -75,6 +78,44 @@ func TestProjectsListAndDetail(t *testing.T) {
 		if !strings.Contains(out, want) {
 			t.Errorf("falta %q:\n%s", want, out)
 		}
+	}
+}
+
+func TestProjectBringsItsProfile(t *testing.T) {
+	m, f := newProjectsApp(t, func(c *config.Config) {
+		c.Profiles["servicios"] = &config.Profile{Tracker: config.ProviderConfig{Provider: "jira"}, Docs: config.ProviderConfig{Provider: "confluence", Space: "SRV"}}
+		c.Projects["facturacion"].Profile = "servicios"
+	})
+	if out := view(m); !strings.Contains(out, "perfil: equipo") {
+		t.Fatalf("sin perfil propio, el proyecto usa el por defecto:\n%s", out)
+	}
+	send(m, keyUp)
+	send(m, keyEnter)
+	out := view(m)
+	for _, want := range []string{"perfil: servicios", "proyecto: facturacion", "con el perfil servicios"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("elegir el proyecto trae su perfil: falta %q\n%s", want, out)
+		}
+	}
+
+	send(m, keyDown)
+	typeText(m, "e")
+	for range 7 {
+		send(m, keyEnter)
+	}
+	if out := view(m); !strings.Contains(out, "Perfil del proyecto") || !strings.Contains(out, "El perfil por defecto") {
+		t.Fatalf("con varios perfiles, el formulario pregunta el del proyecto:\n%s", out)
+	}
+	send(m, keyDown)
+	send(m, keyDown)
+	for range 3 {
+		send(m, keyEnter)
+	}
+	if got := f.cfg.Projects["pagos"].Profile; got != "servicios" {
+		t.Fatalf("se guarda el perfil elegido: %q\n%s", got, view(m))
+	}
+	if out := view(m); !strings.Contains(out, "perfil") || !strings.Contains(out, "servicios") {
+		t.Errorf("el detalle muestra el perfil:\n%s", out)
 	}
 }
 

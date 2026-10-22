@@ -52,8 +52,11 @@ description: Cierra una actividad de draco — verificaciones (build, vet, gofmt
      `! make push` (sube la rama actual y fija su upstream).
    - PR: `! make pr` crea el PR de la rama actual hacia **`develop`** (nunca a
      `main`); `make pr web=1` lo abre en el navegador para editarlo.
+   - Fusionar: `! make merge` (merge commit hacia `develop`, pregunta antes).
    - Después de fusionar: `! make finish` (develop al día y ramas fusionadas
      borradas), y la siguiente actividad empieza con `nueva-actividad`.
+   - Todo de una vez: `! make ship` (push, PR, merge y finish; se detiene en
+     el primer paso que falle o si el autor no confirma la fusión).
 
 ## Lo que esta skill no hace
 

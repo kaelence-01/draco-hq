@@ -95,7 +95,7 @@ func (g *generate) next() (screen, error) {
 	if err != nil {
 		return nil, err
 	}
-	bundle, err := g.st.deps.OpenProfile(g.st.cfg, profile.Options{Name: g.st.profile, ProjectSpace: sides.SpaceKey})
+	bundle, err := g.st.deps.OpenProfile(g.st.cfg, profile.Options{Name: g.st.cfg.ProfileFor("", sides.Project), ProjectSpace: sides.SpaceKey})
 	if err != nil {
 		return nil, explainProfile(err)
 	}

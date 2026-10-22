@@ -94,6 +94,10 @@ Sin entradas: se hizo antes de que existiera la bitácora.
 | [052](./fase-6/052-proyecto-backlog.md) | Backlog técnico en el formulario de proyecto | `feature/proyecto-backlog` | 2026-10-21 | Página opcional por repo con `class_globs` y `modules`, validados antes de guardar (`backlog.CheckPatterns`); el resto del backlog se conserva |
 | [053](./fase-6/053-rutas-config.md) | `~` en las rutas y space del proyecto con perfil Markdown | `fix/rutas-config` | 2026-10-21 | `config.ExpandHome` donde se usan las rutas de la config; el space del proyecto viaja aparte (`profile.Options.ProjectSpace`) y un destino Markdown lo ignora |
 | [054](./fase-6/054-regla-proyecto.md) | La regla del proyecto en `config` | `feature/regla-proyecto` | 2026-10-21 | `ProjectConfig.Complete` (rescatada de un borrador de la 030) reemplaza la regla duplicada en `draco project add` y en el formulario de la TUI |
+| [055](./fase-6/055-perfil-del-proyecto.md) | Cada proyecto con su perfil | `feature/perfil-del-proyecto` | 2026-10-21 | `projects.<n>.profile`; al generar, `--profile` > el del proyecto > el por defecto (`Config.ProfileFor`); la TUI cambia de perfil al elegir proyecto; un perfil en uso no se elimina |
+| [056](./fase-6/056-consistencia-guia.md) | Consistencia de la guía de usuario | `docs/consistencia-guia` | 2026-10-22 | 15 correcciones de la guía y el README contra el código (precedencia del space, plantillas del repo, cabecera, barra, solución de problemas); QA y el prefijo de un perfil, pendiente |
+| [057](./fase-6/057-documento-como-gtt.md) | El documento se ve como el de gtt | `fix/documento-como-gtt` | 2026-10-22 | Anchos de columna, viñetas en celdas y «A considerar» en un recuadro, con convenciones del Markdown (`draco:tabla`, `draco:recuadro`, líneas con `- `); también los anchos del consolidado QA |
+| [058](./fase-6/058-make-merge.md) | `make merge` y atajos combinados | `feature/make-merge` | 2026-10-22 | `make merge` fusiona en `develop` con merge commit tras confirmar; `push-pr`, `push-pr-merge`, `merge-finish` y `ship`; `make pr` muestra el PR abierto en vez de fallar |
 
 ## Formato de cada entrada
 

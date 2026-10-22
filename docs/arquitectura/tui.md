@@ -160,6 +160,10 @@ habla con los flujos; nunca con un adaptador.
   proyecto activo. `state.save(change)` es la única forma de guardar:
   `LoadFile` → `change` (funciones puras de `config`) → `SaveConfig` → vuelve
   a leer la config; el proyecto activo se mantiene mientras exista.
+  `state.useProject` cambia el proyecto activo y, con él, el perfil de la
+  cabecera (`config.ProfileFor`: el del proyecto, o el por defecto). Generar
+  abre el perfil del proyecto que eligió; QA y Exportar, el por defecto,
+  como `draco qa` y `draco f` (bitácora 055).
 - **Pasos del flujo como comandos.** Cada paso de una `Session` corre en un
   `tea.Cmd` y vuelve como mensaje (`stepDone{step, err}`). La pantalla muestra
   un spinner mientras tanto y **no lee la `Session` hasta recibir el mensaje**:
