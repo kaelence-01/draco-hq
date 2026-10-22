@@ -96,6 +96,7 @@ Sin entradas: se hizo antes de que existiera la bitácora.
 | [054](./fase-6/054-regla-proyecto.md) | La regla del proyecto en `config` | `feature/regla-proyecto` | 2026-10-21 | `ProjectConfig.Complete` (rescatada de un borrador de la 030) reemplaza la regla duplicada en `draco project add` y en el formulario de la TUI |
 | [055](./fase-6/055-perfil-del-proyecto.md) | Cada proyecto con su perfil | `feature/perfil-del-proyecto` | 2026-10-21 | `projects.<n>.profile`; al generar, `--profile` > el del proyecto > el por defecto (`Config.ProfileFor`); la TUI cambia de perfil al elegir proyecto; un perfil en uso no se elimina |
 | [056](./fase-6/056-consistencia-guia.md) | Consistencia de la guía de usuario | `docs/consistencia-guia` | 2026-10-22 | 15 correcciones de la guía y el README contra el código (precedencia del space, plantillas del repo, cabecera, barra, solución de problemas); QA y el prefijo de un perfil, pendiente |
+| [057](./fase-6/057-documento-como-gtt.md) | El documento se ve como el de gtt | `fix/documento-como-gtt` | 2026-10-22 | Anchos de columna, viñetas en celdas y «A considerar» en un recuadro, con convenciones del Markdown (`draco:tabla`, `draco:recuadro`, líneas con `- `); también los anchos del consolidado QA |
 
 ## Formato de cada entrada
 

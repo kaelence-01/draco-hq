@@ -528,6 +528,18 @@ Gana la primera carpeta que exista:
 
 La plantilla incluida es la base: una carpeta solo reemplaza lo que trae.
 
+Las plantillas son Markdown. Para lo que Markdown no expresa y Confluence sí,
+hay tres convenciones (en un destino Markdown no se ven):
+
+| Para | Escribe | En Confluence |
+|---|---|---|
+| Fijar el ancho de las columnas | `<!-- draco:tabla anchos=63,697 -->` justo antes de la tabla (opcional: `ancho=1800`, `layout=full-width`) | Columnas con esos anchos, como en gtt |
+| Viñetas dentro de una celda | Cada línea con `- ` al inicio, separadas por `<br>`: `- {{join .Files "<br>- "}}` | Lista con viñetas |
+| Un bloque dentro de un recuadro | `<!-- draco:recuadro -->` justo antes del bloque | Tabla de una celda con el bloque dentro |
+
+Un comentario `draco:` mal escrito se publica como texto, para que lo veas y
+lo corrijas.
+
 ---
 
 ## 7. Solución de problemas

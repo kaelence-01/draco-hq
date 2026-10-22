@@ -14,12 +14,18 @@
     },
     {
       "attrs": {
-        "layout": "full-width"
+        "layout": "full-width",
+        "width": 760
       },
       "content": [
         {
           "content": [
             {
+              "attrs": {
+                "colwidth": [
+                  200
+                ]
+              },
               "content": [
                 {
                   "content": [
@@ -34,6 +40,11 @@
               "type": "tableHeader"
             },
             {
+              "attrs": {
+                "colwidth": [
+                  560
+                ]
+              },
               "content": [
                 {
                   "content": [
@@ -53,6 +64,11 @@
         {
           "content": [
             {
+              "attrs": {
+                "colwidth": [
+                  200
+                ]
+              },
               "content": [
                 {
                   "content": [
@@ -67,6 +83,11 @@
               "type": "tableHeader"
             },
             {
+              "attrs": {
+                "colwidth": [
+                  560
+                ]
+              },
               "content": [
                 {
                   "content": [
@@ -86,6 +107,11 @@
         {
           "content": [
             {
+              "attrs": {
+                "colwidth": [
+                  200
+                ]
+              },
               "content": [
                 {
                   "content": [
@@ -100,6 +126,11 @@
               "type": "tableHeader"
             },
             {
+              "attrs": {
+                "colwidth": [
+                  560
+                ]
+              },
               "content": [
                 {
                   "content": [
@@ -119,6 +150,11 @@
         {
           "content": [
             {
+              "attrs": {
+                "colwidth": [
+                  200
+                ]
+              },
               "content": [
                 {
                   "content": [
@@ -133,6 +169,11 @@
               "type": "tableHeader"
             },
             {
+              "attrs": {
+                "colwidth": [
+                  560
+                ]
+              },
               "content": [
                 {
                   "content": [
@@ -152,6 +193,11 @@
         {
           "content": [
             {
+              "attrs": {
+                "colwidth": [
+                  200
+                ]
+              },
               "content": [
                 {
                   "content": [
@@ -166,6 +212,11 @@
               "type": "tableHeader"
             },
             {
+              "attrs": {
+                "colwidth": [
+                  560
+                ]
+              },
               "content": [
                 {
                   "content": [
@@ -199,12 +250,18 @@
     },
     {
       "attrs": {
-        "layout": "full-width"
+        "layout": "full-width",
+        "width": 800
       },
       "content": [
         {
           "content": [
             {
+              "attrs": {
+                "colwidth": [
+                  150
+                ]
+              },
               "content": [
                 {
                   "content": [
@@ -219,6 +276,11 @@
               "type": "tableHeader"
             },
             {
+              "attrs": {
+                "colwidth": [
+                  120
+                ]
+              },
               "content": [
                 {
                   "content": [
@@ -233,6 +295,11 @@
               "type": "tableHeader"
             },
             {
+              "attrs": {
+                "colwidth": [
+                  120
+                ]
+              },
               "content": [
                 {
                   "content": [
@@ -247,6 +314,11 @@
               "type": "tableHeader"
             },
             {
+              "attrs": {
+                "colwidth": [
+                  120
+                ]
+              },
               "content": [
                 {
                   "content": [
@@ -261,6 +333,11 @@
               "type": "tableHeader"
             },
             {
+              "attrs": {
+                "colwidth": [
+                  120
+                ]
+              },
               "content": [
                 {
                   "content": [
@@ -275,6 +352,11 @@
               "type": "tableHeader"
             },
             {
+              "attrs": {
+                "colwidth": [
+                  130
+                ]
+              },
               "content": [
                 {
                   "content": [
@@ -289,6 +371,11 @@
               "type": "tableHeader"
             },
             {
+              "attrs": {
+                "colwidth": [
+                  130
+                ]
+              },
               "content": [
                 {
                   "content": [
@@ -308,6 +395,11 @@
         {
           "content": [
             {
+              "attrs": {
+                "colwidth": [
+                  150
+                ]
+              },
               "content": [
                 {
                   "content": [
@@ -324,6 +416,11 @@
               "type": "tableCell"
             },
             {
+              "attrs": {
+                "colwidth": [
+                  120
+                ]
+              },
               "content": [
                 {
                   "content": [
@@ -342,6 +439,11 @@
               "type": "tableCell"
             },
             {
+              "attrs": {
+                "colwidth": [
+                  120
+                ]
+              },
               "content": [
                 {
                   "content": [
@@ -360,6 +462,11 @@
               "type": "tableCell"
             },
             {
+              "attrs": {
+                "colwidth": [
+                  120
+                ]
+              },
               "content": [
                 {
                   "content": [
@@ -378,6 +485,11 @@
               "type": "tableCell"
             },
             {
+              "attrs": {
+                "colwidth": [
+                  120
+                ]
+              },
               "content": [
                 {
                   "content": [
@@ -396,6 +508,11 @@
               "type": "tableCell"
             },
             {
+              "attrs": {
+                "colwidth": [
+                  130
+                ]
+              },
               "content": [
                 {
                   "type": "paragraph"
@@ -404,6 +521,11 @@
               "type": "tableCell"
             },
             {
+              "attrs": {
+                "colwidth": [
+                  130
+                ]
+              },
               "content": [
                 {
                   "content": [
@@ -425,6 +547,11 @@
         {
           "content": [
             {
+              "attrs": {
+                "colwidth": [
+                  150
+                ]
+              },
               "content": [
                 {
                   "content": [
@@ -441,6 +568,11 @@
               "type": "tableCell"
             },
             {
+              "attrs": {
+                "colwidth": [
+                  120
+                ]
+              },
               "content": [
                 {
                   "content": [
@@ -459,6 +591,11 @@
               "type": "tableCell"
             },
             {
+              "attrs": {
+                "colwidth": [
+                  120
+                ]
+              },
               "content": [
                 {
                   "content": [
@@ -477,6 +614,11 @@
               "type": "tableCell"
             },
             {
+              "attrs": {
+                "colwidth": [
+                  120
+                ]
+              },
               "content": [
                 {
                   "content": [
@@ -491,6 +633,11 @@
               "type": "tableCell"
             },
             {
+              "attrs": {
+                "colwidth": [
+                  120
+                ]
+              },
               "content": [
                 {
                   "content": [
@@ -509,6 +656,11 @@
               "type": "tableCell"
             },
             {
+              "attrs": {
+                "colwidth": [
+                  130
+                ]
+              },
               "content": [
                 {
                   "content": [
@@ -523,6 +675,11 @@
               "type": "tableCell"
             },
             {
+              "attrs": {
+                "colwidth": [
+                  130
+                ]
+              },
               "content": [
                 {
                   "type": "paragraph"

@@ -2,12 +2,18 @@
   "content": [
     {
       "attrs": {
-        "layout": "full-width"
+        "layout": "default",
+        "width": 1800
       },
       "content": [
         {
           "content": [
             {
+              "attrs": {
+                "colwidth": [
+                  63
+                ]
+              },
               "content": [
                 {
                   "content": [
@@ -22,6 +28,11 @@
               "type": "tableHeader"
             },
             {
+              "attrs": {
+                "colwidth": [
+                  697
+                ]
+              },
               "content": [
                 {
                   "content": [
@@ -46,6 +57,11 @@
         {
           "content": [
             {
+              "attrs": {
+                "colwidth": [
+                  63
+                ]
+              },
               "content": [
                 {
                   "content": [
@@ -60,6 +76,11 @@
               "type": "tableHeader"
             },
             {
+              "attrs": {
+                "colwidth": [
+                  697
+                ]
+              },
               "content": [
                 {
                   "content": [
@@ -107,12 +128,18 @@
     },
     {
       "attrs": {
-        "layout": "full-width"
+        "layout": "default",
+        "width": 1800
       },
       "content": [
         {
           "content": [
             {
+              "attrs": {
+                "colwidth": [
+                  69
+                ]
+              },
               "content": [
                 {
                   "content": [
@@ -127,6 +154,11 @@
               "type": "tableHeader"
             },
             {
+              "attrs": {
+                "colwidth": [
+                  175
+                ]
+              },
               "content": [
                 {
                   "content": [
@@ -141,6 +173,11 @@
               "type": "tableHeader"
             },
             {
+              "attrs": {
+                "colwidth": [
+                  176
+                ]
+              },
               "content": [
                 {
                   "content": [
@@ -155,6 +192,11 @@
               "type": "tableHeader"
             },
             {
+              "attrs": {
+                "colwidth": [
+                  188
+                ]
+              },
               "content": [
                 {
                   "content": [
@@ -169,6 +211,11 @@
               "type": "tableHeader"
             },
             {
+              "attrs": {
+                "colwidth": [
+                  152
+                ]
+              },
               "content": [
                 {
                   "content": [
@@ -188,6 +235,11 @@
         {
           "content": [
             {
+              "attrs": {
+                "colwidth": [
+                  69
+                ]
+              },
               "content": [
                 {
                   "content": [
@@ -210,6 +262,11 @@
               "type": "tableCell"
             },
             {
+              "attrs": {
+                "colwidth": [
+                  175
+                ]
+              },
               "content": [
                 {
                   "content": [
@@ -224,6 +281,11 @@
               "type": "tableCell"
             },
             {
+              "attrs": {
+                "colwidth": [
+                  176
+                ]
+              },
               "content": [
                 {
                   "content": [
@@ -238,59 +300,103 @@
               "type": "tableCell"
             },
             {
+              "attrs": {
+                "colwidth": [
+                  188
+                ]
+              },
               "content": [
                 {
                   "content": [
                     {
-                      "text": "FiltroController.php",
-                      "type": "text"
+                      "content": [
+                        {
+                          "content": [
+                            {
+                              "text": "FiltroController.php",
+                              "type": "text"
+                            }
+                          ],
+                          "type": "paragraph"
+                        }
+                      ],
+                      "type": "listItem"
                     },
                     {
-                      "type": "hardBreak"
-                    },
-                    {
-                      "text": "Rango.php",
-                      "type": "text"
+                      "content": [
+                        {
+                          "content": [
+                            {
+                              "text": "Rango.php",
+                              "type": "text"
+                            }
+                          ],
+                          "type": "paragraph"
+                        }
+                      ],
+                      "type": "listItem"
                     }
                   ],
-                  "type": "paragraph"
+                  "type": "bulletList"
                 }
               ],
               "type": "tableCell"
             },
             {
+              "attrs": {
+                "colwidth": [
+                  152
+                ]
+              },
               "content": [
                 {
                   "content": [
                     {
-                      "marks": [
+                      "content": [
                         {
-                          "attrs": {
-                            "href": "https://bitbucket.org/mi-org/pagos-api/commits/a1b2c3d#chg-app/Http/Pagos/FiltroController.php"
-                          },
-                          "type": "link"
+                          "content": [
+                            {
+                              "marks": [
+                                {
+                                  "attrs": {
+                                    "href": "https://bitbucket.org/mi-org/pagos-api/commits/a1b2c3d#chg-app/Http/Pagos/FiltroController.php"
+                                  },
+                                  "type": "link"
+                                }
+                              ],
+                              "text": "link",
+                              "type": "text"
+                            }
+                          ],
+                          "type": "paragraph"
                         }
                       ],
-                      "text": "link",
-                      "type": "text"
+                      "type": "listItem"
                     },
                     {
-                      "type": "hardBreak"
-                    },
-                    {
-                      "marks": [
+                      "content": [
                         {
-                          "attrs": {
-                            "href": "https://bitbucket.org/mi-org/pagos-api/commits/a1b2c3d#chg-app/Http/Pagos/Rango.php"
-                          },
-                          "type": "link"
+                          "content": [
+                            {
+                              "marks": [
+                                {
+                                  "attrs": {
+                                    "href": "https://bitbucket.org/mi-org/pagos-api/commits/a1b2c3d#chg-app/Http/Pagos/Rango.php"
+                                  },
+                                  "type": "link"
+                                }
+                              ],
+                              "text": "link",
+                              "type": "text"
+                            }
+                          ],
+                          "type": "paragraph"
                         }
                       ],
-                      "text": "link",
-                      "type": "text"
+                      "type": "listItem"
                     }
                   ],
-                  "type": "paragraph"
+                  "type": "bulletList"
                 }
               ],
               "type": "tableCell"
@@ -315,37 +421,57 @@
     },
     {
       "attrs": {
-        "localId": "tasklist-1"
+        "layout": "default",
+        "width": 1800
       },
       "content": [
         {
-          "attrs": {
-            "localId": "task-1-1",
-            "state": "TODO"
-          },
           "content": [
             {
-              "text": "Respaldar base de datos",
-              "type": "text"
+              "attrs": {},
+              "content": [
+                {
+                  "attrs": {
+                    "localId": "tasklist-1"
+                  },
+                  "content": [
+                    {
+                      "attrs": {
+                        "localId": "task-1-1",
+                        "state": "TODO"
+                      },
+                      "content": [
+                        {
+                          "text": "Respaldar base de datos",
+                          "type": "text"
+                        }
+                      ],
+                      "type": "taskItem"
+                    },
+                    {
+                      "attrs": {
+                        "localId": "task-1-2",
+                        "state": "TODO"
+                      },
+                      "content": [
+                        {
+                          "text": "Desplegar backend",
+                          "type": "text"
+                        }
+                      ],
+                      "type": "taskItem"
+                    }
+                  ],
+                  "type": "taskList"
+                }
+              ],
+              "type": "tableCell"
             }
           ],
-          "type": "taskItem"
-        },
-        {
-          "attrs": {
-            "localId": "task-1-2",
-            "state": "TODO"
-          },
-          "content": [
-            {
-              "text": "Desplegar backend",
-              "type": "text"
-            }
-          ],
-          "type": "taskItem"
+          "type": "tableRow"
         }
       ],
-      "type": "taskList"
+      "type": "table"
     }
   ],
   "type": "doc",
