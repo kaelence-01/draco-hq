@@ -46,7 +46,7 @@ El script descarga el binario del último release, verifica su SHA-256 contra
 y agrega esa carpeta al PATH. En una terminal nueva:
 
 ```bash
-draco init        # credenciales, perfil y primer proyecto (o draco › Configuración)
+draco init        # credenciales, space y primer proyecto (o draco › Configuración)
 ```
 
 También se puede descargar a mano desde
