@@ -3,7 +3,10 @@ package qa
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -32,7 +35,7 @@ type fakeAPI struct {
 
 	gotScope          provider.QAScope
 	gotQAEmail        string
-	gotLinkPrefix     string
+	gotLinkPrefixes   []string
 	gotTitleSearch    *string
 	locations         []provider.DocRef
 	gotLocationPrefix string
@@ -56,8 +59,8 @@ func (f *fakeAPI) AssignedTasks(_ context.Context, _ provider.QAScope, email str
 	return f.assigned, nil
 }
 
-func (f *fakeAPI) HasDocumentLink(_ context.Context, key, prefix string) (bool, error) {
-	f.gotLinkPrefix = prefix
+func (f *fakeAPI) HasDocumentLink(_ context.Context, key string, prefixes []string) (bool, error) {
+	f.gotLinkPrefixes = prefixes
 	return f.docLinks[key], f.docErr[key]
 }
 
@@ -282,14 +285,53 @@ func TestCollectPropagatesErrors(t *testing.T) {
 	}
 }
 
+// deployTemplate writes a deploy template that only changes the prefix.
+func deployTemplate(t *testing.T, dir, prefix string) {
+	t.Helper()
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "template.yaml"), []byte("prefix: \""+prefix+"\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestDeployPrefixesOfEveryTemplate(t *testing.T) {
+	t.Chdir(t.TempDir())
+	repo, profileTemplates := t.TempDir(), t.TempDir()
+	deployTemplate(t, filepath.Join(repo, ".draco", "templates", "deploy"), "Despliegue Pagos")
+	deployTemplate(t, filepath.Join(profileTemplates, "deploy"), "Despliegue Servicios")
+	cfg := &config.Config{
+		DefaultProfile: "equipo",
+		Profiles: map[string]*config.Profile{
+			"equipo":    {Tracker: config.ProviderConfig{Provider: "jira"}, Docs: config.ProviderConfig{Provider: "confluence", Space: "DEV"}},
+			"servicios": {Tracker: config.ProviderConfig{Provider: "jira"}, Docs: config.ProviderConfig{Provider: "confluence", Space: "SRV"}, Template: profileTemplates},
+		},
+		Projects: map[string]*config.ProjectConfig{
+			"pagos":     {BackendPath: repo},
+			"api-pagos": {BackendPath: t.TempDir(), Profile: "servicios"},
+			"roto":      {BackendPath: t.TempDir(), Profile: "no-existe"},
+		},
+	}
+	var warnings []string
+	got := deployPrefixes(cfg, filepath.Join(t.TempDir(), "sin-plantillas"), func(w string) { warnings = append(warnings, w) })
+	want := []string{"Documento de Despliegue", "Despliegue Servicios", "Despliegue Pagos"}
+	if !slices.Equal(got, want) {
+		t.Errorf("el de siempre, el de la plantilla del perfil y el del repo, sin repetir: %q", got)
+	}
+	if len(warnings) != 1 || !strings.Contains(warnings[0], "proyecto roto") {
+		t.Errorf("un perfil que no existe se avisa y no detiene el consolidado: %q", warnings)
+	}
+}
+
 func TestEvaluateTaskFailedLookupIsUnknown(t *testing.T) {
 	api := &fakeAPI{docErr: map[string]error{"OPS-7": errors.New("403")}}
 	s := newSession(api, sprintTarget(t))
 	s.Tasks = []provider.QAIssue{{Key: "OPS-7"}}
 
 	warnings := s.EvaluateTask(ctx, 0)
-	if api.gotLinkPrefix != "Documento de Despliegue" {
-		t.Errorf("el enlace se busca con el prefijo %q", api.gotLinkPrefix)
+	if !slices.Equal(api.gotLinkPrefixes, []string{"Documento de Despliegue"}) {
+		t.Errorf("el enlace se busca con el prefijo de siempre: %q", api.gotLinkPrefixes)
 	}
 	if !s.Tasks[0].DeployDocUnknown || s.Tasks[0].HasDeployDoc {
 		t.Errorf("una consulta fallida es desconocida, no un control fallido: %+v", s.Tasks[0])

@@ -99,6 +99,7 @@ Sin entradas: se hizo antes de que existiera la bitácora.
 | [057](./fase-6/057-documento-como-gtt.md) | El documento se ve como el de gtt | `fix/documento-como-gtt` | 2026-10-22 | Anchos de columna, viñetas en celdas y «A considerar» en un recuadro, con convenciones del Markdown (`draco:tabla`, `draco:recuadro`, líneas con `- `); también los anchos del consolidado QA |
 | [058](./fase-6/058-make-merge.md) | `make merge` y atajos combinados | `feature/make-merge` | 2026-10-22 | `make merge` fusiona en `develop` con merge commit tras confirmar; `push-pr`, `push-pr-merge`, `merge-finish` y `ship`; `make pr` muestra el PR abierto en vez de fallar |
 | [059](./fase-6/059-importar-gtt.md) | Importar la configuración de gtt | `feature/importar-gtt` | 2026-10-22 | `draco init` y el asistente de Configuración ofrecen importar `~/.config/gtt/config.yaml` cuando draco no tiene configuración; resumen sin el token; la de gtt no se toca |
+| [060](./fase-6/060-qa-prefijo-perfil.md) | QA reconoce el documento con cualquier plantilla | `fix/qa-prefijo-perfil` | 2026-10-22 | `HasDocumentLink` recibe varios prefijos: los de la plantilla de cada proyecto (perfil, repo, usuario), sin proyecto y el incluido; una plantilla que no carga se avisa |
 
 ## Formato de cada entrada
 
