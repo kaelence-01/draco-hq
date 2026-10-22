@@ -551,6 +551,12 @@ Gana la primera carpeta que exista:
 
 La plantilla incluida es la base: una carpeta solo reemplaza lo que trae.
 
+Si cambias el `prefix` de la plantilla de despliegue (el inicio fijo de
+todos los títulos), el consolidado QA lo sigue reconociendo: busca el enlace
+al documento con el prefijo de cada plantilla que tu configuración puede
+usar (la de cada proyecto, con su perfil y su repo) y con el de siempre, así
+que también cuentan los documentos publicados antes del cambio.
+
 Las plantillas son Markdown. Para lo que Markdown no expresa y Confluence sí,
 hay tres convenciones (en un destino Markdown no se ven):
 

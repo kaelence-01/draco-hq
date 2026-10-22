@@ -89,8 +89,8 @@ func (t *QATracker) AssignedTasks(ctx context.Context, sc provider.QAScope, emai
 	return t.c.GetQATasksAsAssigneeKanban(ctx, t.schema, sc.Since, email)
 }
 
-func (t *QATracker) HasDocumentLink(ctx context.Context, issueKey, prefix string) (bool, error) {
-	return t.c.HasRemoteLink(ctx, issueKey, prefix)
+func (t *QATracker) HasDocumentLink(ctx context.Context, issueKey string, prefixes []string) (bool, error) {
+	return t.c.HasRemoteLink(ctx, issueKey, prefixes)
 }
 
 func (t *QATracker) Observations(ctx context.Context, issueKey string) (string, error) {

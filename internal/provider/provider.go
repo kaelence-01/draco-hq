@@ -134,8 +134,8 @@ type QATracker interface {
 	// AssignedTasks returns the tasks of the scope assigned to email.
 	AssignedTasks(ctx context.Context, scope QAScope, email string) ([]QAIssue, error)
 	// HasDocumentLink reports a link from the issue whose title starts with
-	// prefix. An error means "could not check", never "no link".
-	HasDocumentLink(ctx context.Context, issueKey, prefix string) (bool, error)
+	// any of prefixes. An error means "could not check", never "no link".
+	HasDocumentLink(ctx context.Context, issueKey string, prefixes []string) (bool, error)
 	// Observations joins the text after the configured marker ("Novedad::")
 	// in the issue's comments; empty with a nil error means there are none.
 	Observations(ctx context.Context, issueKey string) (string, error)

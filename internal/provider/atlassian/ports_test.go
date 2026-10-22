@@ -31,6 +31,30 @@ func fakeConfluence(t *testing.T, routes map[string]func(w http.ResponseWriter, 
 
 func writeJSON(w http.ResponseWriter, v any) { _ = json.NewEncoder(w).Encode(v) }
 
+func TestHasRemoteLinkMatchesAnyPrefix(t *testing.T) {
+	c := fakeConfluence(t, map[string]func(http.ResponseWriter, *http.Request){
+		"GET /rest/api/3/issue/OPS-7/remotelink": func(w http.ResponseWriter, _ *http.Request) {
+			writeJSON(w, []any{
+				map[string]any{"object": map[string]any{"title": "Otra página"}},
+				map[string]any{"object": map[string]any{"title": "Despliegue Servicios - OPS-7 - Filtro"}},
+			})
+		},
+	})
+	for _, tc := range []struct {
+		prefixes []string
+		want     bool
+	}{
+		{[]string{"Documento de Despliegue", "Despliegue Servicios"}, true},
+		{[]string{"Documento de Despliegue"}, false},
+		{[]string{""}, false},
+	} {
+		got, err := c.HasRemoteLink(context.Background(), "OPS-7", tc.prefixes)
+		if err != nil || got != tc.want {
+			t.Errorf("%q: %v %v, esperaba %v (un prefijo vacío nunca cuenta)", tc.prefixes, got, err, tc.want)
+		}
+	}
+}
+
 func TestDocStoreCreateUsesSiblingSpaceAndParent(t *testing.T) {
 	var created map[string]any
 	c := fakeConfluence(t, map[string]func(http.ResponseWriter, *http.Request){

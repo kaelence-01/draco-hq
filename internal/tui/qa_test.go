@@ -41,7 +41,7 @@ func (*qaFake) AssignedTasks(context.Context, provider.QAScope, string) ([]provi
 	return []provider.QAIssue{{Key: "OPS-20", Summary: "Revisión de Tarea - OPS-7"}}, nil
 }
 
-func (q *qaFake) HasDocumentLink(ctx context.Context, key, _ string) (bool, error) {
+func (q *qaFake) HasDocumentLink(ctx context.Context, key string, _ []string) (bool, error) {
 	if key != "OPS-8" {
 		return true, nil
 	}
