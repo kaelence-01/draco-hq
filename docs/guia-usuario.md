@@ -19,7 +19,7 @@ su ayuda completa.
 
 1. [Instalación](#1-instalación)
 2. [Primeros pasos](#2-primeros-pasos)
-3. [Conceptos: perfiles, proyectos y configuración](#3-conceptos-perfiles-proyectos-y-configuración)
+3. [Conceptos: proyectos, perfiles y configuración](#3-conceptos-proyectos-perfiles-y-configuración)
 4. [Modo visual](#4-modo-visual)
 5. [Modo comando](#5-modo-comando)
 6. [Plantillas](#6-plantillas)
@@ -149,11 +149,13 @@ documento lo necesita:
 - `backend_repo` y `frontend_repo`: sus nombres en el VCS (si se dejan
   vacíos, el nombre de la carpeta);
 - `vcs_host` y `vcs_org`: el host y la organización o workspace del VCS;
-- `confluence_space_key`: el space de sus documentos, si no es el general;
+- `confluence_space_key`: el space de sus documentos, si no es el de
+  Conexión (sin perfiles) o el del perfil. Solo aplica cuando el destino es
+  Confluence: un perfil Markdown lo ignora;
 - `profile`: su perfil, si no es el por defecto (ver abajo).
 
-El proyecto por defecto lo usan Generar y Backlog cuando no indicas otro con
-`-p`.
+El proyecto por defecto lo usan Generar, Backlog y `draco template` (para el
+perfil y el `.draco/templates` del repo) cuando no indicas otro con `-p`.
 
 Si trabajas en varios proyectos (un sistema grande y servicios sueltos, en
 otros workspaces y spaces), crea un proyecto por cada uno: cada uno lleva sus
@@ -179,12 +181,15 @@ Opcionalmente, también qué plantillas usar.
 - Un perfil que usa algún proyecto no se puede eliminar: primero cámbiale
   el perfil a esos proyectos.
 - Al agregar el primer perfil, el implícito también se guarda, para que
-  nada cambie. Con perfiles, el space sale de cada perfil y
-  `confluence_space_key` del nivel principal deja de usarse.
+  nada cambie. Con perfiles, el space por defecto sale de cada perfil
+  (`docs.space`) y `confluence_space_key` del nivel principal deja de usarse;
+  `--space` y el `confluence_space_key` de un proyecto siguen ganando sobre
+  el del perfil.
 
 ### El archivo de configuración
 
-Ejemplo completo, con datos ficticios. No hace falta escribirlo a mano:
+Ejemplo con los campos principales y datos ficticios. No hace falta
+escribirlo a mano:
 Configuración (modo visual), `draco init`, `draco project` y `draco profile`
 lo crean. En las rutas, `~` al inicio es tu carpeta personal (`~/code`, o
 `~\code` en Windows).
@@ -205,6 +210,7 @@ projects:
     frontend_repo: pagos-web
     vcs_host: https://github.com
     vcs_org: mi-org
+    confluence_space_key: PAG            # opcional: su space; si no, el del perfil o el general
     profile: equipo                      # opcional: su perfil; si no, el por defecto
     deploy_checklist:                    # opcional: reemplaza al global
       - Ejecutar migraciones
@@ -215,11 +221,12 @@ projects:
       frontend:
         class_globs: ["src/app/**/*.service.ts"]
         modules: ["src/app/{modulo}/**"]
+        # más opciones (since, exclude, max_lines…): draco help backlog
 
 deploy_checklist:                        # «A considerar» de un documento nuevo
   - Respaldo de la base de datos
 
-# Opcional: perfiles. Con perfiles, el space sale de cada uno
+# Opcional: perfiles. Con perfiles, el space por defecto sale de cada uno
 default_profile: equipo
 profiles:
   equipo:
@@ -256,7 +263,7 @@ mano se pierden.
 | Variable | Efecto |
 |---|---|
 | `ATLASSIAN_EMAIL`, `ATLASSIAN_TOKEN`, `ATLASSIAN_BASE_URL` | Ganan sobre el archivo. draco nunca las copia al archivo |
-| `CONFLUENCE_SPACE_KEY` | Gana sobre `confluence_space_key` del archivo, y tampoco se copia a él |
+| `CONFLUENCE_SPACE_KEY` | Reemplaza el `confluence_space_key` del nivel principal, así que solo tiene efecto sin perfiles. El de un proyecto y `--space` ganan sobre ella. Nunca se copia al archivo |
 | `DRACO_NO_UPDATE_CHECK=1` | Sin aviso de versión nueva |
 | `NO_COLOR=1` | Sin colores, en los dos modos |
 
@@ -272,8 +279,9 @@ en la consola clásica de Windows (`cmd`) se ve más limitado.
 
 - A la izquierda, el **menú**. A la derecha (desde 96 columnas), un **panel**
   con qué hace la función elegida y el mismo trabajo en modo comando.
-- Arriba, la cabecera: versión, perfil y proyecto activos, y el aviso si hay
-  una versión nueva.
+- Arriba, la cabecera: versión, proyecto activo y su perfil (el que usa
+  Generar; QA y Exportar usan el por defecto), y el aviso si hay una versión
+  nueva.
 - Abajo, el pie: las teclas de la pantalla actual.
 
 ### Teclas en todas las pantallas
@@ -293,7 +301,8 @@ terminal, con `draco` o sin él: `/g -i OPS-7 -b a1b2c3d`.
 
 - Mientras escribes, sugiere comandos, sus flags (con descripción) y los
   valores que conoce tu config: proyectos tras `-p`, perfiles tras
-  `--profile`, `backend` o `frontend` tras `-r`.
+  `--profile` (sirve para copiar el comando: en el modo visual, Generar usa
+  el perfil del proyecto), `backend` o `frontend` tras `-r`.
 - `tab` completa la sugerencia, `↑↓` la elige, `enter` ejecuta y `esc`
   cierra.
 - **Ejecutar abre la pantalla del comando con los datos cargados**, en el
@@ -301,7 +310,8 @@ terminal, con `draco` o sin él: `/g -i OPS-7 -b a1b2c3d`.
   Commits con el hash marcado, y `esc` vuelve al formulario con lo que
   escribiste.
 - Un flag desconocido o sin valor es un error, como en la terminal. Los flags
-  que el modo visual no necesita (`--dry-run`, `--template`, `-o`…) se
+  que el modo visual no necesita (`--dry-run`, `--template`, `--profile`,
+  `-o`…) se
   explican sin abrir nada.
 - `/help` muestra la ayuda general y `/help g`, la de un comando.
 
@@ -386,7 +396,8 @@ la principal o desde Configuración.
 Si tienes dos o más perfiles, el formulario pregunta el **perfil del
 proyecto** («El perfil por defecto» o uno de la lista). Termina con una
 página opcional por repo con ruta, **Backlog técnico**: las clases que deben tener tests (`class_globs`) y los módulos
-(`modules`), separados por comas. `enter` en blanco la salta. Un patrón mal
+(`modules`), separados por comas. Dejarla en blanco (`enter` en cada campo)
+la salta. Un patrón mal
 escrito se marca ahí mismo y no se guarda. El resto del backlog (`since`,
 `exclude`, `max_lines`…) se edita en el YAML y se conserva.
 
@@ -455,7 +466,7 @@ si no del proyecto y si no del perfil por defecto.
 ### Consolidado QA
 
 ```bash
-draco qa                          # Kanban: últimos 10 días hábiles
+draco qa                          # pregunta el sprint; Enter: Kanban (últimos 10 días hábiles)
 draco qa -s 12 -m Pagos           # Sprint 12 del módulo Pagos
 draco qa -s 12 -m Pagos --dry-run
 ```
@@ -501,7 +512,7 @@ La estructura de los documentos sale de plantillas editables. Puedes cambiar
 el checklist, el título o el documento entero sin recompilar.
 
 ```bash
-draco template init deploy          # copia la plantilla a .draco/templates/deploy del repo
+draco template init deploy          # a .draco/templates/deploy de la carpeta actual: córrelo en el repo backend
 draco template init qa --user       # a ~/.config/draco/templates/qa, para todos tus repos
 draco template list                 # qué carpetas se buscan y cuál está en uso
 draco template validate             # la llena con datos de ejemplo y avisa si falta algo
@@ -511,7 +522,8 @@ draco template preview qa           # muestra el resultado con datos de ejemplo
 Gana la primera carpeta que exista:
 
 1. `--template`, o la carpeta de plantillas del perfil;
-2. `.draco/templates/<tipo>` del repo;
+2. `.draco/templates/<tipo>` del repo: en `deploy`, el backend del proyecto
+   (`backend_path`); en `qa`, la carpeta actual;
 3. `~/.config/draco/templates/<tipo>`.
 
 La plantilla incluida es la base: una carpeta solo reemplaza lo que trae.
@@ -524,15 +536,15 @@ La plantilla incluida es la base: una carpeta solo reemplaza lo que trae.
 |---|---|
 | «configuración incompleta de Atlassian. Corre: draco init» | Faltan el email, el token o la URL: completa Configuración › Conexión o corre `draco init` |
 | «No se pudo validar las credenciales» | Revisa el email, el token (que no haya expirado) y que la URL empiece con `https://` |
-| «Confluence space key no configurado» | Pon el space en el proyecto (Proyectos, `e`), en el perfil, o usa `--space` |
+| «Confluence space key no configurado» | Sin perfiles, pon el space en Configuración › Conexión; con perfiles, en el perfil (`docs.space`). Al generar también sirven el space del proyecto (Proyectos, `e`) o `--space`; en `draco qa`, `--space` o el del perfil |
 | «este comando está pensado para la cuenta de QA y no coincide con la tuya» | Te autenticaste con otra cuenta. Si te toca publicar, ajusta `qa_email` en Configuración › QA |
 | «no se encontraron documentos de despliegue previos» (o «ningún consolidado QA previo») | draco crea cada documento junto a uno anterior del mismo tipo en el space. La primera vez, crea uno a mano en Confluence como referencia, o usa un perfil con carpeta Markdown |
-| «configuración de QA incompleta» | Completa Configuración › QA: lista todos los campos que faltan |
+| «configuración de QA incompleta» o «falta la sección 'qa_jira'» | Completa Configuración › QA: lista todos los campos que faltan |
 | «proyecto 'x' no encontrado» | Revisa el nombre con `draco project list` |
 | «flag desconocido» | Revisa `draco help <comando>`. En la barra, las sugerencias muestran los flags válidos |
-| `draco` no se encuentra tras instalar | Abre una terminal nueva: el PATH se actualiza ahí. En Linux, también `source ~/.bashrc` |
-| «el SHA-256 no coincide» al instalar o actualizar | La descarga está incompleta o alterada. Vuelve a intentarlo; si se repite, abre un issue |
-| La TUI se ve con caracteres raros | Usa Windows Terminal en lugar de `cmd`, o prueba el tema `mono` |
+| `draco` no se encuentra tras instalar | Abre una terminal nueva: el PATH se actualiza ahí. En Linux y macOS, también `source ~/.bashrc` (o `~/.zshrc` con zsh) |
+| «el SHA-256 … no coincide» al instalar o actualizar | La descarga está incompleta o alterada. Vuelve a intentarlo; si se repite, abre un issue |
+| La TUI se ve con caracteres raros | Usa Windows Terminal en lugar de `cmd`, con una fuente con Unicode. Si el problema son los colores, prueba el tema `mono` o `NO_COLOR=1` |
 
 Para reportar un error:
 [issues del repo](https://github.com/kaelence-01/draco-hq/issues). Incluye
