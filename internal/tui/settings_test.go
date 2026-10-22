@@ -32,10 +32,10 @@ type settingsEnv struct {
 
 // newSettingsApp opens Configuración over file; LoadConfig adds a token, as
 // ATLASSIAN_TOKEN would.
-func newSettingsApp(t *testing.T, file *config.Config) *settingsEnv {
+func newSettingsApp(t *testing.T, file *config.Config, opts ...func(*Deps)) *settingsEnv {
 	t.Helper()
 	e := &settingsEnv{file: &fakeFile{cfg: file}, tracker: accountTracker{fakeTracker: &fakeTracker{}, user: &provider.User{Name: "Ana Pérez", Email: "tu@example.test"}}}
-	e.m = newApp(Deps{
+	d := Deps{
 		Version: "v9.9.9",
 		LoadConfig: func() (*config.Config, error) {
 			c := clone(t, e.file.cfg)
@@ -51,7 +51,11 @@ func newSettingsApp(t *testing.T, file *config.Config) *settingsEnv {
 			}
 			return &profile.Bundle{Tracker: e.tracker}, nil
 		},
-	})
+	}
+	for _, o := range opts {
+		o(&d)
+	}
+	e.m = newApp(d)
 	e.m.Update(tea.WindowSizeMsg{Width: 110, Height: 34})
 	send(e.m, keyUp)
 	send(e.m, keyEnter)
@@ -147,6 +151,67 @@ func TestWizardFromAnEmptyConfig(t *testing.T) {
 		if !strings.Contains(out, want) {
 			t.Errorf("Configuración muestra %q:\n%s", want, out)
 		}
+	}
+}
+
+func withGtt(cfg *config.Config, err error) func(*Deps) {
+	return func(d *Deps) {
+		d.LoadGtt = func() (*config.Config, string, error) { return cfg, "/home/tu-usuario/.config/gtt/config.yaml", err }
+	}
+}
+
+func gttConfig() *config.Config {
+	return &config.Config{
+		AtlassianEmail: "tu@example.test", AtlassianToken: "token-de-gtt", BaseURL: "https://empresa.example.test",
+		ConfluenceSpaceKey: "DEV", QAEmail: "qa@example.test", DefaultProject: "pagos",
+		Projects: map[string]*config.ProjectConfig{"pagos": {BackendPath: "/repos/pagos-api", BackendRepo: "pagos-api"}},
+	}
+}
+
+func TestWizardImportsTheGttConfig(t *testing.T) {
+	e := newSettingsApp(t, &config.Config{}, withGtt(gttConfig(), nil))
+	out := view(e.m)
+	for _, want := range []string{"Configuración › Importar de gtt", "/home/tu-usuario/.config/gtt/config.yaml", "tu@example.test en https://empresa.example.test", "Proyectos: 1 (por defecto: pagos)", "qa_jira", "n configura desde cero"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("falta %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "token-de-gtt") {
+		t.Error("la pantalla nunca muestra el token")
+	}
+	send(e.m, keyEnter)
+	if f := e.file.cfg; f.AtlassianToken != "token-de-gtt" || f.Projects["pagos"] == nil || f.ConfluenceSpaceKey != "DEV" || e.file.saves != 1 {
+		t.Fatalf("enter guarda la config de gtt tal cual, nunca el token del entorno: %+v (%d escrituras)", f, e.file.saves)
+	}
+	if out := view(e.m); !strings.Contains(out, "Autenticado como Ana Pérez") || !strings.Contains(out, "enter vuelve a Configuración") {
+		t.Fatalf("después se verifica la cuenta; con proyectos, vuelve a Configuración:\n%s", out)
+	}
+	send(e.m, keyEnter)
+	if out := view(e.m); !strings.Contains(out, "✓ Configuración importada de gtt") || !strings.Contains(out, "✓ 1 proyecto; por defecto: pagos") {
+		t.Errorf("Configuración muestra lo importado:\n%s", out)
+	}
+}
+
+func TestWizardFromScratchDespiteGtt(t *testing.T) {
+	e := newSettingsApp(t, &config.Config{}, withGtt(gttConfig(), nil))
+	typeText(e.m, "n")
+	if out := view(e.m); !strings.Contains(out, "Configuración › Conexión") || e.file.saves != 0 {
+		t.Errorf("n sigue con el asistente de siempre, sin guardar nada: %d escrituras\n%s", e.file.saves, out)
+	}
+}
+
+func TestGttIsOnlyOfferedToAnEmptyConfig(t *testing.T) {
+	e := newSettingsApp(t, savedConfig(), withGtt(gttConfig(), nil))
+	if out := view(e.m); strings.Contains(out, "gtt") || len(e.m.stack) != 2 {
+		t.Errorf("con una config de draco no se ofrece importar:\n%s", out)
+	}
+	e = newSettingsApp(t, &config.Config{}, withGtt(nil, errors.New("formato inválido")))
+	if out := view(e.m); !strings.Contains(out, "Configuración › Conexión") {
+		t.Fatalf("una config de gtt que no se lee no detiene el asistente:\n%s", out)
+	}
+	send(e.m, keyEsc)
+	if out := view(e.m); !strings.Contains(out, "Hay una configuración de gtt, pero no se pudo leer: formato inválido") {
+		t.Errorf("y Configuración dice por qué no se ofreció:\n%s", out)
 	}
 }
 

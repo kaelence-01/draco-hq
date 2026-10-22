@@ -31,6 +31,11 @@ func runInit(a *App, args []string) error {
 	}
 
 	a.title("draco init", "Configuración inicial")
+	if cfg.IsEmpty() {
+		if imported, err := a.offerGtt(); imported || err != nil {
+			return err
+		}
+	}
 	if _, err := os.Stat(path); err == nil {
 		a.warn("Ya existe una configuración en " + path)
 		a.printf("    Se conservan sus proyectos, perfiles y ajustes; se piden de nuevo las credenciales.\n")
@@ -91,6 +96,42 @@ func runInit(a *App, args []string) error {
 	a.printf("\n")
 	a.ok(a.style(green+bold, "Listo.") + " Prueba: draco g -i <TAREA> -b <commit> --dry-run")
 	return nil
+}
+
+// offerGtt imports gtt's config, if there is one and the user wants it, and
+// reports whether it did; gtt's file is never changed.
+func (a *App) offerGtt() (bool, error) {
+	gtt, from, err := config.GttConfig()
+	if err != nil {
+		a.warn("hay una configuración de gtt, pero no se pudo leer: " + err.Error())
+		return false, nil
+	}
+	if gtt == nil {
+		return false, nil
+	}
+	a.printf("  Se encontró la configuración de gtt en %s.\n", from)
+	if !a.confirm("  ¿Importarla? La de gtt no se modifica", true) {
+		a.printf("\n")
+		return false, nil
+	}
+	if err := saveConfig(gtt); err != nil {
+		return true, err
+	}
+	a.ok("Configuración importada de gtt")
+	for _, note := range config.ImportNotes(gtt) {
+		a.printf("    %s\n", note)
+	}
+	if err := a.verifyAccount(gtt); err != nil {
+		return true, err
+	}
+	if len(gtt.Projects) == 0 && a.confirm("¿Configurar un proyecto ahora?", true) {
+		if err := a.addProject(gtt, ""); err != nil {
+			return true, err
+		}
+	}
+	a.printf("\n")
+	a.ok(a.style(green+bold, "Listo.") + " Prueba: draco g -i <TAREA> -b <commit> --dry-run")
+	return true, nil
 }
 
 // askToken keeps the current token on Enter; the token is never shown.
@@ -156,6 +197,11 @@ func initHelp(a *App) {
 
 	a.section("Uso:")
 	a.printf("  draco init\n\n")
+
+	a.section("Si vienes de gtt:")
+	a.printf("  Sin configuración de draco, si existe ~/.config/gtt/config.yaml ofrece\n")
+	a.printf("  importarla: credenciales, space y proyectos pasan tal cual, y solo se\n")
+	a.printf("  verifica la cuenta. La configuración de gtt no se modifica.\n\n")
 
 	a.section("Qué pregunta:")
 	a.printf("  1. Email, API token y URL de tu sitio de Atlassian. El token no se muestra al\n")
