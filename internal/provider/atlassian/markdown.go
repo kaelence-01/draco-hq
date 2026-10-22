@@ -3,6 +3,7 @@ package atlassian
 import (
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/yuin/goldmark"
@@ -20,7 +21,11 @@ import (
 //   - "✔" and "✖" become Confluence emoji;
 //   - a table header row with every cell empty is dropped;
 //   - a table cell whose whole content is bold becomes a header cell;
-//   - "<br>" inside a table cell is a line break.
+//   - "<br>" inside a table cell is a line break, and a cell whose every line
+//     starts with "- " is a bullet list;
+//   - "<!-- draco:tabla anchos=63,697 [ancho=1800] [layout=default] -->" sets
+//     the column widths of the next table;
+//   - "<!-- draco:recuadro -->" puts the next block in a one-cell table.
 //
 // Any other raw HTML is kept as literal text, never interpreted.
 func MarkdownToADF(md string) map[string]any {
@@ -38,12 +43,78 @@ type mdConverter struct {
 
 func (c *mdConverter) blocks(parent gast.Node) []any {
 	out := []any{}
+	var pending func(map[string]any) map[string]any
 	for n := parent.FirstChild(); n != nil; n = n.NextSibling() {
-		if b := c.block(n); b != nil {
-			out = append(out, b)
+		if d, ok := c.directive(n); ok {
+			pending = d
+			continue
 		}
+		b := c.block(n)
+		if b == nil {
+			continue
+		}
+		if pending != nil {
+			b, pending = pending(b), nil
+		}
+		out = append(out, b)
 	}
 	return out
+}
+
+// tableWidth is the table width gtt published, which the column widths scale to.
+const tableWidth = 1800
+
+var directiveRe = regexp.MustCompile(`^<!--\s*draco:(tabla|recuadro)((?:\s+[a-z]+=\S+)*)\s*-->$`)
+
+// directive reads a draco comment and returns what it does to the next block.
+func (c *mdConverter) directive(n gast.Node) (func(map[string]any) map[string]any, bool) {
+	html, ok := n.(*gast.HTMLBlock)
+	if !ok {
+		return nil, false
+	}
+	m := directiveRe.FindStringSubmatch(strings.TrimSpace(string(html.Lines().Value(c.source))))
+	if m == nil {
+		return nil, false
+	}
+	params := map[string]string{"ancho": strconv.Itoa(tableWidth), "layout": "default"}
+	for _, kv := range strings.Fields(m[2]) {
+		k, v, _ := strings.Cut(kv, "=")
+		params[k] = v
+	}
+	width, err := strconv.Atoi(params["ancho"])
+	if err != nil {
+		return nil, false
+	}
+	attrs := map[string]any{"layout": params["layout"], "width": width}
+	if m[1] == "recuadro" {
+		return func(b map[string]any) map[string]any {
+			cell := map[string]any{"type": "tableCell", "attrs": map[string]any{}, "content": []any{b}}
+			row := map[string]any{"type": "tableRow", "content": []any{cell}}
+			return map[string]any{"type": "table", "attrs": attrs, "content": []any{row}}
+		}, true
+	}
+	var widths []int
+	for _, s := range strings.Split(params["anchos"], ",") {
+		w, err := strconv.Atoi(strings.TrimSpace(s))
+		if err != nil {
+			return nil, false
+		}
+		widths = append(widths, w)
+	}
+	return func(b map[string]any) map[string]any {
+		if b["type"] != "table" {
+			return b
+		}
+		b["attrs"] = attrs
+		for _, r := range b["content"].([]any) {
+			for i, cell := range r.(map[string]any)["content"].([]any) {
+				if i < len(widths) {
+					cell.(map[string]any)["attrs"] = map[string]any{"colwidth": []int{widths[i]}}
+				}
+			}
+		}
+		return b
+	}, true
 }
 
 func (c *mdConverter) block(n gast.Node) map[string]any {
@@ -149,10 +220,12 @@ func (c *mdConverter) table(t *east.Table) map[string]any {
 			if strong != nil {
 				src = strong
 			}
-			cells = append(cells, map[string]any{
-				"type":    kind,
-				"content": []any{withContent(map[string]any{"type": "paragraph"}, c.inlines(src, nil))},
-			})
+			inline := c.inlines(src, nil)
+			content := []any{withContent(map[string]any{"type": "paragraph"}, inline)}
+			if list, ok := bulletLines(inline); ok {
+				content = []any{list}
+			}
+			cells = append(cells, map[string]any{"type": kind, "content": content})
 		}
 		rows = append(rows, map[string]any{"type": "tableRow", "content": cells})
 	}
@@ -170,6 +243,42 @@ func (c *mdConverter) emptyRow(r gast.Node) bool {
 		}
 	}
 	return true
+}
+
+// bulletLines turns cell content whose every line (split at hardBreak) starts
+// with "- " into a bullet list.
+func bulletLines(inline []any) (map[string]any, bool) {
+	if len(inline) == 0 {
+		return nil, false
+	}
+	var items, line []any
+	flush := func() bool {
+		first, ok := line[0].(map[string]any)
+		text, _ := first["text"].(string)
+		if !ok || first["type"] != "text" || first["marks"] != nil || !strings.HasPrefix(text, "- ") {
+			return false
+		}
+		rest := line[1:]
+		if t := strings.TrimPrefix(text, "- "); t != "" {
+			rest = append([]any{textNode(t, nil)}, rest...)
+		}
+		items = append(items, map[string]any{"type": "listItem", "content": []any{withContent(map[string]any{"type": "paragraph"}, rest)}})
+		line = nil
+		return true
+	}
+	for _, n := range inline {
+		if m, ok := n.(map[string]any); ok && m["type"] == "hardBreak" {
+			if len(line) == 0 || !flush() {
+				return nil, false
+			}
+			continue
+		}
+		line = append(line, n)
+	}
+	if len(line) == 0 || !flush() {
+		return nil, false
+	}
+	return map[string]any{"type": "bulletList", "content": items}, true
 }
 
 // wholeStrong returns the bold node when it is the cell's only content.
