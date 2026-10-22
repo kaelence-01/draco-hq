@@ -139,7 +139,8 @@ docs/
 ### Cómo se trabaja
 
 - Cada cambio nace de `develop` en `feature/<tema>` (`make start name=<tema>`),
-  es **un solo commit** y llega a `develop` por PR (`make push`, `make pr`).
+  es **un solo commit** y llega a `develop` por PR (`make push`, `make pr`,
+  `make merge`, `make finish`; o todo junto con `make ship`).
   `main` solo recibe lo integrado.
 - Cada cambio lleva su entrada de bitácora en `docs/bitacora/fase-N/`;
   `make check` verifica eso, el formato y los tests antes del commit.

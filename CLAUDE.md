@@ -43,8 +43,10 @@ make lint                 # gofmt sin diferencias + go vet
 make golden [pkg=...]     # regenerar goldens tras un cambio intencional
 make check                # verificaciones de cerrar-actividad
 make push [force=1]       # sube la rama actual (lo corre el autor: SSH)
-make pr [web=1]           # PR de la rama actual hacia develop
+make pr [web=1]           # PR de la rama actual hacia develop (o muestra el abierto)
+make merge [yes=1]        # fusiona ese PR en develop con merge commit, tras preguntar
 make finish               # tras fusionar: develop al día y ramas fusionadas borradas
+make push-pr | push-pr-merge | merge-finish | ship   # combinados; ship = push + pr + merge + finish
 make release-build ver=vX.Y.Z    # binarios de todas las plataformas + checksums.txt en dist/
 make promote              # develop → main: PR con merge commit, fusión confirmada, main y develop al día (lo corre el autor)
 make release bump=patch|minor|major  # tag y GitHub Release desde main (lo corre el autor)

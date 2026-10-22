@@ -15,7 +15,7 @@ PLATFORMS := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64
 VERSION_PKG := github.com/kaelence-01/draco-hq/internal/build
 GOFILES = $(shell git ls-files --cached --others --exclude-standard '*.go')
 
-.PHONY: help sync start push pr finish prune build run test vet fmt lint golden fuzz check ci release-build promote release
+.PHONY: help sync start push pr merge finish push-pr push-pr-merge merge-finish ship prune build run test vet fmt lint golden fuzz check ci release-build promote release
 
 ##@ Git
 
@@ -36,16 +36,37 @@ push: ## Sube la rama actual y fija su upstream; force=1 reescribe con --force-w
 	@case "$(BRANCH)" in main|$(BASE)|"") echo "no se sube '$(BRANCH)' directo: trabaja en feature/<tema>"; exit 1;; esac
 	git push -u $(REMOTE) $(BRANCH) $(if $(force),--force-with-lease,)
 
-pr: ## Crea el PR de la rama actual hacia develop (gh); sin gh, muestra el enlace
+pr: ## Crea el PR de la rama actual hacia develop (gh), o muestra el que ya está abierto; sin gh, el enlace
 	@case "$(BRANCH)" in main|$(BASE)|"") echo "no hay PR desde '$(BRANCH)'"; exit 1;; esac
 	@if command -v gh >/dev/null && gh auth status >/dev/null 2>&1; then \
-	gh pr create --base $(BASE) --head $(BRANCH) --fill $(if $(web),--web,); \
+	open=$$(gh pr list --head $(BRANCH) --state open --json url --jq '.[0].url // empty'); \
+	if [ -n "$$open" ]; then echo "✓ PR ya abierto: $$open"; \
+	else gh pr create --base $(BASE) --head $(BRANCH) --fill $(if $(web),--web,); fi; \
 	else url=$$(git remote get-url $(REMOTE) | sed -E 's#^git@([^:]+):#https://\1/#; s#\.git$$##'); \
 	echo "$$url/compare/$(BASE)...$(BRANCH)?expand=1"; fi
+
+merge: ## Fusiona en develop el PR de la rama actual, con merge commit; pregunta antes (yes=1 no pregunta)
+	@MERGE_YES=$(yes) bash scripts/merge.sh
 
 finish: ## Tras fusionar el PR: vuelve a develop, la actualiza y borra las ramas ya fusionadas
 	git switch $(BASE)
 	@$(MAKE) --no-print-directory sync prune
+
+push-pr: ## push + pr
+	@$(MAKE) --no-print-directory push
+	@$(MAKE) --no-print-directory pr
+
+push-pr-merge: ## push + pr + merge
+	@$(MAKE) --no-print-directory push-pr
+	@$(MAKE) --no-print-directory merge
+
+merge-finish: ## merge + finish
+	@$(MAKE) --no-print-directory merge
+	@$(MAKE) --no-print-directory finish
+
+ship: ## Todo: push + pr + merge + finish; se detiene en el primer paso que falle
+	@$(MAKE) --no-print-directory push-pr-merge
+	@$(MAKE) --no-print-directory finish
 
 prune: ## Borra las ramas locales ya fusionadas en develop (ni main, ni develop, ni la actual, ni las recién creadas)
 	@tip=$$(git rev-parse $(BASE)); \
@@ -114,4 +135,4 @@ help: ## Muestra esta ayuda
 	/^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } \
 	/^[a-z-]+:.*## / { printf "  \033[36m%-13s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 	@echo
-	@echo "Opciones: name= type=feature|fix|docs  pkg= run= v=1  force=1  web=1  time=  args=  ver=  bump="
+	@echo "Opciones: name= type=feature|fix|docs  pkg= run= v=1  force=1  web=1  yes=1  time=  args=  ver=  bump="

@@ -97,6 +97,7 @@ Sin entradas: se hizo antes de que existiera la bitácora.
 | [055](./fase-6/055-perfil-del-proyecto.md) | Cada proyecto con su perfil | `feature/perfil-del-proyecto` | 2026-10-21 | `projects.<n>.profile`; al generar, `--profile` > el del proyecto > el por defecto (`Config.ProfileFor`); la TUI cambia de perfil al elegir proyecto; un perfil en uso no se elimina |
 | [056](./fase-6/056-consistencia-guia.md) | Consistencia de la guía de usuario | `docs/consistencia-guia` | 2026-10-22 | 15 correcciones de la guía y el README contra el código (precedencia del space, plantillas del repo, cabecera, barra, solución de problemas); QA y el prefijo de un perfil, pendiente |
 | [057](./fase-6/057-documento-como-gtt.md) | El documento se ve como el de gtt | `fix/documento-como-gtt` | 2026-10-22 | Anchos de columna, viñetas en celdas y «A considerar» en un recuadro, con convenciones del Markdown (`draco:tabla`, `draco:recuadro`, líneas con `- `); también los anchos del consolidado QA |
+| [058](./fase-6/058-make-merge.md) | `make merge` y atajos combinados | `feature/make-merge` | 2026-10-22 | `make merge` fusiona en `develop` con merge commit tras confirmar; `push-pr`, `push-pr-merge`, `merge-finish` y `ship`; `make pr` muestra el PR abierto en vez de fallar |
 
 ## Formato de cada entrada
 
