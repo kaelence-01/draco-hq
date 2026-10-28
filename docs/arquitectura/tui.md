@@ -5,8 +5,8 @@ de la terminal: menús, listas, formularios y vista previa. Es otra forma de
 recorrer **los mismos flujos** que el modo comando; no tiene lógica propia de
 negocio.
 
-Estado: **fases 4, 5 y 6 cerradas**; el diseño de cada pantalla está en el
-§6. Implementado: la base (entrada, marco, pila de pantallas, pantalla
+Estado: **fases 4 a 7 cerradas**; el diseño de cada pantalla está en el §6.
+Implementado: la base (entrada, marco, pila de pantallas, pantalla
 principal), Proyectos, Generar y QA completos, de la tarea o el sprint a la
 publicación, Exportar, Backlog, Configuración (conexión, perfiles y QA), el
 aviso de versión nueva, la barra de comandos (que abre cada pantalla con los
@@ -14,9 +14,10 @@ datos de la línea), la Ayuda y los temas. Se
 actualiza al implementar cada actividad. Las reglas para escribir una
 pantalla están en el §10 y son obligatorias.
 
-**Fase 7 en curso:** rediseño de cómo cada pantalla usa el espacio
-(maestro-detalle elástico). El diseño está en el §11; mientras se
-implementa, el §6 describe lo que existe hoy.
+**Fase 7 (cerrada):** rediseño de cómo cada pantalla usa el espacio
+(maestro-detalle elástico). El §11 es el diseño y la referencia visual (el
+prototipo); el §6 ya describe cada pantalla con su disposición nueva, con
+las notas «fase 7» donde cambió.
 
 ## 1. Alcance por fase
 

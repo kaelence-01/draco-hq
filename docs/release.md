@@ -45,9 +45,9 @@ confían en ese archivo (P-006): un binario que no coincide no se instala.
    make release bump=minor       # o patch / major, o ver=vX.Y.Z
    ```
 
-   El `bump` lo decide el autor: la fase 5 salió como *patch* (`v0.2.1`) y
-   la 6 como *minor* (`v0.3.0`). La regla hasta la v1.0 está en «Decisiones
-   pendientes» del roadmap.
+   El `bump` lo decide el autor. La regla hasta la v1.0: *minor* por fase
+   cerrada (`make release bump=minor`: la 6 salió `v0.3.0`, la 7 sale
+   `v0.4.0`) y *patch* para correcciones y mejoras entre fases (`bump=patch`).
 
    `scripts/release.sh`:
    - se detiene si `gh` no está autenticado, si no estás en `main`, si hay
