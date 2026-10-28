@@ -304,8 +304,15 @@ Jira:
 Antes de la v1.0, el autor pidió aprovechar el espacio de la terminal. De
 tres propuestas (riel lateral, maestro-detalle elástico, mosaico de
 paneles) eligió la segunda y la probó en un prototipo navegable con todas
-sus mejoras. Diseño en **`docs/arquitectura/tui.md` §11**. Las pantallas y
-los flujos son los mismos; cambia cómo usan el ancho y el alto.
+sus mejoras. Diseño en **`docs/arquitectura/tui.md` §11**; el prototipo,
+que es la referencia visual de cada actividad, en
+**`docs/arquitectura/prototipo-fase-7.html`** (se abre en un navegador). Las
+pantallas y los flujos son los mismos; cambia cómo usan el ancho y el alto.
+
+**Para retomar la fase en otra sesión:** leer el §11 completo, abrir el
+prototipo en la pantalla de la actividad (tabla «Pantalla del prototipo →
+archivo») y seguir las normas del §10. La primera actividad sin ✅ en esta
+tabla es la siguiente.
 
 | # | Actividad | Rama | Criterio de cierre |
 |---|---|---|---|

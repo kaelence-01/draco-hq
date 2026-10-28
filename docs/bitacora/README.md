@@ -107,6 +107,7 @@ Sin entradas: se hizo antes de que existiera la bitácora.
 | # | Actividad | Rama | Fecha | Resumen |
 |---|---|---|---|---|
 | [062](./fase-7/062-plan-fase-7.md) | Diseño y plan de la fase 7 | `docs/plan-fase-7` | 2026-10-27 | Tres propuestas en maquetas; el autor eligió maestro-detalle elástico y la probó en un prototipo; `tui.md` §11 y la fase en 8 actividades |
+| [063](./fase-7/063-prototipo-fase-7.md) | El prototipo de la fase 7 en el repo | `docs/prototipo-fase-7` | 2026-10-27 | `prototipo-fase-7.html` como referencia visual; `tui.md` §11 con la tabla pantalla → archivo → actividad y lo que no se implementa; cómo retomar la fase en otra sesión |
 
 ## Formato de cada entrada
 

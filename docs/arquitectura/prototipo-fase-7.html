@@ -1,0 +1,992 @@
+<!doctype html>
+<html lang="es">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Prototipo navegable de la fase 7 (docs/arquitectura/tui.md §11). Se abre en un navegador; datos de ejemplo. -->
+<title>draco · prototipo B</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;700&display=swap">
+<style>
+/* Layout: the terminal is the page; size, theme and the improvements to try sit around it, stacking on phones */
+:root{
+  color-scheme:dark;
+  --bg:#0c0e12; --panel:#14181e; --line:#262c35; --fg:#d6dbe2; --muted:#949eab; --accent:#56b6c2; --accent-ink:#0b1114;
+  --sans:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+html,body{background:var(--bg);color:var(--fg)}
+body{font-family:var(--sans);font-size:15px;line-height:1.5}
+.wrap{max-width:1360px;margin:0 auto;padding-block:28px 56px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:18px}
+.top{display:flex;flex-direction:column;gap:6px}
+.eyebrow{font:500 12px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+h1{margin:0;font:600 26px/1.2 var(--sans);text-wrap:balance}
+.lede{margin:0;color:var(--muted);max-width:72ch}
+.toolbar{display:flex;flex-wrap:wrap;gap:12px 22px;align-items:center}
+.group{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.lab{font:500 12px var(--sans);color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{all:unset;cursor:pointer;padding:6px 12px;font:500 13px/1.2 var(--mono);color:var(--muted)}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.seg button:focus-visible,.btn:focus-visible,.chip:focus-visible,.pad button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn{all:unset;cursor:pointer;padding:6px 12px;border:1px solid var(--line);border-radius:8px;font:500 13px var(--sans);color:var(--fg)}
+.btn:hover,.chip:hover,.pad button:hover{border-color:var(--muted)}
+#fit{width:100%;min-width:0}
+.win{border:1px solid #2a2f37;border-radius:10px;overflow:hidden;background:var(--t-bg);width:max-content;max-width:100%;margin:0 auto}
+.win:focus-within{box-shadow:0 0 0 2px var(--accent)}
+.winbar{height:28px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 12px;background:#1a1e25;border-bottom:1px solid #2a2f37;color:#8b949e;font:12px var(--sans)}
+.kbd-state{font:500 11px var(--mono)}
+.kbd-state.on{color:var(--accent)}
+.term{font-family:var(--mono);font-size:var(--fs,13px);line-height:var(--lh,19px);color:var(--t-fg);background:var(--t-bg);padding:calc(var(--lh,19px) / 2) 1ch;width:calc(var(--cols,160) * 1ch);height:calc(var(--rows,40) * var(--lh,19px));display:flex;flex-direction:column;outline:none;overflow:hidden;cursor:default;font-variant-ligatures:none}
+.th-ansi{--t-bg:#11141a;--t-fg:#c9d1d9;--t-faint:#7d8590;--t-acc:#56b6c2;--t-warn:#e5c07b;--t-ok:#98c379;--t-err:#e06c75;--t-line:#3b4048;--t-sel:#1c2a33;--t-bold:#e6edf3}
+.th-hc{--t-bg:#0b0b0b;--t-fg:#e8e8e8;--t-faint:#c4c4c4;--t-acc:#5ff7ff;--t-warn:#ffff66;--t-ok:#66ff66;--t-err:#ff6b6b;--t-line:#c4c4c4;--t-sel:#18394a;--t-bold:#ffffff}
+.th-mono{--t-bg:#121212;--t-fg:#d4d4d4;--t-faint:#8f8f8f;--t-acc:#d4d4d4;--t-warn:#d4d4d4;--t-ok:#d4d4d4;--t-err:#d4d4d4;--t-line:#5a5a5a;--t-sel:#2b2b2b;--t-bold:#ffffff}
+.th-mono .a,.th-mono .ab,.th-mono .w{font-weight:700}
+.th-mono .er{text-decoration:underline;font-weight:700}
+.th-hc .ab,.th-hc .w,.th-hc .er{font-weight:700}
+.l{white-space:pre;height:var(--lh,19px);overflow:hidden;min-width:0}
+.wr{white-space:normal;height:auto}
+.g{display:grid}
+.g>span{overflow:hidden;white-space:pre;min-width:0}
+.body{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column}
+.rule{flex:none;height:calc(var(--lh,19px) / 2);border-bottom:1px solid var(--t-line);margin-bottom:calc(var(--lh,19px) / 2 - 1px)}
+.box{border:1px solid var(--t-line);border-radius:6px;padding:0 1ch;min-width:0;min-height:0;overflow:hidden}
+.f{color:var(--t-faint)}.a{color:var(--t-acc)}.ab{color:var(--t-acc);font-weight:700}.b{color:var(--t-bold);font-weight:700}
+.w{color:var(--t-warn)}.ok{color:var(--t-ok)}.er{color:var(--t-err)}.h{color:var(--t-faint);font-weight:700}
+.sel{background:var(--t-sel)}
+.caret{background:var(--t-fg);color:var(--t-bg)}
+.pad{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+.pad button{all:unset;cursor:pointer;min-width:44px;min-height:36px;padding:0 10px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:8px;font:500 13px var(--mono);color:var(--fg);box-sizing:border-box}
+.panels{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:16px;align-items:start}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.card h2{margin:0;font:600 15px/1.3 var(--sans)}
+.card p{margin:0;color:var(--muted);font-size:13.5px}
+.opt{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;align-items:start;cursor:pointer;font-size:14px}
+.opt input{margin:3px 0 0;accent-color:var(--accent);width:16px;height:16px}
+.opt small{grid-column:2;color:var(--muted);font-size:12.5px;line-height:1.4}
+.jump,.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{all:unset;cursor:pointer;padding:5px 10px;border:1px solid var(--line);border-radius:8px;font:500 12.5px var(--mono);color:var(--fg);overflow-wrap:anywhere}
+.keys{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:13.5px;margin:0}
+.keys dt{font:500 12.5px var(--mono);color:var(--accent)}
+.keys dd{margin:0;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <span class="eyebrow">Propuesta B · maestro-detalle elástico</span>
+    <h1>draco, prototipo navegable</h1>
+    <p class="lede">Haz clic en la terminal y úsala con el teclado como si fuera draco: flechas, enter, esc, tab, espacio y la barra con /. Los datos son de ejemplo. Abajo puedes encender y apagar mejoras para compararlas.</p>
+  </header>
+
+  <div class="toolbar">
+    <div class="group"><span class="lab" id="lab-size">Terminal</span>
+      <div class="seg" role="group" aria-labelledby="lab-size" id="seg-size"></div></div>
+    <div class="group"><span class="lab" id="lab-theme">Tema</span>
+      <div class="seg" role="group" aria-labelledby="lab-theme" id="seg-theme"></div></div>
+    <button class="btn" id="reset" type="button">Volver al inicio</button>
+  </div>
+
+  <div id="fit">
+    <div class="win th-ansi" id="win">
+      <div class="winbar"><span id="wintitle">draco — 160 × 40</span><span class="kbd-state" id="kbd">clic en la terminal para usar el teclado</span></div>
+      <div class="term" id="term" tabindex="0" role="application" aria-label="Terminal de draco. Usa el teclado para navegar."></div>
+    </div>
+  </div>
+
+  <div class="pad" aria-label="Teclas en pantalla">
+    <button type="button" data-k="up" aria-label="Flecha arriba">↑</button>
+    <button type="button" data-k="down" aria-label="Flecha abajo">↓</button>
+    <button type="button" data-k="left" aria-label="Flecha izquierda">←</button>
+    <button type="button" data-k="right" aria-label="Flecha derecha">→</button>
+    <button type="button" data-k="space">espacio</button>
+    <button type="button" data-k="tab">tab</button>
+    <button type="button" data-k="enter">enter</button>
+    <button type="button" data-k="esc">esc</button>
+    <button type="button" data-k="/">/</button>
+    <button type="button" data-k="?">?</button>
+  </div>
+
+  <section class="panels">
+    <div class="card">
+      <h2>Mejoras para probar</h2>
+      <p>Cada una cambia la terminal al instante. Las que vienen encendidas son las de la propuesta B; las apagadas son ideas nuevas.</p>
+      <div id="opts" style="display:flex;flex-direction:column;gap:12px"></div>
+    </div>
+    <div class="card">
+      <h2>Ir a una pantalla</h2>
+      <div class="jump" id="jump"></div>
+      <h2>Probar en la barra</h2>
+      <p>Las mismas líneas del modo comando. En Inicio, / abre la barra; aquí se ejecutan directo.</p>
+      <div class="chips" id="chips"></div>
+    </div>
+    <div class="card">
+      <h2>Teclas</h2>
+      <dl class="keys">
+        <dt>↑ ↓</dt><dd>elegir en listas y menús</dd>
+        <dt>enter</dt><dd>abrir o continuar</dd>
+        <dt>esc</dt><dd>volver a la pantalla anterior</dd>
+        <dt>tab</dt><dd>cambiar de campo, de repo o de pestaña</dd>
+        <dt>espacio</dt><dd>marcar un commit o un repo</dd>
+        <dt>← →</dt><dd>cambiar el valor de un campo de opciones</dd>
+        <dt>1–6</dt><dd>abrir una función desde Inicio</dd>
+        <dt>/</dt><dd>barra de comandos en Inicio, filtro en las listas</dd>
+        <dt>?</dt><dd>ayuda de la pantalla</dd>
+      </dl>
+    </div>
+  </section>
+</div>
+
+<script>
+(function(){
+'use strict';
+const store={
+  get(k,d){try{const v=localStorage.getItem('dracoB.'+k);return v==null?d:JSON.parse(v);}catch(e){return d;}},
+  set(k,v){try{localStorage.setItem('dracoB.'+k,JSON.stringify(v));}catch(e){}}
+};
+const OPTS=[
+  ['desc','Descripción bajo cada opción','En Inicio, una línea que dice qué hace cada función.',true],
+  ['letters','Atajos 1–6 en Inicio','Abren la función sin recorrer el menú. La propuesta usaba letras, pero q choca con salir.',true],
+  ['context','Proyecto y configuración en Inicio','El proyecto activo y lo que falta configurar, a la vista.',true],
+  ['steps','Pasos del flujo','Tarea › Commits › Vista previa… en la línea de título de cada paso.',true],
+  ['strip','Franja de seleccionados','En Commits: lo marcado en los dos repos y cuántos archivos suma.',true],
+  ['counters','Contadores en QA','Completas, con fallas y sin verificar antes de la tabla.',true],
+  ['rendered','Vista previa renderizada','El documento como se verá, en vez del Markdown crudo de hoy.',false],
+  ['filter','Filtro visible en las listas','Una línea de filtro arriba de la lista, en vez de solo la tecla /.',false],
+  ['status','Último resultado en el pie','Después de publicar, una línea con qué se publicó y dónde.',false],
+  ['compact','Pie de teclas compacto','Solo las teclas principales; el resto con ?.',true]
+];
+const SIZES=[[80,24],[120,32],[160,40]];
+const THEMES=[['ansi','ansi'],['alto-contraste','hc'],['mono','mono']];
+
+const PROJECTS=[
+  {n:'pagos',api:'/code/pagos-api',apiRepo:'pagos-api',web:'/code/pagos-web',webRepo:'pagos-web',host:'github',org:'mi-org',space:'PAG',profile:'equipo',def:true},
+  {n:'facturacion',api:'/code/facturacion-api',apiRepo:'facturacion-api',web:'',webRepo:'',host:'github',org:'mi-org',space:'FAC',profile:'equipo',def:false},
+  {n:'cobranzas',api:'/code/cobranzas-api',apiRepo:'cobranzas-api',web:'/code/cobranzas-web',webRepo:'cobranzas-web',host:'bitbucket',org:'mi-org',space:'',profile:'local',def:false}
+];
+const REPOS={
+  backend:{repo:'pagos-api',path:'/code/pagos-api',branch:'develop',host:'https://github.com/mi-org/pagos-api',list:[
+    {h:'a1b2c3d',m:'Agrega filtro por rango de fechas',a:'Ana',d:'2026-10-19',t:'14:32',body:'Permite filtrar los pagos entre dos fechas desde el listado y la API.',files:[['M','app/Http/Pagos/FiltroController.php'],['M','routes/api.php'],['A','tests/Feature/FiltroPagosTest.php']]},
+    {h:'9f8e7d6',m:'Valida rango máximo',a:'Ana',d:'2026-10-19',t:'16:05',body:'El rango del filtro no puede superar 90 días.',files:[['M','app/Http/Pagos/FiltroRequest.php']]},
+    {h:'5c4b3a2',m:'Índices para la tabla de pagos',a:'Luis',d:'2026-10-18',t:'11:20',body:'Índices por fecha y estado para que el filtro no recorra la tabla.',files:[['A','database/migrations/2026_10_18_indices_pagos.php'],['M','app/Models/Pago.php']]},
+    {h:'4d3e2f1',m:'Corrige redondeo en el total',a:'Luis',d:'2026-10-17',t:'09:48',body:'El total redondea a dos decimales al final, no en cada línea.',files:[['M','app/Services/TotalPagos.php']]},
+    {h:'8e7f6a5',m:'Exporta pagos a CSV',a:'Ana',d:'2026-10-16',t:'17:10',body:'Botón de exportar en el listado; respeta el filtro activo.',files:[['A','app/Exports/PagosCsv.php'],['M','app/Http/Pagos/PagoController.php'],['M','routes/api.php'],['A','tests/Feature/ExportarPagosTest.php']]},
+    {h:'2b1c0d9',m:'Ajusta permisos del módulo Pagos',a:'Marta',d:'2026-10-15',t:'12:00',body:'Solo tesorería puede anular un pago.',files:[['M','app/Policies/PagoPolicy.php'],['M','config/permisos.php']]},
+    {h:'7a6b5c4',m:'Actualiza dependencias',a:'Marta',d:'2026-10-14',t:'10:15',body:'composer update de las dependencias menores.',files:[['M','composer.lock']]},
+    {h:'3f2e1d0',m:"Merge branch 'feature/csv' into develop",a:'Ana',d:'2026-10-14',t:'18:40',body:'Commit de merge.',files:[],merge:true}
+  ]},
+  frontend:{repo:'pagos-web',path:'/code/pagos-web',branch:'develop',host:'https://github.com/mi-org/pagos-web',list:[
+    {h:'c0ffee1',m:'Filtro de fechas en el listado',a:'Ana',d:'2026-10-19',t:'15:02',body:'Dos selectores de fecha sobre la tabla de pagos.',files:[['M','src/app/pagos/listado.component.ts'],['M','src/app/pagos/listado.component.html']]},
+    {h:'e4d5f6a',m:'Selector de rango reutilizable',a:'Ana',d:'2026-10-18',t:'10:30',body:'Componente de rango de fechas para otros listados.',files:[['A','src/app/shared/rango-fechas.component.ts']]},
+    {h:'f1e2d3c',m:'Textos del filtro',a:'Luis',d:'2026-10-17',t:'16:44',body:'Etiquetas y mensajes de validación del filtro.',files:[['M','src/assets/i18n/es.json']]},
+    {h:'a9b8c7d',m:'Botón exportar CSV',a:'Ana',d:'2026-10-16',t:'17:30',body:'Llama a la exportación del backend con el filtro activo.',files:[['M','src/app/pagos/listado.component.html'],['M','src/app/pagos/pagos.service.ts']]},
+    {h:'d7c6b5a',m:'Actualiza Angular',a:'Marta',d:'2026-10-14',t:'11:05',body:'Versión menor de Angular y sus paquetes.',files:[['M','package.json'],['M','package-lock.json']]}
+  ]}
+};
+const TASKS={'OPS-7':'Filtro de pagos','OPS-8':'Monto máximo','OPS-9':'Exportar a CSV'};
+const QA=[
+  {k:'OPS-7',e:'✓',d:'✓',doc:'✓',pr:'✓',r:'Ana',s:'Filtro de pagos',obs:''},
+  {k:'OPS-8',e:'✗',d:'✓',doc:'?',pr:'✗',r:'Luis',s:'Monto máximo',obs:'falta validar el monto',errN:2,why:'permission denied'},
+  {k:'OPS-9',e:'✓',d:'✓',doc:'✓',pr:'✓',r:'Ana',s:'Exportar a CSV',obs:''},
+  {k:'OPS-11',e:'✓',d:'✗',doc:'✓',pr:'✓',r:'Marta',s:'Permisos del módulo',obs:'devuelta una vez por permisos de lectura',devN:1},
+  {k:'OPS-12',e:'✓',d:'✓',doc:'✗',pr:'✓',r:'Luis',s:'Redondeo del total',obs:''},
+  {k:'OPS-14',e:'✓',d:'✓',doc:'✓',pr:'✓',r:'Ana',s:'Índices de pagos',obs:''},
+  {k:'OPS-15',e:'✓',d:'✓',doc:'✓',pr:'✓',r:'Marta',s:'Ajuste de reportes',obs:''},
+  {k:'OPS-16',e:'✓',d:'✓',doc:'✓',pr:'✓',r:'Luis',s:'Conciliación diaria',obs:''}
+];
+const BL={
+  backend:{path:'/code/pagos-api',items:[
+    {sev:'alta',pts:8,mod:'Pagos',t:'Dividir CobroController',kind:'hotspot',id:'h1',file:'app/Http/Pagos/CobroController.php',why:'14 commits en el período y 820 líneas'},
+    {sev:'media',pts:2,mod:'Facturacion',t:'Resolver FIXME de Factura',kind:'marcador',id:'m1',file:'app/Http/Facturacion/Factura.php:88',why:'FIXME validar monto'},
+    {sev:'baja',pts:1,mod:'Pagos',t:'Quitar código comentado en PagoService',kind:'marcador',id:'m2',file:'app/Services/PagoService.php:140',why:'31 líneas comentadas'}]},
+  frontend:{path:'/code/pagos-web',items:[
+    {sev:'media',pts:3,mod:'Pagos',t:'Dividir listado.component.ts',kind:'hotspot',id:'h2',file:'src/app/pagos/listado.component.ts',why:'9 commits en el período y 610 líneas'}]}
+};
+const MENU=[
+  {id:'gen-form',l:'Generar documento de despliegue',d:'Desde la tarea y tus commits, conservando lo escrito',long:'Lee la tarea y los archivos de tus commits y crea o actualiza su documento de despliegue, conservando lo que el equipo escribió a mano.',steps:['Tarea','Commits','Vista previa','Ubicación','Publicar'],cmd:'draco g -i OPS-7 -b a1b2c3d'},
+  {id:'proyectos',l:'Proyectos',d:'Repos, VCS y space de cada proyecto',long:'Rutas de los repos, nombres en el VCS y space de cada proyecto, en formularios en vez de editar el YAML.',steps:null,cmd:'draco project list'},
+  {id:'qa-form',l:'Consolidado QA',d:'Evalúa el sprint o la ventana Kanban y lo publica',long:'Evalúa las tareas del sprint o de la ventana Kanban y publica el consolidado de pruebas.',steps:['Sprint o Kanban','Evaluar','Vista previa','Ubicación','Publicar'],cmd:'draco qa -s 12 -m Pagos'},
+  {id:'ex-form',l:'Exportar página',d:'Guarda como texto el documento de una tarea',long:'Busca el documento de una tarea y lo guarda como texto.',steps:['Tarea','Documentos','Guardar'],cmd:'draco f -i OPS-7'},
+  {id:'bl-form',l:'Backlog técnico',d:'Deuda técnica de tus repos locales, sin red',long:'Detecta deuda técnica en tus repos locales y la propone como tareas. Sin red.',steps:['Repos','Analizar','Hallazgos'],cmd:'draco backlog scan'},
+  {id:'config',l:'Configuración',d:'Conexión, proyectos, perfiles, QA y tema',long:'Conexión con Atlassian y proyectos, lo que necesita el documento. Opcionales: perfiles, QA y tema.',steps:null,cmd:'draco init'}
+];
+const CMDS=[
+  ['g','Crea o actualiza el documento de despliegue','g -i OPS-7 -b a1b2c3d',['gen','generate']],
+  ['qa','Evalúa y publica el consolidado de QA','qa -s 12 -m Pagos',[]],
+  ['f','Exporta a texto la página de una tarea','f -i OPS-7',['fetch']],
+  ['backlog','Deuda técnica de los repos locales','backlog scan',[]],
+  ['project','Proyectos','project list',[]],
+  ['init','Configuración','init',[]],
+  ['help','Ayuda de los comandos','help',[]]
+];
+const LOCS={
+  deploy:[['PAG › Despliegues','sugerida: ahí están los documentos de pagos'],['PAG › Despliegues › 2026',''],['PAG › Pagos › Documentación técnica',''],['DEV › Despliegues','space del perfil']],
+  qa:[['PAG › QA › Consolidados','sugerida: ahí están los consolidados anteriores'],['PAG › QA',''],['DEV › QA','space del perfil']]
+};
+const CONFIG=[
+  ['Conexión','ok','tu@example.test · example.test',['Cuenta de Atlassian y token (oculto).','La verificación de la cuenta pasó.']],
+  ['Proyectos','ok','3 proyectos · pagos por defecto',['Lo mismo que Inicio › Proyectos.']],
+  ['Perfiles','f','equipo, local',['equipo: jira → confluence (DEV)','local: jira → markdown (./despliegues)']],
+  ['QA','w','falta qa_report',['qa_email: qa@example.test','qa_jira: proyecto OPS, 3 campos','qa_report: vacío; Líder Técnico, PMO y QA saldrán vacíos.']],
+  ['Tema','ok','',['enter cambia el tema y lo guarda en config.yaml.']]
+];
+
+const S={
+  cols:160,rows:40,theme:'ansi',stack:['inicio'],note:null,bar:null,help:false,timer:null,last:null,
+  o:{},
+  home:{cur:0},
+  proj:{cur:0,active:'pagos',filter:'',filtering:false},
+  gen:{task:'OPS-7',field:0,project:0,side:'backend',cur:{backend:0,frontend:0},sel:{backend:new Set(),frontend:new Set()},tab:1,scroll:0},
+  loc:{cur:0,flow:'deploy',filter:'',filtering:false},
+  pub:{state:'idle',step:0},
+  qa:{mode:'kanban',sprint:'12',module:'Pagos',field:0,evaluated:0,cur:0,scroll:0},
+  bl:{repos:{backend:true,frontend:true},since:1,field:0,repo:'backend',cur:0,scan:2},
+  ex:{task:'OPS-7',cur:0},
+  cfg:{cur:0}
+};
+OPTS.forEach(o=>{S.o[o[0]]=store.get('opt.'+o[0],o[3]);});
+const savedSize=store.get('size',2); if(SIZES[savedSize]){S.cols=SIZES[savedSize][0];S.rows=SIZES[savedSize][1];}
+S.theme=store.get('theme','ansi');
+
+const term=document.getElementById('term');
+const win=document.getElementById('win');
+const fitEl=document.getElementById('fit');
+
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const sp=(cls,t)=>'<span class="'+cls+'">'+esc(t)+'</span>';
+const L=(html,cls)=>'<div class="l '+(cls||'')+'">'+(html||'')+'</div>';
+const pad=(s,n)=>{s=String(s);return s.length>n?s.slice(0,n-1)+'…':s+' '.repeat(n-s.length);};
+const row=(cols,cells,cls)=>'<div class="l g '+(cls||'')+'" style="grid-template-columns:'+cols+'">'+cells.map(c=>'<span>'+c+'</span>').join('')+'</div>';
+const wide=()=>S.cols>=100;
+const cur=()=>S.stack[S.stack.length-1];
+const proj=()=>PROJECTS.find(p=>p.n===S.proj.active)||PROJECTS[0];
+const taskTitle=()=>TASKS[S.gen.task]||'Tarea de ejemplo';
+const mk=m=>m==='✓'?'ok':m==='✗'?'er':m==='?'?'w':'f';
+const caret='<span class="caret"> </span>';
+function stepper(names,idx,label){
+  return names.map((n,i)=>i<idx?sp('ok','✓ '+n):i===idx?sp('ab',label||n):sp('f',n)).join(sp('f','  ›  '));
+}
+function titleLine(left,steps){
+  if(S.o.steps&&steps&&wide()) return row('minmax(0,1fr) auto',[left,steps+' ']);
+  return L(left);
+}
+function stopTimer(){if(S.timer){clearInterval(S.timer);S.timer=null;}}
+function open(id){S.stack.push(id);enter(id);}
+function replace(id){S.stack[S.stack.length-1]=id;enter(id);}
+function back(){stopTimer();if(S.stack.length>1)S.stack.pop();}
+function goHome(){stopTimer();S.stack=['inicio'];S.pub.state='idle';S.help=false;S.bar=null;}
+function enter(id){
+  if(id==='qa-eval') startEval();
+  if(id==='bl-find') startScan();
+  if(id==='preview'||id==='qa-prev'){S.gen.scroll=0;S.qa.scroll=0;}
+  if(id==='ubic'){S.loc.cur=0;S.loc.filter='';S.loc.filtering=false;S.pub.state='idle';}
+}
+function selInfo(){
+  const items=[];const files=new Set();
+  ['backend','frontend'].forEach(side=>{REPOS[side].list.forEach(c=>{if(S.gen.sel[side].has(c.h)){items.push({side,c});c.files.forEach(f=>files.add(side+':'+f[1]));}});});
+  return {items,files:files.size};
+}
+function ensureSelection(){
+  if(!selInfo().items.length){S.gen.sel.backend.add('a1b2c3d');S.gen.sel.backend.add('5c4b3a2');}
+}
+const TITLES={inicio:'Inicio',proyectos:'Proyectos','gen-form':'Generar documento',commits:()=>'Commits de '+S.gen.task,preview:'Vista previa',ubic:'Ubicación',resultado:'Publicado','qa-form':'Consolidado QA','qa-eval':'Evaluar','qa-prev':'Vista previa','bl-form':'Backlog técnico','bl-find':'Hallazgos','ex-form':'Exportar página','ex-docs':'Documentos',config:'Configuración'};
+const title=id=>{const t=TITLES[id];return typeof t==='function'?t():t;};
+
+/* ---------- frame ---------- */
+function header(){
+  const crumbs=S.stack.map((id,i)=>i===S.stack.length-1?sp('b',title(id)):sp('f',title(id))).join(sp('f',' › '));
+  const right=wide()?'perfil '+sp('a',proj().profile)+sp('f',' (jira → confluence)  ·  ')+'proyecto '+sp('a',S.proj.active)+' ':sp('a',S.proj.active)+' ';
+  return row('minmax(0,1fr) auto',[' '+sp('b','draco')+' '+sp('f','v0.3.3  │  ')+crumbs,right])+'<div class="rule"></div>';
+}
+function footer(keys){
+  let ks=keys.slice();
+  if(S.stack.length>1&&!S.help&&!S.bar) ks.push(['esc','volver',1]);
+  if(S.o.compact){ks=ks.filter(k=>k[2]);if(!S.help)ks.push(['?','más',1]);}
+  else{if(!S.help)ks.push(['?','ayuda',1]);ks.push(['ctrl+c','salir',0]);}
+  let out='';
+  if(S.o.status&&S.last) out+=L(' '+sp('ok','✓ ')+esc(S.last));
+  return out+'<div class="rule"></div>'+L(' '+ks.map(k=>sp('b',k[0])+' '+sp('f',k[1])).join(sp('f',' • ')));
+}
+function noteLine(){
+  if(!S.note) return '';
+  return '<div class="l wr" style="flex:none;padding:0 1ch">'+sp(S.note[0],S.note[1])+'</div>';
+}
+function render(){
+  const id=cur();const scr=SCREENS[id];
+  const r=scr.view();
+  let body=S.help?vHelp(r.keys):r.body;
+  let keys=S.help?[['esc','cerrar',1]]:S.bar?[['tab','completar',1],['↑↓','sugerencia',1],['enter','ejecutar',1],['esc','cerrar',1]]:r.keys;
+  term.innerHTML=header()+'<div class="body">'+body+'</div>'+(S.bar?vBar():'')+noteLine()+footer(keys);
+}
+
+/* ---------- inicio ---------- */
+const LOGO=['██████  ██████   █████   ██████  ██████ ','██   ██ ██   ██ ██   ██ ██      ██    ██','██   ██ ██████  ███████ ██      ██    ██','██   ██ ██   ██ ██   ██ ██      ██    ██','██████  ██   ██ ██   ██  ██████  ██████ '];
+const kv=(k,v,n)=>L(sp('f',pad(k,n||6))+' '+(v?esc(v):sp('f','—')));
+const chk=(cls,label,val)=>L(sp(cls,cls==='ok'?'✓':'!')+' '+pad(label,11)+sp(cls==='ok'?'f':'w',val));
+function vInicio(){
+  const it=MENU[S.home.cur];
+  const keys=[['↑↓','elegir',1],['enter','abrir',1]];
+  if(S.o.letters) keys.push(['1-6','abrir directo',1]);
+  keys.push(['/','comando',1],['q','salir',0]);
+  const logo=LOGO.map(x=>L(x,'ab')).join('');
+  if(!wide()){
+    let h=(S.cols>=44?logo:L(sp('ab','draco')))+L(sp('f','Documenta despliegues desde la terminal'))+L();
+    MENU.forEach((m,i)=>{const on=i===S.home.cur;h+=L((S.o.letters?sp('f',(i+1)+' '):'')+(on?sp('a','▸ ')+sp('ab',m.l):'  '+esc(m.l)),on?'sel':'');});
+    h+=L()+'<div class="l wr f" style="max-height:calc(var(--lh) * 2);overflow:hidden">'+esc(it.long)+'</div>'+L(sp('f','$ ')+esc(it.cmd));
+    return {body:'<div style="padding:0 1ch">'+h+'</div>',keys};
+  }
+  let left=logo+L(sp('f','Documenta despliegues desde la terminal'))+L();
+  MENU.forEach((m,i)=>{
+    const on=i===S.home.cur;
+    const head=row('minmax(0,1fr) 3ch',[(on?sp('a',' ▸ ')+sp('ab',m.l):'   '+esc(m.l)),S.o.letters?sp('f',String(i+1)):'']);
+    left+='<div class="'+(on?'sel':'')+'">'+head+(S.o.desc?L(sp('f','   '+m.d)):'')+'</div>'+(S.o.desc&&i<MENU.length-1?L():'');
+  });
+  let panel='<div class="box">'+L()+L(sp('ab',it.l))+'<div class="wr">'+esc(it.long)+'</div>'+L();
+  if(S.o.steps&&it.steps) panel+=L(it.steps.map((s,i)=>sp('a',String(i+1))+' '+esc(s)).join(sp('f','  ›  ')))+L();
+  panel+=L(sp('f','En modo comando, para scripts y CI:'))+L('$ '+esc(it.cmd))+L()+'</div>';
+  let ctx='';
+  if(S.o.context){
+    const p=proj();
+    ctx='<div style="display:flex;gap:2ch">'+
+      '<div class="box" style="flex:1">'+L()+L(sp('h','PROYECTO ACTIVO'))+L(sp('a',p.n)+(p.def?sp('f',' · por defecto'):''))+kv('api',p.api)+kv('web',p.web)+kv('vcs',p.host+' / '+p.org)+kv('space',p.space)+L()+'</div>'+
+      '<div class="box" style="flex:1">'+L()+L(sp('h','TU CONFIGURACIÓN'))+chk('ok','Conexión','tu@example.test')+chk('ok','Proyectos',String(PROJECTS.length))+chk('ok','Perfil',p.profile)+chk('w','QA','falta qa_report')+chk('ok','Tema',S.theme)+L()+'</div></div>';
+  }
+  const body='<div style="display:flex;gap:4ch;padding:var(--lh) 1ch 0">'+
+    '<div style="width:62ch;flex:none">'+left+'</div>'+
+    '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:var(--lh)">'+panel+ctx+'</div></div>';
+  return {body,keys};
+}
+function kInicio(k){
+  const n=MENU.length;
+  if(k==='up') S.home.cur=(S.home.cur+n-1)%n;
+  else if(k==='down') S.home.cur=(S.home.cur+1)%n;
+  else if(k==='enter') open(MENU[S.home.cur].id);
+  else if(k==='/') S.bar={text:'',sel:0};
+  else if(k==='q') S.note=['w','q sale de draco. En el prototipo no hace nada.'];
+  else if(S.o.letters&&/^[1-6]$/.test(k)){S.home.cur=+k-1;open(MENU[S.home.cur].id);}
+}
+
+/* ---------- proyectos ---------- */
+function projList(){const f=S.proj.filter.toLowerCase();return PROJECTS.filter(p=>!f||p.n.includes(f));}
+function filterLine(st){
+  if(!(S.o.filter||st.filtering||st.filter)) return '';
+  const v=st.filtering?esc(st.filter)+caret:(st.filter?sp('b',st.filter):sp('f','filtrar'));
+  return L(sp('a','/ ')+v)+L();
+}
+function vProyectos(){
+  const P=S.proj,list=projList();
+  if(P.cur>=list.length) P.cur=Math.max(0,list.length-1);
+  const p=list[P.cur];
+  let lh=L()+filterLine(P);
+  list.forEach((x,i)=>{const on=i===P.cur;lh+=L((on?sp('a',' ▸ ')+sp('ab',pad(x.n,14)):'   '+esc(pad(x.n,14)))+(x.n===P.active?sp('ok','activo  '):'        ')+(x.def?sp('f','por defecto'):''),on?'sel':'');});
+  if(!list.length) lh+=L(sp('f','   Ningún proyecto coincide con el filtro.'));
+  let det=L();
+  if(p){
+    det+=L(sp('b',p.n)+'  '+sp('f','perfil '+p.profile))+L();
+    [['backend_path',p.api],['backend_repo',p.apiRepo],['frontend_path',p.web],['frontend_repo',p.webRepo],['vcs_host',p.host],['vcs_org',p.org],['space',p.space],['perfil',p.profile]].forEach(([k,v])=>{det+=kv(k,v,15);});
+  }
+  const keys=P.filtering?[['enter','aplicar',1],['esc','quitar filtro',1]]:[['↑↓','elegir',1],['enter','usar en esta sesión',1],['d','por defecto',0],['n','nuevo',1],['e','editar',1],['x','eliminar',0],['/','filtrar',1]];
+  const lb='<div class="box" style="flex:4">'+lh+'</div>',db='<div class="box" style="flex:6">'+det+'</div>';
+  const body=wide()?'<div style="flex:1;min-height:0;display:flex;gap:2ch;padding:var(--lh) 1ch var(--lh)">'+lb+db+'</div>'
+                   :'<div style="display:flex;flex-direction:column;padding:0 1ch">'+lb+db+'</div>';
+  return {body,keys};
+}
+function filterKey(st,k){
+  if(st.filtering){
+    if(k==='esc'){st.filtering=false;st.filter='';}
+    else if(k==='enter') st.filtering=false;
+    else if(k==='backspace') st.filter=st.filter.slice(0,-1);
+    else if(k.length===1){st.filter+=k;st.cur=0;}
+    return true;
+  }
+  if(k==='esc'&&st.filter){st.filter='';return true;}
+  if(k==='/'){st.filtering=true;return true;}
+  return false;
+}
+function kProy(k){
+  const P=S.proj;
+  if(filterKey(P,k)) return;
+  const list=projList();
+  if(k==='up') P.cur=Math.max(0,P.cur-1);
+  else if(k==='down') P.cur=Math.min(list.length-1,P.cur+1);
+  else if(k==='enter'&&list[P.cur]){P.active=list[P.cur].n;S.note=['ok','Proyecto de esta sesión: '+P.active+'.'];}
+  else if(k==='d'&&list[P.cur]){PROJECTS.forEach(x=>{x.def=false;});list[P.cur].def=true;S.note=['ok',list[P.cur].n+' queda por defecto.'];}
+  else if(k==='n'||k==='e'||k==='x') S.note=['f','En draco abre el formulario del proyecto. El prototipo no lo incluye.'];
+}
+
+/* ---------- generar: tarea ---------- */
+function fld(on,label,val){return L((on?sp('a',' ▸ '):'   ')+(on?sp('b',pad(label,11)):esc(pad(label,11)))+val);}
+function textVal(on,v,w){return on?'['+esc(v)+caret+' '.repeat(Math.max(0,w-v.length-1))+']':'['+esc(pad(v,w))+']';}
+function vGenForm(){
+  const G=S.gen,p=PROJECTS[G.project];
+  const form=L()+L(sp('h','TAREA Y PROYECTO'))+L()+
+    fld(G.field===0,'Tarea',textVal(G.field===0,G.task,16))+L(sp('f','              la clave de la tarea en Jira, como OPS-7'))+L()+
+    fld(G.field===1,'Proyecto',G.field===1?sp('a','‹ ')+sp('ab',p.n)+sp('a',' ›'):esc(p.n))+L(sp('f','              ← → cambia; los repos salen del proyecto'))+L();
+  const info=L()+L(sp('h','LO QUE SIGUE'))+(S.o.steps?L(stepper(['Tarea','Commits','Vista previa','Ubicación','Publicar'],0)):'')+L()+
+    L(sp('f','Backend   ')+esc(p.apiRepo)+sp('f','  '+p.api))+L(sp('f','Frontend  ')+(p.webRepo?esc(p.webRepo)+sp('f','  '+p.web):sp('f','—')))+L(sp('f','Destino   ')+'confluence · '+esc(p.space||'DEV'))+L()+
+    '<div class="wr f">La tarea se lee de Jira y los commits del clon local de cada repo del proyecto.</div>'+L();
+  const body=wide()?'<div style="display:flex;gap:2ch;padding:var(--lh) 1ch 0;align-items:flex-start"><div class="box" style="flex:5">'+form+'</div><div class="box" style="flex:4">'+info+'</div></div>'
+                   :'<div style="padding:0 1ch"><div class="box">'+form+'</div></div>';
+  return {body,keys:[['tab','campo',1],['← →','proyecto',0],['enter','continuar',1]]};
+}
+function kGenForm(k){
+  const G=S.gen;
+  if(G.field===0&&k.length===1){if(G.task.length<15)G.task=(G.task+k).toUpperCase();return;}
+  if(G.field===0&&k==='backspace'){G.task=G.task.slice(0,-1);return;}
+  if(k==='tab'||k==='down') G.field=(G.field+1)%2;
+  else if(k==='up') G.field=0;
+  else if(G.field===1&&(k==='left'||k==='right')) G.project=(G.project+(k==='left'?PROJECTS.length-1:1))%PROJECTS.length;
+  else if(k==='enter'){
+    if(!/^[A-Z][A-Z0-9]*-\d+$/.test(G.task)){S.note=['er','La tarea tiene la forma CLAVE-123, por ejemplo OPS-7.'];return;}
+    open('commits');
+  }
+}
+
+/* ---------- generar: commits ---------- */
+function vCommits(){
+  const G=S.gen,side=G.side,R=REPOS[side],list=R.list,ci=G.cur[side],c=list[ci];
+  const top=titleLine(sp('b',G.task+' · '+taskTitle())+'  '+sp('f','En progreso · Ana'),stepper(['Tarea','Commits','Vista previa','Ubicación','Publicar'],1));
+  const tab=s=>(side===s?sp('a','▸ ')+sp('ab',s==='backend'?'Backend':'Frontend')+'  '+esc(REPOS[s].repo)+sp('f',' · '+REPOS[s].branch):'  '+sp('f',(s==='backend'?'Backend':'Frontend')+'  '+REPOS[s].repo));
+  const tabs=L(tab('backend')+'      '+tab('frontend'));
+  const cols=wide()?'3ch 4ch 9ch minmax(0,1fr) 8ch 12ch 6ch':'3ch 4ch 9ch minmax(0,1fr)';
+  let rows=row(cols,['','',sp('h','HASH'),sp('h','MENSAJE')].concat(wide()?[sp('h','AUTOR'),sp('h','FECHA'),sp('h','ARCH.')]:[]));
+  list.forEach((x,i)=>{
+    const on=i===ci,m=G.sel[side].has(x.h);
+    const cells=[on?sp('a',' ▸'):'',m?sp(on?'ab':'ok','[x]'):'[ ]',sp(on?'ab':(x.merge?'f':'a'),x.h),on?sp('ab',x.m):(x.merge?sp('f',x.m):esc(x.m))];
+    if(wide()) cells.push(esc(x.a),sp('f',x.d),'   '+x.files.length);
+    rows+=row(cols,cells,on?'sel':'');
+  });
+  const si=selInfo();
+  const fileLine=f=>L(sp(f[0]==='A'?'ok':f[0]==='D'?'er':'w',f[0])+' '+esc(f[1]));
+  let strip='';
+  if(S.o.strip){
+    const parts=si.items.map(it=>sp('ok','✓')+' '+it.c.h+' '+sp('f',pad(it.c.m,26).trim()));
+    const fe=si.items.some(it=>it.side==='frontend')?'':'   '+sp('f','frontend: ninguno');
+    strip='<div class="box" style="flex:none">'+L(sp('h','SELECCIONADOS')+'  '+sp('b',si.items.length+' commits · '+si.files+' archivos')+'   '+(parts.length?parts.join('   '):sp('f','ninguno: marca con espacio'))+(parts.length?fe:''))+'</div>';
+  }
+  const keys=[['↑↓','elegir',1],['espacio','marcar',1],['tab','backend/frontend',1],['h','hash a mano',0],['enter','continuar',1]];
+  if(!wide()){
+    const files=c.files.length?c.files.map(f=>f[0]+' '+f[1].split('/').pop()).join(', '):'sin archivos';
+    const body='<div style="display:flex;flex-direction:column;padding:0 1ch">'+top+tabs+L()+rows+L()+L(sp('h','ARCHIVOS ')+sp('f',files))+(S.o.strip?L(sp('h','MARCADOS ')+si.items.length+' · '+si.files+' archivos'):'')+'</div>';
+    return {body,keys};
+  }
+  let det=L()+L(sp('a',c.h)+' '+sp('b',c.m))+L(sp('f',c.a+' · '+c.d+' '+c.t+' · '+R.branch))+L()+'<div class="wr">'+esc(c.body)+'</div>'+L()+L(sp('h','ARCHIVOS ('+c.files.length+')'))+(c.files.length?c.files.map(fileLine).join(''):L(sp('f','commit de merge: sin archivos propios')));
+  const body='<div style="flex:1;min-height:0;display:flex;flex-direction:column;padding:var(--lh) 1ch 0">'+top+L()+
+    '<div style="flex:1;min-height:0;display:flex;gap:2ch">'+
+      '<div class="box" style="flex:6;display:flex;flex-direction:column">'+L()+tabs+L()+rows+'<div style="flex:1"></div>'+L(sp('f','Un commit de otra rama se agrega con h.'))+'</div>'+
+      '<div class="box" style="flex:4">'+det+'</div>'+
+    '</div>'+(strip?L()+strip:'')+L()+'</div>';
+  return {body,keys};
+}
+function kCommits(k){
+  const G=S.gen,side=G.side,n=REPOS[side].list.length;
+  if(k==='up') G.cur[side]=Math.max(0,G.cur[side]-1);
+  else if(k==='down') G.cur[side]=Math.min(n-1,G.cur[side]+1);
+  else if(k==='space'){const h=REPOS[side].list[G.cur[side]].h;if(G.sel[side].has(h))G.sel[side].delete(h);else G.sel[side].add(h);}
+  else if(k==='tab') G.side=side==='backend'?'frontend':'backend';
+  else if(k==='h') S.note=['f','En draco abre un campo para pegar el hash de un commit de otra rama.'];
+  else if(k==='enter'){if(!selInfo().items.length){S.note=['w','Marca al menos un commit con espacio.'];return;}open('preview');}
+}
+
+/* ---------- vista previa ---------- */
+function docRows(){
+  const out={backend:[],frontend:[]};
+  selInfo().items.forEach(({side,c})=>{c.files.forEach(f=>{const parts=f[1].split('/');const file=parts.pop();out[side].push({repo:REPOS[side].repo,host:REPOS[side].host,dir:parts.join('/')||'.',file,h:c.h,ch:f[0]});});});
+  return out;
+}
+function docTitle(){return 'Documento de Despliegue - '+S.gen.task+' - '+taskTitle();}
+function rawDoc(){
+  const r=docRows(),L2=[];
+  L2.push('<!-- draco:tabla anchos=63,697 -->','|  |  |','|---|---|','| **Épica** | _Enlace a épica o función de Jira relacionada_ |','| **Tarea(s)** | <https://example.test/browse/'+S.gen.task+'> |','','## Arquitecturas e interfaces','');
+  ['backend','frontend'].forEach(side=>{
+    if(!r[side].length) return;
+    L2.push('### Proyectos y formularios - '+(side==='backend'?'Backend':'Frontend')+':','','<!-- draco:tabla anchos=69,175,176,188,152 -->','| Servidor | Aplicación web | Ubicación | Nombre del archivo | Observación |','|---|---|---|---|---|');
+    r[side].forEach(x=>L2.push('| ['+x.repo+']('+x.host+') | '+x.repo+' | '+x.dir+' | - '+x.file+' | - [link]('+x.host+'/commit/'+x.h+') |'));
+    L2.push('');
+  });
+  L2.push('## A considerar:','','<!-- draco:recuadro -->','- [ ] Pasar backend al servidor','- [ ] Ejecutar migraciones','- [ ] Pasar frontend');
+  return L2.map(s=>L(esc(s)));
+}
+function renderedDoc(){
+  const r=docRows(),out=[];
+  out.push(L(sp('b',docTitle())),L(),row('14ch minmax(0,1fr)',[sp('f','Épica'),sp('f','Enlace a épica o función de Jira relacionada')]),row('14ch minmax(0,1fr)',[sp('f','Tarea(s)'),sp('a','https://example.test/browse/'+S.gen.task)]),L(),L(sp('ab','Arquitecturas e interfaces')),L());
+  const cols='14ch minmax(0,1.2fr) minmax(0,1fr) 10ch';
+  ['backend','frontend'].forEach(side=>{
+    if(!r[side].length) return;
+    out.push(L(sp('b',(side==='backend'?'Backend':'Frontend')+' · '+REPOS[side].repo)));
+    out.push(row(cols,[sp('h','SERVIDOR'),sp('h','UBICACIÓN'),sp('h','ARCHIVO'),sp('h','COMMIT')]));
+    r[side].forEach(x=>out.push(row(cols,[esc(x.repo),esc(x.dir),'· '+esc(x.file),sp('a',x.h)])));
+    out.push(L());
+  });
+  out.push(L(sp('ab','A considerar')),'<div class="box" style="display:inline-block;flex:none">'+L('[ ] Pasar backend al servidor')+L('[ ] Ejecutar migraciones')+L('[ ] Pasar frontend')+'</div>');
+  return out;
+}
+function filesTable(){
+  const r=docRows(),out=[];const cols='12ch minmax(0,1.3fr) minmax(0,1fr) 10ch 4ch';
+  out.push(row(cols,[sp('h','REPO'),sp('h','UBICACIÓN'),sp('h','ARCHIVO'),sp('h','COMMIT'),sp('h','')]));
+  ['backend','frontend'].forEach(side=>r[side].forEach(x=>out.push(row(cols,[esc(x.repo),esc(x.dir),esc(x.file),sp('a',x.h),sp(x.ch==='A'?'ok':'w',x.ch)]))));
+  return out;
+}
+function scrollBox(lines,scroll){
+  return '<div class="box" style="flex:1;min-height:0;position:relative"><div style="transform:translateY(calc(var(--lh) * -'+scroll+'))">'+L()+lines.join('')+L()+'</div></div>';
+}
+function tabsLine(names,idx){return L(names.map((n,i)=>i===idx?sp('a','▸ ')+sp('ab',n):'  '+sp('f',n)).join('    '));}
+function vPreview(){
+  const G=S.gen,si=selInfo();
+  const top=titleLine(sp('b',docTitle()),stepper(['Tarea','Commits','Vista previa','Ubicación','Publicar'],2));
+  const status=L(sp('ok','✓')+' No existe un documento para '+esc(G.task)+': se creará.  '+sp('f',si.items.length+' commits · '+si.files+' archivos'));
+  const lines=G.tab===0?filesTable():(S.o.rendered?renderedDoc():rawDoc());
+  G.scroll=Math.min(G.scroll,Math.max(0,lines.length-3));
+  const body='<div style="flex:1;min-height:0;display:flex;flex-direction:column;padding:var(--lh) 1ch var(--lh)">'+top+status+L()+tabsLine(['Archivos','Documento'+(G.tab===1?(S.o.rendered?' (renderizado)':' (Markdown)'):'')],G.tab)+scrollBox(lines,G.scroll)+'</div>';
+  return {body,keys:[['tab','archivos/documento',1],['↑↓','desplazar',1],['enter','continuar',1]]};
+}
+function kPreview(k){
+  const G=S.gen;
+  if(k==='tab'){G.tab=1-G.tab;G.scroll=0;}
+  else if(k==='down') G.scroll++;
+  else if(k==='up') G.scroll=Math.max(0,G.scroll-1);
+  else if(k==='enter'){S.loc.flow='deploy';open('ubic');}
+}
+
+/* ---------- ubicación y publicar (compartido) ---------- */
+function locList(){const f=S.loc.filter.toLowerCase();return LOCS[S.loc.flow].filter(l=>!f||l[0].toLowerCase().includes(f));}
+function flowTitle(){return S.loc.flow==='deploy'?docTitle():qaTitle();}
+function flowSteps(){return S.loc.flow==='deploy'?['Tarea','Commits','Vista previa','Ubicación','Publicar']:['Sprint o Kanban','Evaluar','Vista previa','Ubicación','Publicar'];}
+function pubSteps(loc){return S.loc.flow==='deploy'?['Creando la página en '+loc,'Enlazando la página en '+S.gen.task]:['Creando la página en '+loc];}
+function vUbic(){
+  const st=S.loc,list=locList();
+  if(st.cur>=list.length) st.cur=Math.max(0,list.length-1);
+  const top=titleLine(sp('b','¿Dónde se crea?'),stepper(flowSteps(),S.pub.state==='run'?4:3));
+  let lh=L()+filterLine(st);
+  list.forEach((l,i)=>{const on=i===st.cur;lh+=L((on?sp('a',' ▸ ')+sp('ab',l[0]):'   '+esc(l[0]))+(l[1]?'   '+sp('f',l[1]):''),on?'sel':'');});
+  if(!list.length) lh+=L(sp('f','   Ninguna ubicación coincide.'));
+  const loc=list[st.cur]?list[st.cur][0]:'—';
+  let rb=L()+L(sp('h','RESUMEN'))+L()+L(sp('f','Título   ')+esc(flowTitle()))+L(sp('f','Destino  ')+esc(loc))+L(sp('f','Página   ')+'nueva, hija de '+esc(loc.split(' › ').pop()))+(S.loc.flow==='deploy'?L(sp('f','Después  ')+'enlace remoto en '+esc(S.gen.task)):'')+L();
+  if(S.pub.state==='run'){
+    rb+=L(sp('h','PUBLICANDO'));
+    pubSteps(loc).forEach((s,i)=>{rb+=L(i<S.pub.step?sp('ok','✓ ')+esc(s):i===S.pub.step?sp('a','◐ ')+esc(s)+'…':sp('f','· '+s));});
+  }else rb+=L(sp('f','enter publica; nada se publicó todavía.'));
+  const keys=S.pub.state==='run'?[['espera','publicando…',1]]:st.filtering?[['enter','aplicar',1],['esc','quitar filtro',1]]:[['↑↓','elegir',1],['/','filtrar',1],['enter','publicar aquí',1]];
+  const body=wide()?'<div style="flex:1;min-height:0;display:flex;flex-direction:column;padding:var(--lh) 1ch var(--lh)">'+top+L()+'<div style="flex:1;min-height:0;display:flex;gap:2ch"><div class="box" style="flex:6">'+lh+'</div><div class="box" style="flex:4">'+rb+'</div></div></div>'
+                   :'<div style="display:flex;flex-direction:column;padding:0 1ch">'+top+'<div class="box">'+lh+'</div><div class="box">'+rb+'</div></div>';
+  return {body,keys};
+}
+function kUbic(k){
+  if(S.pub.state==='run') return;
+  const st=S.loc;
+  if(filterKey(st,k)) return;
+  const list=locList();
+  if(k==='up') st.cur=Math.max(0,st.cur-1);
+  else if(k==='down') st.cur=Math.min(list.length-1,st.cur+1);
+  else if(k==='enter'&&list[st.cur]){
+    const loc=list[st.cur][0],steps=pubSteps(loc);
+    S.pub={state:'run',step:0,loc};
+    stopTimer();
+    S.timer=setInterval(()=>{
+      S.pub.step++;
+      if(S.pub.step>steps.length){
+        stopTimer();S.pub.state='done';
+        S.last=(S.loc.flow==='deploy'?S.gen.task+' publicado':'Consolidado publicado')+' en '+loc+' · hace un momento';
+        replace('resultado');
+      }
+      render();
+    },650);
+  }
+}
+function vResultado(){
+  const dep=S.loc.flow==='deploy';
+  let h=L()+L(sp('ok','✓ ')+sp('b',dep?'Documento creado':'Consolidado creado'))+L('  '+esc(flowTitle()))+L('  '+sp('f','en ')+esc(S.pub.loc||''))+L('  '+sp('a','https://example.test/wiki/spaces/PAG/pages/123456'))+L();
+  if(dep) h+=L(sp('ok','✓ ')+'Enlace agregado en '+esc(S.gen.task)+sp('f','  (QA lo verá con documentación)'));
+  h+=L()+L(sp('f','enter vuelve a Inicio'));
+  return {body:'<div style="padding:var(--lh) 1ch 0"><div class="box" style="max-width:96ch">'+h+L()+'</div></div>',keys:[['enter','inicio',1]]};
+}
+function kResultado(k){if(k==='enter'){goHome();S.gen.sel={backend:new Set(),frontend:new Set()};}}
+
+/* ---------- QA ---------- */
+function qaTitle(){return S.qa.mode==='kanban'?'Consolidado de Pruebas QA - 07/09 al 21/09/2026':S.qa.module+'_Sprint '+S.qa.sprint;}
+function qaScope(){return S.qa.mode==='kanban'?'Kanban · 07/09 al 21/09/2026':'Sprint '+S.qa.sprint+' · '+S.qa.module;}
+function vQaForm(){
+  const Q=S.qa;
+  let form=L()+L(sp('h','QUÉ EVALUAR'))+L()+fld(Q.field===0,'Modo',Q.field===0?sp('a','‹ ')+sp('ab',Q.mode==='kanban'?'Kanban':'Sprint')+sp('a',' ›'):esc(Q.mode==='kanban'?'Kanban':'Sprint'));
+  if(Q.mode==='kanban') form+=L(sp('f','              ventana: 07/09 al 21/09/2026 · 14 días hasta hoy'))+L();
+  else form+=L()+fld(Q.field===1,'Sprint',textVal(Q.field===1,Q.sprint,8))+fld(Q.field===2,'Módulo',textVal(Q.field===2,Q.module,16))+L(sp('f','              el nombre sale de qa_jira.sprint_name: {module}_Sprint {sprint}'))+L();
+  const info=L()+L(sp('h','QUÉ SE REVISA EN CADA TAREA'))+L()+L(sp('b','ERR')+'  errores de código registrados')+L(sp('b','DEV')+'  devoluciones a desarrollo')+L(sp('b','DOC')+'  documento de despliegue enlazado')+L(sp('b','PR ')+'  pull request enlazado')+L()+L(sp('f','Cuenta    ')+'qa@example.test '+sp('f','(qa_email)'))+L();
+  const body=wide()?'<div style="display:flex;gap:2ch;padding:var(--lh) 1ch 0;align-items:flex-start"><div class="box" style="flex:5">'+form+'</div><div class="box" style="flex:4">'+info+'</div></div>'
+                   :'<div style="padding:0 1ch"><div class="box">'+form+'</div></div>';
+  return {body,keys:[['tab','campo',1],['← →','modo',0],['enter','evaluar',1]]};
+}
+function kQaForm(k){
+  const Q=S.qa,nf=Q.mode==='kanban'?1:3;
+  if(Q.field===1&&(k.length===1||k==='backspace')){Q.sprint=k==='backspace'?Q.sprint.slice(0,-1):(/\d/.test(k)&&Q.sprint.length<4?Q.sprint+k:Q.sprint);return;}
+  if(Q.field===2&&(k.length===1||k==='backspace')){Q.module=k==='backspace'?Q.module.slice(0,-1):(Q.module.length<14?Q.module+k:Q.module);return;}
+  if(k==='tab'||k==='down') Q.field=(Q.field+1)%nf;
+  else if(k==='up') Q.field=Math.max(0,Q.field-1);
+  else if(Q.field===0&&(k==='left'||k==='right')){Q.mode=Q.mode==='kanban'?'sprint':'kanban';}
+  else if(k==='enter'){
+    if(Q.mode==='sprint'&&(!Q.sprint||!Q.module)){S.note=['er','En modo Sprint, el sprint y el módulo son obligatorios.'];return;}
+    open('qa-eval');
+  }
+}
+function startEval(){
+  stopTimer();S.qa.evaluated=0;S.qa.cur=0;
+  S.timer=setInterval(()=>{S.qa.evaluated++;if(S.qa.evaluated>=QA.length)stopTimer();render();},380);
+}
+function qaState(t){if(t.e==='✗'||t.d==='✗'||t.doc==='✗'||t.pr==='✗')return ['er','con fallas'];if(t.doc==='?')return ['w','sin verificar'];return ['ok','completa'];}
+function vQaEval(){
+  const Q=S.qa,done=Q.evaluated,total=QA.length;
+  if(Q.cur>=Math.max(1,done)) Q.cur=Math.max(0,done-1);
+  const top=titleLine(sp('b',qaScope())+'  '+sp('f','cuenta ')+sp('ok','✓')+' qa@example.test',stepper(['Sprint o Kanban','Evaluar','Vista previa','Ubicación','Publicar'],1,'Evaluar '+done+'/'+total));
+  const warn=L(sp('w','! no hay \'qa_report\' en la configuración; Líder Técnico, PMO y QA saldrán vacíos.'));
+  const ev=QA.slice(0,done);
+  const cnt={ok:0,er:0,w:0};ev.forEach(t=>{cnt[qaState(t)[0]]++;});
+  const unk=ev.filter(t=>t.doc==='?').length;
+  const counters=S.o.counters?L(sp('b',total+' tareas')+'      '+sp('ok','✓ '+cnt.ok+' completas')+'      '+sp('er','✗ '+cnt.er+' con fallas')+'      '+sp('w','? '+unk+' sin verificar')+'      '+sp('f','· '+(total-done)+' por evaluar')):'';
+  const cols=wide()?'3ch 10ch 6ch 6ch 6ch 6ch 10ch minmax(0,1fr) 16ch':'3ch 9ch 5ch 5ch 5ch 5ch minmax(0,1fr)';
+  let rows=row(cols,['',sp('h','TAREA'),sp('h','ERR'),sp('h','DEV'),sp('h','DOC'),sp('h','PR')].concat(wide()?[sp('h','RESP.'),sp('h','RESUMEN'),sp('h','ESTADO')]:[sp('h','RESUMEN')]));
+  ev.forEach((t,i)=>{
+    const on=i===Q.cur,st=qaState(t);
+    const cells=[on?sp('a',' ▸'):'',sp(on?'ab':'a',t.k),sp(mk(t.e),' '+t.e),sp(mk(t.d),' '+t.d),sp(mk(t.doc),' '+t.doc),sp(mk(t.pr),' '+t.pr)];
+    if(wide()) cells.push(esc(t.r),on?sp('b',t.s):esc(t.s),sp(st[0],st[1])); else cells.push(on?sp('b',t.s):esc(t.s));
+    rows+=row(cols,cells,on?'sel':'');
+  });
+  if(done<total){const t=QA[done];const cells=['',sp('f',t.k),sp('f',' ·'),sp('f',' ·'),sp('f',' ·'),sp('f',' ·')];if(wide())cells.push(sp('f',t.r),sp('f',t.s),sp('a','◐ evaluando…'));else cells.push(sp('f',t.s+' · evaluando…'));rows+=row(cols,cells);}
+  const t=ev[Q.cur];
+  const keys=[['↑↓','elegir tarea',1],['enter','vista previa',1]];
+  if(!wide()){
+    let d='';if(t){const st=qaState(t);d=L(sp('a',t.k)+' '+sp('b',t.s)+'  '+sp(st[0],st[1]))+(t.obs?L(sp('f','obs. ')+esc(t.obs)):'');}
+    return {body:'<div style="display:flex;flex-direction:column;padding:0 1ch">'+top+(counters||'')+L()+rows+L()+d+'</div>',keys};
+  }
+  let det=L();
+  if(t){
+    det+=L(sp('a',t.k)+' '+sp('b',t.s)+'  '+sp('f',t.r+' · Revisión QA'))+L()+
+      L(sp(mk(t.e),t.e)+' Errores de código  '+sp('f',t.e==='✗'?(t.errN||1)+' registrados':'ninguno'))+
+      L(sp(mk(t.d),t.d)+' Devoluciones       '+sp('f',t.d==='✗'?(t.devN||1)+' devolución':'ninguna'))+
+      L(sp(mk(t.doc),t.doc)+' Documento          '+(t.doc==='?'?sp('w','no se pudo verificar ('+t.why+')'):sp('f',t.doc==='✓'?'enlazado':'sin documento de despliegue')))+
+      L(sp(mk(t.pr),t.pr)+' Pull request       '+sp('f',t.pr==='✓'?'enlazado':'sin enlace'))+L()+
+      L(sp('h','OBSERVACIONES')+'  '+(t.obs?esc(t.obs):sp('f','ninguna')));
+  }else det+=L(sp('f','Evaluando la primera tarea…'));
+  const cons=L()+L(sp('h','CONSOLIDADO'))+L(esc(qaTitle()))+L(sp('ok','✓')+' No hay uno publicado: se creará.')+L()+L(sp('f',done<total?'esperando la evaluación…':'enter abre la vista previa; nada se'))+L(sp('f',done<total?'':'publica hasta que lo confirmes.'));
+  const body='<div style="flex:1;min-height:0;display:flex;flex-direction:column;padding:var(--lh) 1ch var(--lh)">'+top+warn+L()+
+    '<div class="box" style="flex:none">'+L()+(counters?counters+L():'')+rows+L()+'</div>'+L()+
+    '<div style="flex:1;min-height:0;display:flex;gap:2ch"><div class="box" style="flex:6">'+det+'</div><div class="box" style="flex:4">'+cons+'</div></div></div>';
+  return {body,keys};
+}
+function kQaEval(k){
+  const Q=S.qa;
+  if(k==='up') Q.cur=Math.max(0,Q.cur-1);
+  else if(k==='down') Q.cur=Math.min(Math.max(0,Q.evaluated-1),Q.cur+1);
+  else if(k==='enter'){if(Q.evaluated<QA.length){S.note=['w','Espera a que termine la evaluación, o esc para cancelarla.'];return;}open('qa-prev');}
+}
+function qaRaw(){
+  const out=['<!-- draco:tabla anchos=120,640 -->','|  |  |','|---|---|','| **Líder Técnico** |  |','| **PMO** |  |','| **QA** |  |','','## Resumen','','| Tarea | Errores | Devoluciones | Documento | PR | Observación |','|---|---|---|---|---|---|'];
+  QA.forEach(t=>out.push('| '+t.k+' | '+t.e+' | '+t.d+' | '+t.doc+' | '+t.pr+' | '+(t.obs||'')+' |'));
+  out.push('','## Consideraciones','');
+  return out.map(s=>L(esc(s)));
+}
+function qaRendered(){
+  const out=[L(sp('b',qaTitle())),L(),row('16ch minmax(0,1fr)',[sp('f','Líder Técnico'),sp('w','—')]),row('16ch minmax(0,1fr)',[sp('f','PMO'),sp('w','—')]),row('16ch minmax(0,1fr)',[sp('f','QA'),sp('w','—')]),L(),L(sp('ab','Resumen'))];
+  const cols='10ch 6ch 6ch 6ch 6ch minmax(0,1fr)';
+  out.push(row(cols,[sp('h','TAREA'),sp('h','ERR'),sp('h','DEV'),sp('h','DOC'),sp('h','PR'),sp('h','OBSERVACIÓN')]));
+  QA.forEach(t=>out.push(row(cols,[sp('a',t.k),sp(mk(t.e),' '+t.e),sp(mk(t.d),' '+t.d),sp(mk(t.doc),' '+t.doc),sp(mk(t.pr),' '+t.pr),esc(t.obs)])));
+  out.push(L(),L(sp('ab','Consideraciones')),L(sp('f','(la escribe QA a mano; se conserva al actualizar)')));
+  return out;
+}
+function vQaPrev(){
+  const top=titleLine(sp('b',qaTitle()),stepper(['Sprint o Kanban','Evaluar','Vista previa','Ubicación','Publicar'],2));
+  const lines=S.o.rendered?qaRendered():qaRaw();
+  S.qa.scroll=Math.min(S.qa.scroll,Math.max(0,lines.length-3));
+  const body='<div style="flex:1;min-height:0;display:flex;flex-direction:column;padding:var(--lh) 1ch var(--lh)">'+top+L(sp('ok','✓')+' No hay un consolidado publicado: se creará.')+L()+tabsLine(['Documento'+(S.o.rendered?' (renderizado)':' (Markdown)')],0)+scrollBox(lines,S.qa.scroll)+'</div>';
+  return {body,keys:[['↑↓','desplazar',1],['enter','continuar',1]]};
+}
+function kQaPrev(k){
+  if(k==='down') S.qa.scroll++;
+  else if(k==='up') S.qa.scroll=Math.max(0,S.qa.scroll-1);
+  else if(k==='enter'){S.loc.flow='qa';open('ubic');}
+}
+
+/* ---------- backlog ---------- */
+const SINCE=['7d','30d','90d'];
+function vBlForm(){
+  const B=S.bl;
+  const rep=(i,side,repo,path)=>L((B.field===i?sp('a',' ▸ '):'   ')+(B.repos[side]?sp('ok','[x]'):'[ ]')+' '+pad(side,10)+esc(repo)+'  '+sp('f',path));
+  const form=L()+L(sp('h','QUÉ ANALIZAR · proyecto '+S.proj.active))+L()+rep(0,'backend','pagos-api','/code/pagos-api')+rep(1,'frontend','pagos-web','/code/pagos-web')+L()+
+    fld(B.field===2,'Desde',B.field===2?sp('a','‹ ')+sp('ab',SINCE[B.since])+sp('a',' ›'):esc(SINCE[B.since]))+L(sp('f','              los commits del período marcan los archivos más tocados'))+L()+
+    L(sp('f','   Módulos     ')+'app/Http/{modulo}/**'+sp('f','  (del proyecto)'))+L();
+  const info=L()+L(sp('h','QUÉ DETECTA'))+L()+L(sp('b','hotspot ')+'  archivos grandes que cambian mucho')+L(sp('b','marcador')+'  TODO, FIXME y código comentado')+L()+'<div class="wr f">Sin red: lee solo el clon local. El reporte se puede guardar como JSON.</div>'+L();
+  const body=wide()?'<div style="display:flex;gap:2ch;padding:var(--lh) 1ch 0;align-items:flex-start"><div class="box" style="flex:5">'+form+'</div><div class="box" style="flex:4">'+info+'</div></div>'
+                   :'<div style="padding:0 1ch"><div class="box">'+form+'</div></div>';
+  return {body,keys:[['↑↓','campo',1],['espacio','marcar repo',1],['← →','período',0],['enter','analizar',1]]};
+}
+function kBlForm(k){
+  const B=S.bl;
+  if(k==='up') B.field=Math.max(0,B.field-1);
+  else if(k==='down'||k==='tab') B.field=(B.field+1)%3;
+  else if(k==='space'&&B.field<2){const s=B.field===0?'backend':'frontend';B.repos[s]=!B.repos[s];}
+  else if(B.field===2&&(k==='left'||k==='right')) B.since=(B.since+(k==='left'?2:1))%3;
+  else if(k==='enter'){if(!B.repos.backend&&!B.repos.frontend){S.note=['er','Marca al menos un repo.'];return;}open('bl-find');}
+}
+function blRepos(){return ['backend','frontend'].filter(s=>S.bl.repos[s]);}
+function startScan(){
+  stopTimer();S.bl.scan=0;S.bl.cur=0;S.bl.repo=blRepos()[0];
+  S.timer=setInterval(()=>{S.bl.scan++;if(S.bl.scan>=blRepos().length)stopTimer();render();},700);
+}
+function vBlFind(){
+  const B=S.bl,reps=blRepos();
+  if(B.scan<reps.length){
+    let h=L();reps.forEach((s,i)=>{h+=L(i<B.scan?sp('ok','✓ ')+'Analizado '+s+'  '+sp('f',BL[s].items.length+' hallazgos'):i===B.scan?sp('a','◐ ')+'Analizando '+s+' '+sp('f',BL[s].path)+'…':sp('f','· '+s));});
+    return {body:'<div style="padding:var(--lh) 1ch 0"><div class="box" style="max-width:80ch">'+h+L()+'</div></div>',keys:[['esc','cancelar',1]]};
+  }
+  const items=BL[B.repo].items,it=items[B.cur]||items[0];
+  const tabs=L(reps.map(s=>s===B.repo?sp('a','▸ ')+sp('ab',s+' ('+BL[s].items.length+')'):'  '+sp('f',s+' ('+BL[s].items.length+')')).join('     '));
+  const pts=items.reduce((a,x)=>a+x.pts,0);
+  const sum=L(esc(B.repo)+sp('f',' · '+BL[B.repo].path+' · desde '+SINCE[B.since]))+L(sp('b',items.length+' hallazgos')+' · '+pts+' pts sugeridos'+sp('f',' · por módulo: ')+[...new Set(items.map(x=>x.mod))].map(m=>m+' '+items.filter(x=>x.mod===m).length).join(' · '));
+  const sevc=s=>s==='alta'?'er':s==='media'?'w':'f';
+  let lh=L()+filterLine({filter:'',filtering:false});
+  items.forEach((x,i)=>{const on=i===B.cur;lh+=L((on?sp('a',' ▸ '):'   ')+sp(sevc(x.sev),'['+pad(x.sev,5)+']')+' '+pad(x.pts+' pts',6)+' '+(on?sp('ab',x.mod+' · '+x.t):esc(x.mod+' · '+x.t)),on?'sel':'');});
+  const det=L()+L(sp('b',it.t))+L(sp('f',it.kind+' · '+it.id+'  ')+sp(sevc(it.sev),it.sev)+sp('f',' · '+it.pts+' pts'))+L(sp('f','Módulo ')+esc(it.mod))+L()+L(esc(it.file))+L(sp('f','· '+it.why));
+  const keys=[['tab','otro repo',1],['↑↓','elegir',1],['/','filtrar',0],['s','guardar reporte',1]];
+  const body=wide()?'<div style="flex:1;min-height:0;display:flex;flex-direction:column;padding:var(--lh) 1ch var(--lh)">'+tabs+sum+L()+'<div style="flex:1;min-height:0;display:flex;gap:2ch"><div class="box" style="flex:6">'+lh+'</div><div class="box" style="flex:4">'+det+'</div></div></div>'
+                   :'<div style="display:flex;flex-direction:column;padding:0 1ch">'+tabs+sum+'<div class="box">'+lh+'</div><div class="box">'+det+'</div></div>';
+  return {body,keys};
+}
+function kBlFind(k){
+  const B=S.bl,reps=blRepos();
+  if(B.scan<reps.length) return;
+  const n=BL[B.repo].items.length;
+  if(k==='tab'&&reps.length>1){B.repo=B.repo==='backend'?'frontend':'backend';B.cur=0;}
+  else if(k==='up') B.cur=Math.max(0,B.cur-1);
+  else if(k==='down') B.cur=Math.min(n-1,B.cur+1);
+  else if(k==='s') S.note=['ok','Reporte guardado en ~/draco-backlog-'+S.proj.active+'-2026-10-27.json'];
+  else if(k==='/') S.note=['f','En draco filtra por texto, módulo o archivo.'];
+}
+
+/* ---------- exportar ---------- */
+function vExForm(){
+  const form=L()+L(sp('h','TAREA'))+L()+fld(true,'Tarea',textVal(true,S.ex.task,16))+L(sp('f','              busca su documento en todos los spaces'))+L();
+  return {body:'<div style="padding:var(--lh) 1ch 0"><div class="box" style="max-width:80ch">'+form+'</div></div>',keys:[['enter','buscar',1]]};
+}
+function kExForm(k){
+  const E=S.ex;
+  if(k.length===1){if(E.task.length<15)E.task=(E.task+k).toUpperCase();}
+  else if(k==='backspace') E.task=E.task.slice(0,-1);
+  else if(k==='enter'){if(!/^[A-Z][A-Z0-9]*-\d+$/.test(E.task)){S.note=['er','La tarea tiene la forma CLAVE-123, por ejemplo OPS-7.'];return;}open('ex-docs');}
+}
+function exDocs(){
+  const t=S.ex.task,tt=TASKS[t]||'Tarea de ejemplo';
+  return [{t:'Documento de Despliegue - '+t+' - '+tt,where:'PAG › Despliegues',upd:'2026-10-20'},{t:'Revisión de Tarea - '+t,where:'PAG › QA',upd:'2026-10-22'}];
+}
+function vExDocs(){
+  const docs=exDocs(),E=S.ex;if(E.cur>=docs.length)E.cur=0;const d=docs[E.cur];
+  let lh=L();docs.forEach((x,i)=>{const on=i===E.cur;lh+=L((on?sp('a',' ▸ ')+sp('ab',x.t):'   '+esc(x.t)),on?'sel':'')+L('     '+sp('f',x.where+' · actualizado '+x.upd),on?'sel':'');});
+  const text=[d.t,d.where+' · actualizado '+d.upd,'','Épica: Enlace a épica o función de Jira relacionada','Tarea(s): https://example.test/browse/'+E.task,'','Arquitecturas e interfaces','Backend','  pagos-api | app/Http/Pagos | FiltroController.php','  pagos-api | routes | api.php','','A considerar:','  [ ] Pasar backend al servidor','  [ ] Ejecutar migraciones'];
+  const tb=L()+L(sp('h','TEXTO'))+text.map(s=>L(esc(s))).join('');
+  const file='~/Documentos/'+E.task+'-'+(E.cur===0?'documento-de-despliegue':'revision-de-tarea')+'.txt';
+  const keys=[['↑↓','elegir',1],['enter','guardar',1]];
+  const body=wide()?'<div style="flex:1;min-height:0;display:flex;flex-direction:column;padding:var(--lh) 1ch var(--lh)">'+L(sp('b',docs.length+' documentos de '+E.task)+'  '+sp('f','se guardará en '+file))+L()+'<div style="flex:1;min-height:0;display:flex;gap:2ch"><div class="box" style="flex:5">'+lh+'</div><div class="box" style="flex:5">'+tb+'</div></div></div>'
+                   :'<div style="display:flex;flex-direction:column;padding:0 1ch"><div class="box">'+lh+'</div>'+L(sp('f','se guardará en '+file))+'</div>';
+  return {body,keys};
+}
+function kExDocs(k){
+  const n=exDocs().length;
+  if(k==='up') S.ex.cur=Math.max(0,S.ex.cur-1);
+  else if(k==='down') S.ex.cur=Math.min(n-1,S.ex.cur+1);
+  else if(k==='enter') S.note=['ok','Guardado en ~/Documentos/'+S.ex.task+'-'+(S.ex.cur===0?'documento-de-despliegue':'revision-de-tarea')+'.txt'];
+}
+
+/* ---------- configuración ---------- */
+function vConfig(){
+  const C=S.cfg;
+  let lh=L();CONFIG.forEach((c,i)=>{const on=i===C.cur;const val=c[0]==='Tema'?S.theme:c[2];lh+=L((on?sp('a',' ▸ ')+sp('ab',pad(c[0],12)):'   '+esc(pad(c[0],12)))+sp(c[1]==='f'?'f':c[1],c[1]==='ok'?'✓ ':c[1]==='w'?'! ':'· ')+sp(c[1]==='w'?'w':'f',val),on?'sel':'');});
+  lh+=L()+L(sp('f','   Lo necesario: Conexión y Proyectos.'))+L(sp('f','   Opcional: Perfiles, QA y Tema.'));
+  const c=CONFIG[C.cur];
+  let det=L()+L(sp('b',c[0]))+L();c[3].forEach(s=>{det+='<div class="wr">'+esc(s)+'</div>';});
+  if(c[0]==='Tema') det+=L()+L(sp('f','Tema actual: ')+sp('ab',S.theme));
+  const keys=[['↑↓','elegir',1],['enter',c[0]==='Tema'?'cambiar tema':'abrir',1]];
+  const body=wide()?'<div style="flex:1;min-height:0;display:flex;gap:2ch;padding:var(--lh) 1ch var(--lh)"><div class="box" style="flex:4">'+lh+'</div><div class="box" style="flex:6">'+det+'</div></div>'
+                   :'<div style="display:flex;flex-direction:column;padding:0 1ch"><div class="box">'+lh+'</div><div class="box">'+det+'</div></div>';
+  return {body,keys};
+}
+function kConfig(k){
+  const C=S.cfg,n=CONFIG.length;
+  if(k==='up') C.cur=Math.max(0,C.cur-1);
+  else if(k==='down') C.cur=Math.min(n-1,C.cur+1);
+  else if(k==='enter'){
+    if(CONFIG[C.cur][0]==='Tema'){const i=THEMES.findIndex(t=>t[0]===S.theme);setTheme(THEMES[(i+1)%THEMES.length][0]);S.note=['ok','Tema guardado: '+S.theme+'.'];}
+    else S.note=['f','En draco abre el formulario de '+CONFIG[C.cur][0]+'. El prototipo no lo incluye.'];
+  }
+}
+
+/* ---------- ayuda y barra ---------- */
+function vHelp(keys){
+  let h=L()+L(sp('b','Ayuda · '+title(cur())))+L();
+  keys.forEach(k=>{h+=L(sp('ab',pad(k[0],12))+esc(k[1]));});
+  h+=L()+L(sp('h','EN TODAS LAS PANTALLAS'));
+  [['esc','volver a la anterior'],['?','esta ayuda'],['ctrl+c','salir de draco']].forEach(k=>{h+=L(sp('ab',pad(k[0],12))+esc(k[1]));});
+  if(cur()==='inicio') h+=L(sp('ab',pad('/',12))+'barra de comandos: escribe un comando como en la terminal');
+  return '<div style="padding:var(--lh) 1ch 0"><div class="box" style="max-width:80ch">'+h+L()+'</div></div>';
+}
+function barSugs(){
+  const w=(S.bar.text.trim().split(/\s+/)[0]||'');
+  return CMDS.filter(c=>c[0].startsWith(w)||c[3].some(a=>a.startsWith(w))).slice(0,5);
+}
+function vBar(){
+  const sugs=barSugs();if(S.bar.sel>=sugs.length)S.bar.sel=0;
+  let h=L(sp('a','> ')+'/'+esc(S.bar.text)+caret);
+  if(!S.bar.text.includes(' ')) sugs.forEach((c,i)=>{h+=L((i===S.bar.sel?sp('a','▸ '):'  ')+sp(i===S.bar.sel?'ab':'b','/'+pad(c[0],10))+sp('f',pad(c[1],46)+' ej. /'+c[2]));});
+  return '<div class="box" style="flex:none;margin:0 1ch">'+h+'</div>';
+}
+function barKey(k){
+  const B=S.bar,sugs=barSugs();
+  if(k==='esc'){S.bar=null;return;}
+  if(k==='backspace'){B.text=B.text.slice(0,-1);return;}
+  if(k==='up'){B.sel=Math.max(0,B.sel-1);return;}
+  if(k==='down'){B.sel=Math.min(Math.max(0,sugs.length-1),B.sel+1);return;}
+  if(k==='tab'){if(sugs[B.sel])B.text=sugs[B.sel][0]+' ';return;}
+  if(k==='enter'){
+    let line=B.text.trim();
+    if(!line.includes(' ')&&sugs[B.sel]&&!CMDS.some(c=>c[0]===line||c[3].includes(line))) line=sugs[B.sel][0];
+    S.bar=null;
+    if(line) runCmd(line);
+    return;
+  }
+  if(k==='space'){B.text+=' ';return;}
+  if(k.length===1) B.text+=k;
+}
+function runCmd(line){
+  stopTimer();S.help=false;
+  const t=line.trim().replace(/^\//,'').split(/\s+/),c=t[0],fl={};
+  for(let i=1;i<t.length;i++){if(t[i].startsWith('-')){fl[t[i]]=(t[i+1]&&!t[i+1].startsWith('-'))?t[++i]:true;}}
+  const get=(...ks)=>{for(const k of ks)if(fl[k]!==undefined)return fl[k];};
+  if(c==='g'||c==='gen'||c==='generate'){
+    const i=get('-i','--issue');
+    if(!i||i===true){S.stack=['inicio','gen-form'];S.gen.field=0;return;}
+    S.gen.task=String(i).toUpperCase();S.gen.sel={backend:new Set(),frontend:new Set()};
+    const miss=[];
+    [['backend',get('-b','--backend')],['frontend',get('-f','--frontend')]].forEach(([side,v])=>{
+      if(!v||v===true) return;
+      String(v).split(',').forEach(h=>{const x=REPOS[side].list.find(cm=>cm.h.startsWith(h));if(x)S.gen.sel[side].add(x.h);else miss.push(h);});
+    });
+    S.stack=['inicio','gen-form','commits'];
+    if(miss.length) S.note=['w','No encontré '+miss.join(', ')+' en la rama; en draco se agrega con h.'];
+    return;
+  }
+  if(c==='qa'){
+    const s=get('-s','--sprint'),m=get('-m','--module');
+    if(s&&s!==true){S.qa.mode='sprint';S.qa.sprint=String(s);if(m&&m!==true)S.qa.module=String(m);}else S.qa.mode='kanban';
+    S.stack=['inicio','qa-form','qa-eval'];startEval();return;
+  }
+  if(c==='f'||c==='fetch'){
+    const i=get('-i','--issue');
+    if(i&&i!==true){S.ex.task=String(i).toUpperCase();S.ex.cur=0;S.stack=['inicio','ex-form','ex-docs'];}else S.stack=['inicio','ex-form'];
+    return;
+  }
+  if(c==='backlog'){S.stack=['inicio','bl-form'];return;}
+  if(c==='project'){S.stack=['inicio','proyectos'];return;}
+  if(c==='init'){S.stack=['inicio','config'];return;}
+  if(c==='help'){S.help=true;return;}
+  S.note=['er','«'+c+'» no es un comando de draco. Escribe /help para ver la lista.'];
+}
+
+/* ---------- registro y teclado ---------- */
+const SCREENS={
+  inicio:{view:vInicio,key:kInicio},
+  proyectos:{view:vProyectos,key:kProy,captures:k=>S.proj.filtering||(k==='esc'&&!!S.proj.filter)},
+  'gen-form':{view:vGenForm,key:kGenForm,captures:k=>S.gen.field===0&&k.length===1},
+  commits:{view:vCommits,key:kCommits},
+  preview:{view:vPreview,key:kPreview},
+  ubic:{view:vUbic,key:kUbic,captures:k=>S.pub.state==='run'||S.loc.filtering||(k==='esc'&&!!S.loc.filter)},
+  resultado:{view:vResultado,key:kResultado,captures:k=>k==='esc'},
+  'qa-form':{view:vQaForm,key:kQaForm,captures:k=>S.qa.field>0&&k.length===1},
+  'qa-eval':{view:vQaEval,key:kQaEval},
+  'qa-prev':{view:vQaPrev,key:kQaPrev},
+  'bl-form':{view:vBlForm,key:kBlForm},
+  'bl-find':{view:vBlFind,key:kBlFind},
+  'ex-form':{view:vExForm,key:kExForm,captures:k=>k.length===1},
+  'ex-docs':{view:vExDocs,key:kExDocs},
+  config:{view:vConfig,key:kConfig}
+};
+function press(k){
+  S.note=null;
+  if(k==='ctrl+c'){goHome();S.note=['w','ctrl+c sale de draco; en el prototipo vuelve a Inicio.'];return render();}
+  if(S.bar){barKey(k);return render();}
+  if(S.help){if(k==='esc'||k==='?')S.help=false;return render();}
+  const scr=SCREENS[cur()];
+  const captured=scr.captures&&scr.captures(k);
+  if(!captured){
+    if(k==='?'){S.help=true;return render();}
+    if(k==='esc'&&S.stack.length>1){back();return render();}
+  }
+  scr.key(k);
+  render();
+}
+function keyName(e){
+  if(e.ctrlKey&&(e.key==='c'||e.key==='C')) return 'ctrl+c';
+  const m={ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right',Enter:'enter',Escape:'esc',Tab:'tab',' ':'space',Backspace:'backspace'};
+  if(m[e.key]) return m[e.key];
+  return e.key&&e.key.length===1?e.key:null;
+}
+term.addEventListener('keydown',e=>{
+  if(e.metaKey||e.altKey) return;
+  const k=keyName(e);
+  if(!k||(e.ctrlKey&&k!=='ctrl+c')) return;
+  e.preventDefault();press(k);
+});
+const kbd=document.getElementById('kbd');
+term.addEventListener('focus',()=>{kbd.textContent='teclado activo';kbd.classList.add('on');});
+term.addEventListener('blur',()=>{kbd.textContent='clic en la terminal para usar el teclado';kbd.classList.remove('on');});
+term.addEventListener('mousedown',()=>{setTimeout(()=>term.focus(),0);});
+document.querySelectorAll('.pad button').forEach(b=>b.addEventListener('click',()=>{press(b.dataset.k);term.focus({preventScroll:true});}));
+
+/* ---------- controles ---------- */
+function fit(){
+  const avail=Math.max(200,fitEl.clientWidth-2);
+  const fs=Math.min(14,avail/((S.cols+2)*0.6));
+  const lh=Math.round(fs*1.46*10)/10;
+  win.style.setProperty('--fs',fs+'px');win.style.setProperty('--lh',lh+'px');
+  win.style.setProperty('--cols',S.cols);win.style.setProperty('--rows',S.rows);
+  document.getElementById('wintitle').textContent='draco — '+S.cols+' × '+S.rows;
+}
+function setTheme(name){
+  S.theme=name;store.set('theme',name);
+  const cls=(THEMES.find(t=>t[0]===name)||THEMES[0])[1];
+  win.className='win th-'+cls;
+  document.querySelectorAll('#seg-theme button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v===name)));
+}
+const segSize=document.getElementById('seg-size');
+SIZES.forEach((s,i)=>{const b=document.createElement('button');b.type='button';b.textContent=s[0]+'×'+s[1];b.dataset.i=i;b.setAttribute('aria-pressed',String(S.cols===s[0]));
+  b.addEventListener('click',()=>{S.cols=s[0];S.rows=s[1];store.set('size',i);segSize.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));fit();render();});segSize.appendChild(b);});
+const segTheme=document.getElementById('seg-theme');
+THEMES.forEach(t=>{const b=document.createElement('button');b.type='button';b.textContent=t[0];b.dataset.v=t[0];b.addEventListener('click',()=>{setTheme(t[0]);render();});segTheme.appendChild(b);});
+const optsEl=document.getElementById('opts');
+OPTS.forEach(o=>{
+  const lab=document.createElement('label');lab.className='opt';lab.htmlFor='opt-'+o[0];
+  const inp=document.createElement('input');inp.type='checkbox';inp.id='opt-'+o[0];inp.checked=!!S.o[o[0]];
+  inp.addEventListener('change',()=>{S.o[o[0]]=inp.checked;store.set('opt.'+o[0],inp.checked);render();});
+  const span=document.createElement('span');span.textContent=o[1];
+  const small=document.createElement('small');small.textContent=o[2];
+  lab.append(inp,span,small);optsEl.appendChild(lab);
+});
+const JUMPS=[
+  ['Inicio',()=>{goHome();}],
+  ['Proyectos',()=>{S.stack=['inicio','proyectos'];}],
+  ['Generar › Tarea',()=>{S.stack=['inicio','gen-form'];S.gen.field=0;}],
+  ['Commits',()=>{S.stack=['inicio','gen-form','commits'];}],
+  ['Vista previa',()=>{ensureSelection();S.stack=['inicio','gen-form','commits','preview'];S.gen.scroll=0;}],
+  ['Ubicación',()=>{ensureSelection();S.loc.flow='deploy';S.stack=['inicio','gen-form','commits','preview','ubic'];enter('ubic');}],
+  ['QA › Evaluar',()=>{S.stack=['inicio','qa-form','qa-eval'];startEval();}],
+  ['QA › Vista previa',()=>{S.qa.evaluated=QA.length;S.stack=['inicio','qa-form','qa-eval','qa-prev'];}],
+  ['Backlog',()=>{S.stack=['inicio','bl-form'];}],
+  ['Exportar',()=>{S.stack=['inicio','ex-form','ex-docs'];}],
+  ['Configuración',()=>{S.stack=['inicio','config'];}]
+];
+const jumpEl=document.getElementById('jump');
+JUMPS.forEach(j=>{const b=document.createElement('button');b.type='button';b.className='chip';b.textContent=j[0];b.addEventListener('click',()=>{stopTimer();S.bar=null;S.help=false;S.note=null;S.pub.state='idle';j[1]();render();term.focus({preventScroll:true});});jumpEl.appendChild(b);});
+const chipsEl=document.getElementById('chips');
+['/g -i OPS-7 -b a1b2c3d,5c4b3a2','/qa -s 12 -m Pagos','/qa','/f -i OPS-7','/backlog scan','/deploy'].forEach(l=>{const b=document.createElement('button');b.type='button';b.className='chip';b.textContent=l;b.addEventListener('click',()=>{S.bar=null;S.note=null;runCmd(l);render();term.focus({preventScroll:true});});chipsEl.appendChild(b);});
+document.getElementById('reset').addEventListener('click',()=>{goHome();S.note=null;render();term.focus({preventScroll:true});});
+
+setTheme(S.theme);
+fit();render();
+window.addEventListener('resize',()=>{fit();});
+})();
+</script>
