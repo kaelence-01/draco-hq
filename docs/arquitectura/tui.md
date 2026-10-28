@@ -5,14 +5,19 @@ de la terminal: menús, listas, formularios y vista previa. Es otra forma de
 recorrer **los mismos flujos** que el modo comando; no tiene lógica propia de
 negocio.
 
-Estado: **fases 4, 5 y 6 cerradas**; el diseño de cada pantalla está en el
-§6. Implementado: la base (entrada, marco, pila de pantallas, pantalla
+Estado: **fases 4 a 7 cerradas**; el diseño de cada pantalla está en el §6.
+Implementado: la base (entrada, marco, pila de pantallas, pantalla
 principal), Proyectos, Generar y QA completos, de la tarea o el sprint a la
 publicación, Exportar, Backlog, Configuración (conexión, perfiles y QA), el
 aviso de versión nueva, la barra de comandos (que abre cada pantalla con los
 datos de la línea), la Ayuda y los temas. Se
 actualiza al implementar cada actividad. Las reglas para escribir una
 pantalla están en el §10 y son obligatorias.
+
+**Fase 7 (cerrada):** rediseño de cómo cada pantalla usa el espacio
+(maestro-detalle elástico). El §11 es el diseño y la referencia visual (el
+prototipo); el §6 ya describe cada pantalla con su disposición nueva, con
+las notas «fase 7» donde cambió.
 
 ## 1. Alcance por fase
 
@@ -21,6 +26,7 @@ pantalla están en el §10 y son obligatorias.
 | 4 | Principal, Proyectos, Generar documento (selector de commits, vista previa, ubicación con búsqueda, confirmación) |
 | 5 | Backlog (tabla filtrable), QA (progreso en vivo), Exportar |
 | 6 | Configuración (conexión, perfiles, QA, tema) en formularios, aviso de versión nueva, barra de comandos con autocompletado, ayuda, temas |
+| 7 | Las mismas pantallas en maestro-detalle elástico: marco compacto, columnas proporcionales, detalle al lado, vista previa renderizada (§11) |
 
 Mientras una pantalla no existe, su entrada del menú aparece atenuada con el
 comando equivalente: quien abre la TUI sabe que la función existe y cómo
@@ -69,22 +75,25 @@ draco <comando> …                                 →  modo comando, sin cambi
 internal/tui/
   tui.go        Run(ctx, Deps) error; Deps: las dependencias que pasa cmd
   app.go        modelo raíz: pila de pantallas, tamaño, cabecera, pie, teclas globales
+  layout.go     ayudas de layout: extremos de una línea, ruta que cede, columnas proporcionales, caja que se estira (con contenido ajustado), lista y detalle (`panels`), línea de pasos
   styles.go     estilos de Lip Gloss en un solo lugar y los temas (applyTheme)
   logo.go       DRACO en letras grandes
-  home.go       pantalla principal (menú y panel de la función elegida)
+  home.go       pantalla principal (menú con descripciones y atajos, panel de la función elegida)
+  homecontext.go  principal: cajas «Proyecto activo» y «Tu configuración»
   projects.go   Proyectos: lista con filtro, activo, por defecto, borrar
   projectform.go  formulario de Huh para crear y editar un proyecto
   generate.go   Generar: tarea y proyecto (formulario); abre el perfil
   commits.go    Generar: selector de commits por lado, con hash a mano
   progress.go   Generar: pasos de deploy.Session con progreso y cancelación
-  preview.go    Generar y QA: vista previa (Markdown y archivos) y secciones no conservadas
+  preview.go    Generar y QA: vista previa (documento dibujado o Markdown, y archivos) y secciones no conservadas
+  mdrender.go   renderizador del Markdown que genera draco, para la vista previa
   locations.go  Generar y QA: ubicación del documento nuevo, con filtro
   publish.go    Generar y QA: confirmación, publicación y resultado
   filter.go     filtro de una lista (/), compartido por Proyectos, Ubicación y Exportar
   export.go     Exportar: tarea, documentos que la mencionan, texto y guardado
   backlog.go    Backlog: formulario y progreso por repo
   findings.go   Backlog: hallazgos con filtro y detalle
-  qa.go         QA: formulario y evaluación en vivo
+  qa.go         QA: formulario y evaluación en vivo (contadores, tabla, detalle y consolidado)
   docrun.go     docRun: lo que vista previa, ubicación y publicar piden a Generar y a QA
   settings.go   Configuración: secciones con su estado y asistente sin configuración
   connection.go Configuración: conexión con Atlassian y verificación de la cuenta
@@ -132,7 +141,7 @@ habla con los flujos; nunca con un adaptador.
       title() string                        // nombre en la ruta
       update(msg tea.Msg) (screen, tea.Cmd)
       view(width, height int) string        // solo el cuerpo, en ese tamaño
-      keys() []key.Binding                  // teclas del pie y de la ayuda
+      keys() []key.Binding                  // teclas principales: las del pie compacto
   }
   ```
 
@@ -140,6 +149,7 @@ habla con los flujos; nunca con un adaptador.
 
   | Interfaz | Para qué |
   |---|---|
+  | `moreKeys() []key.Binding` | Las teclas secundarias: solo aparecen en la ayuda completa (`?`). Sin ella, todas las de `keys()` van en el pie |
   | `captures(k tea.KeyPressMsg) bool` | Quitarle una tecla global (`?`, `esc`) al marco mientras la pantalla la necesita: un campo de texto, un filtro, una confirmación. `ctrl+c` nunca se captura |
   | `init() tea.Cmd` | Arrancar al mostrarse: al abrirse y al volver a quedar arriba. El formulario de Huh enfoca su primer campo (y, si ya se envió, se rehace con los mismos valores); una pantalla con pasos los lanza una sola vez |
   | `close()` | Soltar lo que la pantalla lanzó al cerrarse: cancela el `context` de un paso en curso |
@@ -152,10 +162,11 @@ habla con los flujos; nunca con un adaptador.
   `?` muestra la ayuda completa de teclas de la pantalla (`bubbles/help`);
   `esc` vuelve. Las tres últimas ceden ante `captures`, y el pie no ofrece
   una tecla que la pantalla captura en ese momento.
-- **Marco común:** cabecera con versión, perfil y proyecto activos; debajo,
-  fuera de la principal, la **ruta** con los títulos de la pila
-  (`Inicio › Proyectos › Nuevo proyecto`); pie con las teclas de la pantalla.
-  Las pantallas solo dibujan su cuerpo.
+- **Marco común:** cabecera de una línea con la versión y la **ruta** de los
+  títulos de la pila (`draco v0.3.3 │ Inicio › Proyectos › Nuevo proyecto`) a
+  la izquierda y, a la derecha, el perfil y el proyecto activos; pie con las
+  teclas principales de la pantalla y `? más`. Las pantallas solo dibujan su
+  cuerpo.
 - **Estado compartido (`state`):** la config leída con `LoadLocal` y el
   proyecto activo. `state.save(change)` es la única forma de guardar:
   `LoadFile` → `change` (funciones puras de `config`) → `SaveConfig` → vuelve
@@ -184,16 +195,32 @@ aviso de versión nueva, barra de comandos, Ayuda y temas.
 ### Principal
 
 - DRACO en letras grandes con caracteres de bloque (ninguna terminal común
-  muestra el logo como imagen). Si el ancho no alcanza, solo `draco`.
+  muestra el logo como imagen), arriba a la izquierda. Si el ancho no alcanza,
+  solo `draco`.
 - Menú: Generar documento, Proyectos, Consolidado QA, Exportar página,
-  Backlog técnico, Configuración. Todas tienen pantalla desde la fase 6.
-- **Panel de la función elegida**, a la derecha del menú: qué hace y el mismo
-  trabajo en modo comando con un ejemplo (`$ draco g -i OPS-7 -b a1b2c3d`), y
-  si aún no tiene pantalla, lo dice. Enseña que los dos modos son uno. Si el
-  ancho no alcanza (menos de 96 columnas), no hay panel y cada función sin
-  pantalla muestra su comando en el menú.
+  Backlog técnico, Configuración. Todas tienen pantalla desde la fase 6. Cada
+  opción lleva su número (`1`–`6`, hasta `9`) y `1-6` la abre directo; no son
+  letras porque `q` sale. Desde 96 columnas, una línea tenue de descripción
+  bajo cada opción.
+- **Panel de la función elegida**, a la derecha del menú: qué hace, las
+  pantallas por las que pasa, y el mismo trabajo en modo comando con un
+  ejemplo (`$ draco g -i OPS-7 -b a1b2c3d`); si aún no tiene pantalla, lo
+  dice. Enseña que los dos modos son uno.
+- **Proyecto activo y Tu configuración**, dos cajas bajo el panel desde 120
+  columnas, cuando caben en el alto. Salen de funciones puras de `config`
+  (`HasAtlassianCredentials`, `QAState`, `HasQAReport`), las mismas reglas que
+  Configuración; una opcional sin configurar (QA) no se marca como problema.
+- **Cede lo accesorio, no lo esencial.** Con poco alto el menú pierde primero
+  los espacios entre opciones y después las descripciones; las cajas de
+  contexto no se dibujan cortadas.
+- **Debajo de 96 columnas** no hay panel ni descripciones: bajo el menú van
+  el texto de la opción elegida y su comando. Con pocas líneas (avisos
+  encima) se retiran el eslogan y después las letras grandes, antes que el
+  texto o el comando.
 - Sin configuración: la principal lo dice y propone abrir Configuración (o
-  `draco init`), que arranca como asistente (§6, «Configuración»).
+  `draco init`), que arranca como asistente (§6, «Configuración»). Los
+  avisos (config, versión nueva) y el mensaje de una función sin pantalla
+  ocupan todo el ancho.
 
 ### Proyectos
 
@@ -250,10 +277,33 @@ mismas decisiones que pregunta `draco g`:
   commit de otra rama se agrega con `h`; la pantalla dice en qué rama está
   (`CurrentBranch`). Cada lado es una pestaña (`tab`), para caber en 80
   columnas; la pestaña cuenta los commits marcados.
+- **Archivos de cada commit (fase 7).** La pantalla Commits los lee con
+  `ChangedFiles` de **un solo hash**, en un `tea.Cmd`, cuando el cursor llega
+  al commit, cuando se agrega un hash a mano y, al abrirla desde la barra, para
+  cada hash marcado. Se guardan por hash (`side.files`): un commit no se lee
+  dos veces. Alimentan el detalle, la columna `ARCH.` y el total de la franja
+  de seleccionados, que cuenta cada archivo una vez **por lado**, como el
+  documento. El puerto no cambia. `ChangedFiles` devuelve rutas sin estado, así
+  que el detalle no muestra la letra A/M/D del prototipo.
+- **Disposición (fase 7).** Desde 96 columnas: formulario y «Lo que sigue»
+  (pasos, repos del proyecto con su clon y destino del perfil) en Tarea; en
+  Commits, la tabla (hash, mensaje, autor, fecha, archivos) al 60 % y el
+  detalle del commit al 40 %, con la franja **Seleccionados** debajo. La
+  tabla suelta autor y fecha cuando el mensaje se quedaría con menos de 24
+  columnas (el detalle los trae). Debajo de 96 columnas el detalle baja a dos
+  líneas: archivos del commit y cuenta de marcados.
+- **Destino del perfil:** `profile.Scope` (función pura, la regla que usa
+  `profile.Open`): el space de la petición, el del proyecto, el del perfil, o
+  la carpeta Markdown. Tarea lo muestra sin repetir la regla.
 - El paso 3 termina con los archivos leídos por carpeta; `enter` abre la
   vista previa.
-- **Vista previa:** pestañas Documento (el Markdown en un `viewport`, con las
-  líneas largas ajustadas) y Archivos. Reemplaza a `--dry-run`: salir ahí no
+- **Vista previa (fase 7):** pestañas Documento y Archivos. El documento se
+  ve **dibujado** por defecto (`mdrender.go`) y `m` alterna con el Markdown
+  tal como se publicará, en el mismo `viewport` y con las líneas largas
+  ajustadas; `m` solo vale en la pestaña del documento y va en la ayuda
+  completa. La línea de título lleva los pasos (si el título no deja sitio,
+  pasan a la línea de estado, que dice qué pasará: «Se creará un documento
+  nuevo», o lo que se conserva al actualizar). Reemplaza a `--dry-run`: salir ahí no
   publica nada. Al actualizar dice si lo escrito a mano se conserva; si el
   documento actual no tiene una sección a conservar (`NotPreserved`), lo
   avisa y `enter` no sigue hasta que el usuario acepta con `s`.
@@ -341,6 +391,30 @@ Los pasos de `qa.Session`, con las decisiones de `draco qa`:
   `DeployDocUnknown`; resumen). Arriba, el período o módulo y sprint, los
   `Warnings` del target, la cuenta y las tareas; debajo, los avisos de cada
   tarea. `esc` cancela entre tareas.
+- **Disposición (fase 7).** Desde 96 columnas: la línea de pasos con el avance
+  (`Evaluar 2/8`), los `Warnings` y la cuenta; una caja a todo el ancho con
+  los **contadores** y la tabla (tarea, `ERR DEV DOC PR`, resumen y **estado**:
+  `completa`, `con fallas`, `sin verificar`, y mientras se evalúa
+  `evaluando…` o `por evaluar`); y debajo, hasta el pie, el **detalle** de la
+  tarea elegida (6/10) al lado del **consolidado** (4/10: título, qué hará
+  publicar y el avance). Si la altura no deja sitio para las dos cajas
+  (menos de 6 líneas), la pantalla vuelve a la lista de una columna: nunca
+  dibuja las cajas cortadas. Debajo de 96 columnas se conserva la estructura
+  de antes, con los contadores.
+- **La regla de los contadores está en el flujo:** `qa.StatusOf` dice si una
+  tarea evaluada está completa, con fallas o sin verificar, y `qa.Tally` las
+  cuenta (solo las ya evaluadas: una tarea sin evaluar no tiene el documento
+  comprobado y no es una falla). **Una consulta fallida
+  (`DeployDocUnknown`) es «sin verificar», nunca «con fallas»**, y una falla
+  real nunca se esconde detrás de una consulta fallida. La pantalla solo
+  muestra el resultado.
+- **El detalle no inventa datos.** El tracker responde sí o no
+  (`QAIssue` trae booleanos): el detalle dice «con errores registrados» o
+  «ninguno», sin conteo, y no hay columna de responsable. El motivo de un
+  «no se pudo verificar» es el aviso real de esa tarea (`EvaluateTask`
+  devuelve el error del tracker), guardado por tarea para mostrarlo con ella.
+  Una tarea que todavía no se evaluó dice «Todavía sin evaluar», sin las
+  comprobaciones que no se han hecho.
 - **La pantalla guarda su copia de las filas:** al terminar `Collect` copia
   `Session.Tasks`, y de cada `EvaluateTask(i)` copia solo la fila `i`. Así
   nunca lee la `Session` mientras el paso siguiente la escribe.
@@ -378,6 +452,15 @@ type docRun interface {
 - En QA, `enter` al terminar la evaluación abre la vista previa; el
   resultado dice «Consolidado creado» o «actualizado».
 - Los tests de Generar pasaron sin cambios.
+- **Fase 7:** Ubicación y Publicar llevan la línea de pasos que trae
+  `docAbout.steps` (cada flujo dice los suyos). Ubicación va en dos columnas
+  (6/4) desde 96 columnas: la lista con su línea `/ filtrar` siempre visible y,
+  al lado, el **Resumen** (título, destino, la página que se creará junto a la
+  elegida y el enlace posterior desde la tarea); debajo de 96 columnas el
+  resumen baja. Publicar sigue pidiendo una confirmación aparte, y su
+  resultado va en una caja. No hay progreso paso a paso al publicar:
+  `Session.Publish` es una sola llamada sin avisos intermedios, y mostrar
+  «Creando… / Enlazando…» sería inventarlo.
 
 ### Configuración
 
@@ -714,7 +797,8 @@ Obligatorias para toda pantalla nueva o modificada (las resume `CLAUDE.md`):
 4. **Teclas:** `ctrl+c` es del marco y nunca se captura. Si la pantalla tiene
    un campo de texto, un filtro o una confirmación, implementa `captures` y
    reclama `?` y `esc` mientras los necesita. Cada tecla propia va en
-   `keys()` con su ayuda en español; ninguna tecla oculta.
+   `keys()` (principal) o en `moreKeys()` (secundaria) con su ayuda en
+   español; ninguna tecla oculta.
 5. **Red, git y disco lento en un `tea.Cmd`**, nunca en `update`: la pantalla
    muestra un spinner y no lee la `Session` hasta recibir el mensaje. Leer y
    guardar la config local puede ir directo en `update`.
@@ -739,3 +823,213 @@ Obligatorias para toda pantalla nueva o modificada (las resume `CLAUDE.md`):
     texto de `View` sin color con un tamaño fijo, y, si guarda, que el token
     del entorno no llega al archivo. Nunca `tea.NewProgram` en un test.
 
+
+## 11. Fase 7: maestro-detalle elástico
+
+Con draco en uso, el autor pidió aprovechar el espacio. Medido con la TUI
+real a 160×40: la principal centra todo y deja unas 60 columnas vacías por
+lado; Commits, Proyectos y QA ocupan un tercio del ancho y ponen el detalle
+debajo; el marco gasta tres líneas arriba (cabecera, raya y ruta).
+
+Se compararon tres propuestas en maquetas: riel lateral fijo,
+maestro-detalle elástico y mosaico de paneles. El autor eligió la
+**maestro-detalle elástico** y la probó en un prototipo navegable con todas
+las mejoras de este apartado (bitácora 062). Conserva el modelo: pila de
+pantallas, `esc` vuelve, un paso por pantalla, los mismos flujos. Cambia cómo
+cada pantalla reparte el ancho y el alto.
+
+### Referencia visual: el prototipo
+
+**`docs/arquitectura/prototipo-fase-7.html`** es el prototipo que aprobó el
+autor. Es la referencia de cómo debe verse cada pantalla; este apartado es
+la de qué se implementa. Si los dos no coinciden, manda este apartado.
+
+- **Cómo abrirlo:** en un navegador, como archivo local (`xdg-open`,
+  `explorer.exe` desde WSL o `open`). Es un solo HTML sin dependencias; sin
+  conexión cae a la fuente monoespaciada del sistema. Se hace clic en la
+  terminal y se navega con el teclado como en draco. Los botones de abajo
+  envían las mismas teclas.
+- **Controles:**
+  - tamaño de terminal (80×24, 120×32, 160×40) y tema (`ansi`,
+    `alto-contraste`, `mono`): así se ve cómo se reacomoda cada pantalla
+    debajo de 96 columnas;
+  - **Mejoras para probar**, encendidas o apagadas. Se implementan todas,
+    encendidas y con el comportamiento que muestran; los interruptores son
+    solo del prototipo;
+  - **Ir a una pantalla** y **Probar en la barra**, para saltar a cada
+    estado.
+- **Pantalla del prototipo → archivo de `internal/tui`:**
+
+  | Prototipo | Archivo | Actividad |
+  |---|---|---|
+  | Cabecera, pie, línea de resultado | `app.go` (+ `layout.go` nuevo) | 2 |
+  | Inicio | `home.go` | 3 |
+  | Generar › Tarea | `generate.go` | 4 |
+  | Commits | `commits.go` | 4 |
+  | Ubicación, Publicado | `locations.go`, `publish.go` | 4 |
+  | Vista previa (Generar y QA) | `preview.go`, `docrun.go` | 5 |
+  | Consolidado QA › Evaluar | `qa.go` | 6 |
+  | Proyectos, Hallazgos, Exportar, Configuración | `projects.go`, `findings.go`, `export.go`, `settings.go` | 7 |
+
+- **Lo que el prototipo muestra y no se implementa** (draco no lo lee; ver
+  Decisiones):
+  - en Commits, «En progreso · Ana» junto a la tarea, y el cuerpo y la hora
+    del commit en el detalle;
+  - en QA, la columna RESP. y los textos «2 registrados» o «1 devolución»:
+    se muestra sí o no;
+  - en Configuración, la descripción de cada sección es de ejemplo.
+- **Lo que el prototipo simplifica y draco ya hace a su manera:** los
+  formularios son de Huh (no los campos del prototipo); publicar,
+  documento existente y secciones no conservadas siguen las reglas de
+  `docRun`; las pantallas sin flujo en el prototipo (formularios de
+  Proyectos, Conexión, Perfiles, QA) solo cambian de layout.
+- **Mismo dato, mismo lugar:** los ejemplos del prototipo (`OPS-7`, `pagos`,
+  `mi-org`, `a1b2c3d`) son los de los tests. Un test a 160×40 puede
+  comparar sus textos con lo que muestra el prototipo en esa pantalla.
+
+### Reglas de layout
+
+Se suman a las normas del §10:
+
+- **Columnas proporcionales desde `panelMinWidth` (96).** Una pantalla de
+  lista con detalle va en dos columnas que crecen con la terminal: lista 6 y
+  detalle 4 (Commits, Ubicación, Hallazgos, Exportar), o lista 4 y detalle 6
+  (Proyectos, Configuración). Debajo de 96 columnas el detalle baja, como
+  hoy.
+- **Arriba a la izquierda y a todo el alto.** Nada se centra salvo la
+  principal con la barra abierta; las cajas se estiran hasta el pie.
+- **Ayudas de layout en `layout.go`:** columnas proporcionales, caja que se
+  estira y línea de pasos. Las usan todas las pantallas; ninguna las copia.
+- **Formularios de Huh con contexto al lado:** desde 96 columnas, a la
+  derecha del formulario va qué hará el paso (por ejemplo, los repos del
+  proyecto antes de leer los commits).
+
+### Marco
+
+- **Cabecera de una línea:** versión y ruta a la izquierda
+  (`draco v0.3.3 │ Inicio › Generar documento › Commits de OPS-7`), perfil y
+  proyecto a la derecha. Cada pantalla apilada gana una línea. Si no cabe
+  todo, primero cede el perfil (queda solo el proyecto), después el
+  proyecto, y al final la ruta, que pierde sus primeras pantallas
+  (`… › Ubicación › Publicar`): la pantalla actual siempre se ve.
+- **Pie compacto:** las teclas principales de la pantalla y `? más`; `?`
+  muestra todas, como hoy. Cada tecla es principal (`keys()`) o secundaria
+  (`moreKeys()`); ninguna desaparece, solo pasa a la ayuda completa, donde
+  también está `ctrl+c`.
+- **Línea de resultado:** después de publicar, sobre el pie queda
+  `✓ OPS-7 publicado en PAG › Despliegues` hasta salir de la TUI. Es estado
+  en memoria del marco, como el proyecto activo.
+- **Pasos del flujo:** en Generar y QA, la línea de título de cada paso
+  lleva `✓ Tarea › Commits › Vista previa › Ubicación › Publicar` desde 96
+  columnas.
+
+### Pantallas
+
+| Pantalla | Cambio |
+|---|---|
+| Principal | Logo arriba a la izquierda. Cada opción con su descripción en una línea tenue y atajos `1`–`6`; no letras, porque `q` es salir. Panel con la descripción, los pasos y el comando. Debajo, **Proyecto activo** y **Tu configuración** (credenciales, proyectos, perfil, `qa_jira` y `qa_report`, tema), leídos con funciones puras de `config`. En 80 columnas: menú sin descripciones y el texto de la opción elegida debajo |
+| Generar › Tarea | Formulario a la izquierda; a la derecha, lo que sigue: repos del proyecto (`deploy.ProjectSides`) y destino del perfil |
+| Commits | Tabla con hash, mensaje, autor, fecha y número de archivos; al lado, el detalle del commit con sus archivos. Abajo, la franja de seleccionados de los dos repos con el total de archivos sin repetir |
+| Vista previa | El documento **renderizado** por defecto; `m` alterna con el Markdown crudo y `tab` con la lista de archivos. Vale para Generar y QA (`docRun`) |
+| Ubicación | Lista con filtro visible y, al lado, el resumen: título, destino, qué pasará y el progreso al publicar |
+| QA › Evaluar | Contadores (completas, con fallas, sin verificar, por evaluar), tabla a todo el ancho y, debajo, el detalle de la tarea al lado del consolidado |
+| Proyectos, Hallazgos, Exportar, Configuración | Columnas proporcionales; las listas con filtro muestran la línea `/ filtrar` |
+
+### Decisiones
+
+- **Archivos de cada commit:** se leen con `ChangedFiles` de un solo hash,
+  en un `tea.Cmd`, cuando el cursor llega al commit, y se guardan por hash.
+  El total de la franja deduplica como el flujo. El puerto no cambia.
+- **Vista previa renderizada sin dependencia nueva:** un renderizador propio
+  en `internal/tui` del Markdown que genera draco: títulos, tablas, listas,
+  casillas, el recuadro y los anchos (`draco:tabla`, `draco:recuadro`, que no
+  se muestran) y enlaces. `goldmark` queda solo en los adaptadores, como dice
+  `CLAUDE.md`. Una línea que el renderizador no reconoce (una plantilla del
+  usuario con otro Markdown) se muestra tal cual.
+- **Contadores de QA en el flujo:** cuándo una tarea está completa, con
+  fallas o sin verificar es una regla de QA. Va como función pura en
+  `internal/qa` (`Tally`), con su test, y no en la pantalla (norma 1).
+  Una consulta fallida cuenta como sin verificar, nunca como falla.
+- **Lo que el prototipo mostraba y draco no lee:** estado, asignado y épica
+  de la tarea; cuerpo y hora del commit; responsable de cada tarea de QA y
+  número de errores o devoluciones (`QAIssue` trae booleanos). No entra en
+  esta fase: pide cambiar los puertos y los adaptadores.
+- **La barra sigue solo en la principal.** En las demás pantallas `/` filtra,
+  como hoy.
+- **Teclas secundarias con una parte opcional (`moreKeys`)**, no con una marca
+  dentro de `keys()`: `key.Binding` no puede llevarla, y cambiar el tipo
+  que devuelve `keys()` tocaba todas las pantallas a la vez. Cada pantalla
+  clasifica sus teclas cuando se rediseña; Proyectos ya lo hace.
+- **`layout.go` crece con su primer consumidor.** El marco trae sus ayudas
+  (extremos de una línea, ruta que cede); la principal suma `hang` (texto que
+  se ajusta bajo sí mismo, no bajo su etiqueta). Las columnas proporcionales,
+  la caja que se estira y la línea de pasos llegan con la primera pantalla que
+  las usa (actividad 4 en adelante), para no dejar código sin uso. La
+  principal no usa columnas proporcionales: su menú tiene ancho fijo porque
+  las descripciones son de una línea.
+- **El renderizador (`mdrender.go`) lee líneas, no un árbol.** El Markdown de
+  draco es un subconjunto pequeño y conocido, y `goldmark` se queda solo en
+  los adaptadores (norma de `CLAUDE.md`). Dibuja títulos, párrafos, listas
+  con casillas, tablas, el recuadro y las marcas `✔ ✖ ?`; negrita, cursiva,
+  código y enlaces; quita los escapes (`\|`, `\*`). Las convenciones del
+  conversor de Confluence (`proveedores.md` §5) las sigue igual: los
+  comentarios `draco:tabla` y `draco:recuadro` no se muestran, una fila de
+  encabezado vacía se descarta, una celda toda en negrita es una etiqueta, y
+  `<br>` con cada línea en `- ` son viñetas. Los anchos de `anchos=` son
+  proporciones del ancho disponible, con tope inferior: una columna no baja
+  de su palabra más larga (hasta 14 columnas) mientras haya sitio. Una celda
+  que solo es una URL muestra su cola (`…/browse/OPS-7`) si no cabe, como la
+  tarjeta de Confluence muestra la clave.
+- **Lo que no reconoce se muestra tal cual** (citas, bloques de código,
+  listas numeradas, líneas horizontales, HTML, una línea con `|` sin su fila
+  de guiones): una plantilla del usuario con otro Markdown no se rompe ni se
+  traga texto. No se prueba contra `goldmark`: se prueba por construcción
+  y contra los goldens de los documentos reales, a varios anchos.
+- **El título de la vista previa y los pasos:** con 160 columnas caben en una
+  línea; con 110 y un título largo los pasos bajan a la línea de estado.
+  Debajo de 96 columnas no hay línea de pasos.
+- **Las listas con detalle usan `panels`** (`layout.go`): dos cajas en la
+  proporción pedida, tan altas como el cuerpo, y cada lado recibe el sitio que
+  tiene dentro de su caja. Proyectos y Perfiles van 4/6, Hallazgos y Exportar
+  6/4, Configuración 4/6. Debajo de 96 columnas cada una conserva su
+  disposición de antes, y todas muestran la línea `/ filtrar` (`filter.line`)
+  siempre, también ahí.
+- **El detalle de Configuración es lo que la config tiene hoy,** no el texto
+  de ejemplo del prototipo: Conexión (email, URL, space y si hay token, nunca
+  su valor), Proyectos, Perfiles con su destino, QA (`qa_email`, `qa_jira`,
+  `qa_report`, con el aviso de la actividad 3) y Tema (los tres, con el activo).
+  Sale de `config` y de las mismas reglas que la lista; `enter` abre la sección.
+- **El detalle de Exportar no lleva el texto del documento,** que el prototipo
+  sí muestra: leerlo pide una llamada por documento, y ya hay un paso que lo
+  hace (la pantalla siguiente). Muestra el título, el enlace, la versión y qué
+  hará `enter`.
+- **La ayuda de `enter` en Proyectos es «usar»** y no «usar en esta sesión»:
+  con la segunda el pie no cabía en 80 columnas y se perdía `? más`. La
+  guía explica qué hace. Perfiles, Hallazgos, Exportar y Configuración
+  también clasifican sus teclas (`↑↓` y `enter` en el pie; el resto en `?`).
+- **Commits clasifica sus teclas:** `↑↓`, `espacio`, `tab` (repo) y `enter` en
+  el pie; `h` y `↑/k`, `↓/j` en la ayuda completa. La ayuda de `tab` es
+  «repo» y no «backend/frontend»: con la segunda el pie no cabía en 80
+  columnas y se perdía `? más`.
+- **El título de la tarea no se muestra en Commits:** se lee en el paso
+  siguiente (`FetchIssue`); la línea de Commits lleva solo la clave. Leerlo
+  antes sería una llamada más al tracker solo para esta línea.
+- **`q salir` y `ctrl+c` van en la ayuda completa de la principal**, como en el
+  prototipo: el pie compacto lleva `↑↓ elegir`, `enter`, `1-6` y `/` para que
+  `? más` quepa en 80 columnas.
+- **La regla de QA sale de la pantalla:** `Config.QAState` (sin configurar,
+  incompleta, sin cuenta, lista) y `HasQAReport` son funciones puras de
+  `config`; Configuración y la principal las usan en vez de repetir la regla.
+  Que falte `qa_report` solo se marca en la principal: Configuración sigue
+  dando QA por lista con `qa_jira` y `qa_email`.
+
+### Tests
+
+- Lo que ya existe sigue: cada pantalla cabe en 80 columnas y los flujos de
+  punta a punta pasan sin cambios.
+- Cada pantalla rediseñada suma un test a 160×40 que comprueba el detalle a
+  la derecha de la lista y que las cajas llegan al pie.
+- El renderizador se prueba por construcción (título, tabla con anchos,
+  casillas, recuadro, línea desconocida) con tablas de casos.
+- `qa.Tally` se prueba con una tarea de cada estado, incluida la de una
+  consulta fallida.

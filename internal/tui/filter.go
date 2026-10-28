@@ -60,6 +60,15 @@ func window(cursor, n, rows int) int {
 	return min(max(cursor-rows/2, 0), max(n-rows, 0))
 }
 
+// line is the filter line of a list that always shows it: what is typed or
+// applied, or what / does.
+func (f *filter) line() string {
+	if v := f.view(); v != "" {
+		return v
+	}
+	return accentStyle.Render("/ ") + faintStyle.Render("filtrar")
+}
+
 // view is the filter line of the list; empty without a filter.
 func (f *filter) view() string {
 	switch {

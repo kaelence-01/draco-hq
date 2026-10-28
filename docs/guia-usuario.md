@@ -299,12 +299,27 @@ en la consola clásica de Windows (`cmd`) se ve más limitado.
 
 ### La pantalla principal
 
-- A la izquierda, el **menú**. A la derecha (desde 96 columnas), un **panel**
-  con qué hace la función elegida y el mismo trabajo en modo comando.
-- Arriba, la cabecera: versión, proyecto activo y su perfil (el que usa
-  Generar; QA y Exportar usan el por defecto), y el aviso si hay una versión
-  nueva.
-- Abajo, el pie: las teclas de la pantalla actual.
+- A la izquierda, el **menú**, con el logo arriba. Cada opción lleva un
+  número: `1` a `6` abren la función directo, sin mover el cursor. Desde 96
+  columnas, cada opción trae una línea con lo que hace.
+- A la derecha (desde 96 columnas), un **panel** con qué hace la función
+  elegida, las pantallas por las que pasa y el mismo trabajo en modo comando.
+  Si la terminal es más angosta, ese texto y el comando van debajo del menú.
+- Desde 120 columnas, si hay alto suficiente, bajo el panel van **Proyecto
+  activo** (rutas, VCS y space) y **Tu configuración**: `✓` lo que está en
+  orden, `⚠` lo que falta (conexión, proyectos, perfil, `qa_jira` y
+  `qa_report`) y `·` lo opcional sin configurar. Es un resumen: el detalle y
+  los cambios están en Configuración.
+- Arriba, una línea de cabecera: la versión y el camino por donde llegaste
+  (`Inicio › Proyectos`), y a la derecha el proyecto activo y su perfil (el
+  que usa Generar; QA y Exportar usan el por defecto). Si la terminal es
+  angosta, primero se quita el perfil, después el proyecto y, al final, las
+  primeras pantallas del camino. Si hay una versión nueva, el aviso va junto
+  a la versión.
+- Abajo, el pie: las teclas principales de la pantalla actual y `? más`.
+- Sobre el pie, tras publicar un documento, queda una línea con el resultado
+  (`✓ OPS-7 publicado en «Despliegues»`) hasta que salgas de draco. Si el
+  documento no se pudo enlazar desde la tarea, la línea lo avisa con `⚠`.
 
 ### Teclas en todas las pantallas
 
@@ -312,8 +327,9 @@ en la consola clásica de Windows (`cmd`) se ve más limitado.
 |---|---|
 | `ctrl+c` | Sale de draco, siempre |
 | `esc` | Vuelve a la pantalla anterior |
-| `?` | Muestra todas las teclas de la pantalla |
-| `q` | Sale, desde la principal |
+| `?` | Muestra todas las teclas de la pantalla, también las que el pie compacto no trae (de nuevo, las oculta) |
+| `q` | Sale, desde la principal (el pie compacto de la principal no lo muestra: está en `?`) |
+| `1`–`6` | En la principal, abre esa función directo |
 | `enter` / `tab` / `shift+tab` | En un formulario: siguiente campo / siguiente / anterior |
 
 ### Barra de comandos
@@ -340,24 +356,45 @@ terminal, con `draco` o sin él: `/g -i OPS-7 -b a1b2c3d`.
 ### Generar documento
 
 1. **Tarea y proyecto.** Aquí se abre el perfil: si falta una credencial o un
-   space, lo dice antes de seguir.
-2. **Commits.** Muestra la lista de commits recientes de cada repo, con la
-   rama en la que está el clon.
+   space, lo dice antes de seguir. Desde 96 columnas, a la derecha del
+   formulario, **Lo que sigue** muestra los pasos, los repos del proyecto con
+   su carpeta y el destino del perfil (el space o la carpeta Markdown), y se
+   actualiza al cambiar de proyecto.
+2. **Commits.** Muestra una tabla con los commits recientes de cada repo (hash,
+   mensaje, autor, fecha y número de archivos), con la rama en la que está el
+   clon. Desde 96 columnas, a la derecha va el **detalle del commit con sus
+   archivos**, y abajo, **Seleccionados**: los commits marcados en los dos
+   repos y el total de archivos, contando cada uno una vez por repo. En
+   terminales angostas el detalle baja y la tabla suelta el autor y la fecha
+   cuando no caben.
    - `espacio` marca un commit;
    - `tab` cambia entre backend y frontend;
-   - `h` agrega un hash a mano (por ejemplo, de otra rama);
+   - `h` agrega un hash a mano (por ejemplo, de otra rama): está en `?`;
    - `enter` continúa.
 3. **Preparar documento.** Lee la tarea, busca si ya hay un documento y lee
    los archivos de los commits. Si el documento existe, pregunta si
    actualizarlo, crear otro o cancelar. `esc` cancela el paso.
-4. **Vista previa.** `tab` cambia entre el documento y los archivos. Salir de
-   aquí no publica nada. Al actualizar, si el documento actual no tiene una
+4. **Vista previa.** El documento se ve **dibujado** (títulos, tablas,
+   casillas y recuadros como los verá el equipo), con una línea que dice qué
+   pasará: «Se creará un documento nuevo», o lo que se conserva al
+   actualizar. `m` alterna con el Markdown tal como se publicará, y `tab`
+   cambia entre el documento y los archivos (`m` está en `?`). `↑↓` y
+   `pgup`/`pgdn` desplazan. Una línea que draco no sabe dibujar (con una
+   plantilla propia, por ejemplo) se muestra tal cual. Salir de aquí no
+   publica nada. Al actualizar, si el documento actual no tiene una
    sección que se conserva, lo avisa y pide `s` para seguir.
 5. **Ubicación** (solo al crear). `/` filtra la lista y `enter` elige dónde
-   crear el documento.
+   crear el documento. A la derecha (debajo, en terminales angostas), el
+   **Resumen** dice qué se creará: el título, el destino, la página nueva
+   junto a la elegida y el enlace que se agregará en la tarea. Nada se
+   publica todavía.
 6. **Publicar.** `enter` publica. Mientras publica, `esc` no sale, para no
    dejar el documento sin su enlace en la tarea. Al terminar muestra la URL;
    si falló el enlace en Jira, lo dice.
+
+Desde 96 columnas, cada paso lleva arriba la línea de pasos
+(`✓ Tarea › ✓ Commits › Vista previa › Ubicación › Publicar`), con `✓` en los
+que ya hiciste. En el consolidado QA, Ubicación y Publicar llevan la suya.
 
 Lo que el equipo escribió a mano en «A considerar» se conserva al actualizar.
 
@@ -365,12 +402,25 @@ Lo que el equipo escribió a mano en «A considerar» se conserva al actualizar.
 
 1. **Sprint y módulo.** Sin sprint, modo Kanban: las tareas que pasaron a
    Testing en los últimos 10 días hábiles.
-2. **Evaluación.** Se suma una fila por tarea a medida que se evalúa. `esc`
-   cancela entre tareas. En las columnas, `✓` es un control que pasa y `✗`
-   uno que falla. `?` significa que la consulta falló: nunca se publica como
-   un control fallido.
-3. `enter` abre la **vista previa**, y después **Ubicación** y **Publicar**,
-   como en Generar.
+2. **Evaluación.** Se evalúa una tarea tras otra y su fila se completa al
+   llegar. `esc` cancela entre tareas. En las columnas `ERR`, `DEV`, `DOC` y
+   `PR`, `✓` es un control que pasa y `✗` uno que falla. `?` significa que la
+   consulta falló: nunca se publica como un control fallido.
+   - Arriba, los **contadores**: tareas, `✓ completas`, `✗ con fallas`,
+     `? sin verificar` (la consulta del documento falló y ningún otro control
+     falló) y `· por evaluar`. Una falla real nunca queda como «sin
+     verificar».
+   - Cada fila lleva su **estado** (`completa`, `con fallas`, `sin verificar`).
+   - `↑↓` elige la tarea. Desde 96 columnas, el **detalle** de la elegida
+     (qué encontró cada control, su tarea de revisión, las observaciones y
+     los avisos de esa tarea) va debajo de la tabla, al lado del
+     **consolidado** (su título y qué pasará al publicar). El detalle dice
+     «con errores registrados» o «ninguno»: Jira entrega sí o no, no
+     cuántos. En terminales angostas o bajas, el detalle va debajo de la tabla
+     en una línea.
+3. `enter` abre la **vista previa**, dibujada como en Generar (y con `m` para
+   el Markdown), y después **Ubicación** y **Publicar**, también como en
+   Generar.
 
 Solo la cuenta de `qa_email` publica el consolidado. Es una protección contra
 errores, no un permiso: los permisos reales son los de Atlassian. Un
@@ -382,7 +432,9 @@ en «Observación» y «Consideraciones».
 1. **Tarea y space o carpeta** (vacío: el del perfil; en Confluence sin
    space, todos).
 2. **Documentos** que mencionan la tarea, el más reciente primero. `/`
-   filtra; con uno solo, sigue sin preguntar.
+   filtra (la línea `/ filtrar` está siempre a la vista); con uno solo, sigue
+   sin preguntar. Desde 96 columnas, a la derecha de la lista va el
+   **detalle** del elegido: su título, su enlace y qué hará `enter`.
 3. **Texto.** `↑↓` desplaza, y el campo de abajo tiene la ruta donde se
    guarda (la carpeta actual y un nombre sugerido). `enter` guarda; si el
    archivo existe, pide `s` para reemplazarlo.
@@ -395,8 +447,9 @@ en «Observación» y «Consideraciones».
    detiene al otro.
 3. **Hallazgos:**
    - `tab` cambia de repo;
-   - `/` filtra por texto;
-   - el detalle del elegido aparece al lado o debajo;
+   - `/` filtra por texto (la línea `/ filtrar` siempre está a la vista);
+   - el detalle del elegido aparece al lado (desde 96 columnas, con la lista
+     en 6/10 y el detalle en 4/10, hasta el pie) o debajo;
    - `s` guarda el reporte completo en JSON.
 
 No usa internet (salvo la revisión de dependencias) ni credenciales.
@@ -404,7 +457,10 @@ No usa internet (salvo la revisión de dependencias) ni credenciales.
 ### Proyectos
 
 Muestra la lista con filtro y el detalle del proyecto elegido. Se abre desde
-la principal o desde Configuración.
+la principal o desde Configuración. Desde 96 columnas, la lista (4/10) y el
+detalle (6/10) van lado a lado hasta el pie, y la línea `/ filtrar` está
+siempre a la vista; en una terminal más angosta, el detalle va al lado o
+debajo, según el ancho.
 
 | Tecla | Acción |
 |---|---|
@@ -414,6 +470,9 @@ la principal o desde Configuración.
 | `e` | Edita el proyecto (conserva el checklist y el resto del backlog) |
 | `x` | Elimina el proyecto (pide `s`) |
 | `/` | Filtra la lista |
+
+El pie muestra `↑↓`, `enter`, `n`, `e` y `/`; `d` y `x` aparecen al pulsar `?`.
+Perfiles funciona igual.
 
 Si tienes dos o más perfiles, el formulario pregunta el **perfil del
 proyecto** («El perfil por defecto» o uno de la lista). Termina con una
@@ -428,6 +487,13 @@ escrito se marca ahí mismo y no se guarda. El resto del backlog (`since`,
 Arriba, lo que necesita el documento de despliegue; debajo de **Opcional**,
 lo demás. Sin configuración arranca como asistente; si encuentra la de gtt,
 empieza por **Importar de gtt** (ver «¿Vienes de gtt?» en la sección 2).
+
+Desde 96 columnas, a la derecha de la lista, el **detalle** de la sección
+elegida muestra lo que tu configuración tiene hoy: la cuenta y la URL de
+Conexión (el token nunca se muestra: solo si está definido), los proyectos,
+los perfiles con su destino, `qa_email`, `qa_jira` y `qa_report` (con un
+aviso si faltan los nombres del encabezado) y los temas con el que está
+activo. Con `enter` se abre la sección.
 
 | Sección | Qué contiene |
 |---|---|

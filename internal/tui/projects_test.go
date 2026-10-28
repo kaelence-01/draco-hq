@@ -81,6 +81,27 @@ func TestProjectsListAndDetail(t *testing.T) {
 	}
 }
 
+func TestProjectsFooterKeepsEveryKeyInTheFullHelp(t *testing.T) {
+	m, _ := newProjectsApp(t)
+	lines := strings.Split(view(m), "\n")
+	short := lines[len(lines)-1]
+	for _, want := range []string{"enter usar", "n nuevo", "e editar", "/ filtrar", "? más"} {
+		if !strings.Contains(short, want) {
+			t.Errorf("el pie lleva %q: %q", want, short)
+		}
+	}
+	if strings.Contains(short, "eliminar") {
+		t.Errorf("eliminar solo está en la ayuda completa: %q", short)
+	}
+	send(m, keyHelp)
+	full := view(m)
+	for _, want := range []string{"d por defecto", "x eliminar", "n nuevo", "esc volver"} {
+		if !strings.Contains(squash(full), want) {
+			t.Errorf("la ayuda completa lleva %q:\n%s", want, full)
+		}
+	}
+}
+
 func TestProjectBringsItsProfile(t *testing.T) {
 	m, f := newProjectsApp(t, func(c *config.Config) {
 		c.Profiles["servicios"] = &config.Profile{Tracker: config.ProviderConfig{Provider: "jira"}, Docs: config.ProviderConfig{Provider: "confluence", Space: "SRV"}}

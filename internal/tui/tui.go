@@ -57,6 +57,8 @@ type state struct {
 	project       string // active project of this session, never saved
 	notice        string // a problem with the config, shown on the home screen
 	newVersion    string // a newer published version, once CheckUpdate answers
+	result        string // what the last action did, above the footer until draco closes
+	resultWarn    bool   // result is a warning, not a success
 }
 
 func loadState(d Deps) *state {

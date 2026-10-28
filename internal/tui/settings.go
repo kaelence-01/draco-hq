@@ -2,6 +2,8 @@ package tui
 
 import (
 	"fmt"
+	"slices"
+	"strings"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
@@ -43,7 +45,7 @@ func newSettings(st *state) *settings {
 
 func (s *settings) title() string { return "Configuración" }
 
-func (s *settings) keys() []key.Binding { return []key.Binding{upKey, downKey, enterKey} }
+func (s *settings) keys() []key.Binding { return []key.Binding{moveKey, enterKey} }
 
 func (s *settings) init() tea.Cmd {
 	if !s.wizard || s.started || s.st.cfg == nil {
@@ -91,13 +93,12 @@ func (s *settings) sections() []section {
 		prof.ok, prof.status = true, name+": "+profileSummary(p)
 	}
 	qa := section{name: "QA", status: "sin configurar: solo hace falta para el consolidado QA", optional: true}
-	switch {
-	case c.QAJira == nil:
-	case c.QAJira.Validate() != nil:
+	switch c.QAState() {
+	case config.QAIncomplete:
 		qa.status = "incompleta: ábrela para ver qué falta"
-	case c.QAEmail == "":
+	case config.QANoAccount:
 		qa.status = "falta el email de la cuenta de QA: nadie podría publicar el consolidado"
-	default:
+	case config.QAReady:
 		qa.ok, qa.status = true, "proyecto "+c.QAJira.Project+"; publica "+c.QAEmail
 	}
 	look := section{name: "Tema", ok: true, status: knownTheme(c.Theme), optional: true}
@@ -149,6 +150,17 @@ func (s *settings) view(width, height int) string {
 	if s.st.cfg == nil {
 		return pad(lipgloss.NewStyle().Width(width - 2).Render(warnStyle.Render("⚠ " + s.st.notice)))
 	}
+	if width >= panelMinWidth {
+		return panels(width, height, 4, 6,
+			func(w, _ int) string { return s.listText(w) },
+			func(w, _ int) string { return s.detailText(w) })
+	}
+	return pad(lipgloss.NewStyle().Width(width - 2).Render(s.listText(width - 2)))
+}
+
+// listText is the sections with what each has or lacks, and the result of the
+// last change.
+func (s *settings) listText(width int) string {
 	lines := []string{faintStyle.Render("Se guarda en config.yaml, legible solo por tu usuario."), ""}
 	optional := false
 	for i, sec := range s.sections() {
@@ -164,7 +176,7 @@ func (s *settings) view(width, height int) string {
 		if !sec.ok {
 			mark = warnStyle.Render("⚠ ")
 		}
-		lines = append(lines, cursor+name, "    "+mark+sec.status)
+		lines = append(lines, cursor+name, hang("    "+mark, sec.status, width))
 	}
 	switch {
 	case s.note != "" && s.failed:
@@ -172,5 +184,77 @@ func (s *settings) view(width, height int) string {
 	case s.note != "":
 		lines = append(lines, "", okStyle.Render("✓ ")+s.note)
 	}
-	return pad(lipgloss.NewStyle().Width(width - 2).Render(lipgloss.JoinVertical(lipgloss.Left, lines...)))
+	return strings.Join(lines, "\n")
 }
+
+// detailText is what the config holds for the section under the cursor, never
+// the token itself.
+func (s *settings) detailText(width int) string {
+	c := s.st.cfg
+	sec := s.sections()[min(s.cursor, 4)]
+	lines := []string{accentStyle.Bold(true).Render(sec.name), ""}
+	var hint string
+	switch s.cursor {
+	case 0:
+		token := ""
+		if c.AtlassianToken != "" {
+			token = "definido, no se muestra"
+		}
+		lines = append(lines, kv("email", c.AtlassianEmail, width), kv("base_url", c.BaseURL, width), kv("token", token, width), kv("space", c.ConfluenceSpaceKey, width))
+		hint = "enter abre el formulario: pide el token sin mostrarlo y verifica la cuenta."
+	case 1:
+		for _, n := range c.ProjectNames() {
+			line := n
+			if n == c.DefaultProject {
+				line += faintStyle.Render("  por defecto")
+			}
+			if n == s.st.project {
+				line += okStyle.Render("  activo")
+			}
+			lines = append(lines, line)
+		}
+		if len(c.Projects) == 0 {
+			lines = append(lines, faintStyle.Render("Ninguno: hace falta uno para generar el documento."))
+		}
+		hint = "enter abre Proyectos: rutas, repos, VCS y space de cada uno."
+	case 2:
+		for _, n := range c.ProfileNames() {
+			line := n
+			if n == c.DefaultProfile {
+				line += faintStyle.Render("  por defecto")
+			}
+			lines = append(lines, hang(line+"  ", faintStyle.Render(profileSummary(c.Profiles[n])), width))
+		}
+		if len(c.Profiles) == 0 {
+			lines = append(lines, faintStyle.Render("Sin perfiles: se usa el implícito."))
+		}
+		hint = "enter abre Perfiles: de dónde se leen las tareas y adónde van los documentos."
+	case 3:
+		jira := ""
+		if c.QAJira != nil {
+			jira = strings.TrimSpace(c.QAJira.Project + " · " + plural(len(c.QAJira.Statuses), "estado", "estados"))
+		}
+		report := ""
+		if c.HasQAReport() {
+			report = strings.Join(slices.DeleteFunc([]string{"Líder Técnico: " + c.QAReport.LiderTecnico, "PMO: " + c.QAReport.PMO, "QA: " + c.QAReport.QA},
+				func(p string) bool { return strings.HasSuffix(p, ": ") }), " · ")
+		}
+		lines = append(lines, kv("qa_email", c.QAEmail, width), kv("qa_jira", jira, width), kv("qa_report", report, width))
+		if !c.HasQAReport() {
+			lines = append(lines, "", warnStyle.Render("Sin qa_report: Líder Técnico, PMO y QA saldrán vacíos en el consolidado."))
+		}
+		hint = "enter abre el formulario de QA: la cuenta que publica, el proyecto de Jira y los nombres del encabezado."
+	default:
+		for _, t := range themes {
+			mark := "  "
+			if t.name == knownTheme(c.Theme) {
+				mark = okStyle.Render("✓ ")
+			}
+			lines = append(lines, hang(mark+padRight(t.name, 15), faintStyle.Render(t.desc), width))
+		}
+		hint = "enter elige el tema, con vista previa en vivo, y lo guarda en config.yaml."
+	}
+	return strings.Join(append(lines, "", faintStyle.Render(hint)), "\n")
+}
+
+func (s *settings) moreKeys() []key.Binding { return []key.Binding{upKey, downKey} }

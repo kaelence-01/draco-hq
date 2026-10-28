@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/spinner"
@@ -106,8 +107,7 @@ func (l *locations) update(msg tea.Msg) (screen, tea.Cmd) {
 		case key.Matches(msg, downKey):
 			l.cursor = min(l.cursor+1, max(len(docs)-1, 0))
 		case key.Matches(msg, pickKey) && len(docs) > 0:
-			d := docs[min(l.cursor, len(docs)-1)]
-			return l, open(newPublish(l.run, l.draft, &d))
+			return l, open(newPublish(l.run, l.draft, l.selected()))
 		}
 	}
 	return l, nil
@@ -120,22 +120,71 @@ func (l *locations) view(width, height int) string {
 	case l.loc == nil:
 		return pad(l.spinner.View() + " Buscando " + l.run.about().recent + "…")
 	}
+	if width < panelMinWidth {
+		return l.narrow(width, height)
+	}
+	return l.wide(width, height)
+}
+
+// wide is the list of places and, beside it, what choosing one will do.
+func (l *locations) wide(width, height int) string {
+	inner := width - 2
+	top := titleLine(boldStyle.Render("¿Dónde se crea?"), l.run.about().steps, 3, inner)
+	boxHeight := max(height-2, 6)
+	listWidth, summaryWidth := columns(inner, 2, 6, 4)
+	summary := append([]string{faintStyle.Render("RESUMEN"), ""}, l.summary(summaryWidth-4)...)
+	cols := lipgloss.JoinHorizontal(lipgloss.Top,
+		stretch(strings.Join(l.list(listWidth-4, boxHeight-2), "\n"), listWidth, boxHeight), "  ",
+		stretch(strings.Join(summary, "\n"), summaryWidth, boxHeight))
+	return lipgloss.NewStyle().PaddingLeft(1).Render(lipgloss.JoinVertical(lipgloss.Left, top, "", cols))
+}
+
+// narrow is the list with the summary under it.
+func (l *locations) narrow(width, height int) string {
+	summary := l.summary(width - 2)
+	lines := append(l.list(width-2, height-2-len(summary)-1), "")
+	return pad(lipgloss.NewStyle().Width(width - 2).Render(lipgloss.JoinVertical(lipgloss.Left, append(lines, summary...)...)))
+}
+
+// list is the introduction, the filter and as many places as fit in height
+// lines, two lines each.
+func (l *locations) list(width, height int) []string {
 	lines := []string{faintStyle.Render("El documento nuevo se crea junto al que elijas (en la misma carpeta o página padre).")}
 	if l.loc.ownerUnknown {
 		lines = append(lines, warnStyle.Render("⚠ No se pudo verificar tu usuario: se muestran documentos de todo el equipo."))
 	} else if l.loc.teamWide {
 		lines = append(lines, warnStyle.Render("⚠ No tienes documentos propios aquí: se muestran los de todo el equipo como referencia."))
 	}
-	lines = append(lines, "")
-	if f := l.filter.view(); f != "" {
-		lines = append(lines, f)
-	}
+	lines = strings.Split(lipgloss.NewStyle().Width(width).Render(strings.Join(lines, "\n")), "\n")
+	lines = append(lines, "", l.filter.line())
 	docs := l.docs()
 	if len(docs) == 0 {
 		lines = append(lines, faintStyle.Render("Ningún documento coincide"))
 	}
-	lines = append(lines, docRows(docs, l.cursor, max((height-len(lines)-2)/2, 1), width-2)...)
-	return pad(lipgloss.NewStyle().Width(width - 2).Render(lipgloss.JoinVertical(lipgloss.Left, lines...)))
+	return append(lines, docRows(docs, l.cursor, max((height-len(lines))/2, 1), width)...)
+}
+
+// selected is the place under the cursor, if the filter leaves any.
+func (l *locations) selected() *provider.DocRef {
+	docs := l.docs()
+	if len(docs) == 0 {
+		return nil
+	}
+	d := docs[min(l.cursor, len(docs)-1)]
+	return &d
+}
+
+// summary is what choosing the place under the cursor would do.
+func (l *locations) summary(width int) []string {
+	place, a := "—", l.run.about()
+	if d := l.selected(); d != nil {
+		place = d.Title
+	}
+	lines := []string{kv("Título", l.draft.title, width), kv("Destino", a.dest+" · "+place, width), kv("Página", "nueva, junto a «"+place+"»", width)}
+	if a.issue != "" {
+		lines = append(lines, kv("Después", "enlace remoto en "+a.issue+" ("+a.tracker+")", width))
+	}
+	return append(lines, "", lipgloss.NewStyle().Width(width).Render(faintStyle.Render("enter pasa a confirmar; nada se publica todavía.")))
 }
 
 // explainLocations adds what to do when there is nowhere to create the document.

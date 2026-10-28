@@ -113,13 +113,70 @@ func explainProfile(err error) error {
 	return err
 }
 
-func (g *generate) view(width, height int) string { return formView(g.form, g.err, width) }
+func (g *generate) view(width, height int) string {
+	if width < panelMinWidth {
+		return formView(g.form, g.err, width)
+	}
+	formWidth, nextWidth := columns(width-2, 2, 5, 4)
+	g.form.WithWidth(min(64, formWidth-4))
+	form := lipgloss.JoinVertical(lipgloss.Left, faintStyle.Render("TAREA Y PROYECTO"), "", formBody(g.form, g.err, formWidth-4))
+	body := lipgloss.JoinHorizontal(lipgloss.Top, boxStyle.Width(formWidth).Render(form), "  ", boxStyle.Width(nextWidth).Render(g.ahead(nextWidth-4)))
+	return lipgloss.NewStyle().Padding(1, 1, 0).Render(body)
+}
+
+// ahead is what follows the form: the steps, the repos of the project and
+// where the document goes.
+func (g *generate) ahead(width int) string {
+	lines := []string{faintStyle.Render("LO QUE SIGUE"), stepper(deploySteps, 0), ""}
+	cfg := g.st.cfg
+	if cfg == nil {
+		return strings.Join(lines, "\n")
+	}
+	sides, err := deploy.ProjectSides(cfg, g.project)
+	if err != nil {
+		return strings.Join(append(lines, faintStyle.Render(err.Error())), "\n")
+	}
+	back, front := sides.Deployable()
+	lines = append(lines, repoLine("Backend", sides.Backend, back, width), repoLine("Frontend", sides.Frontend, front, width))
+	tracker := "el tracker"
+	if p, _, err := cfg.Profile(cfg.ProfileFor("", sides.Project)); err == nil {
+		tracker = p.Tracker.Provider
+		dest := p.Docs.Provider
+		if scope := profile.Scope(p, profile.Options{ProjectSpace: sides.SpaceKey}); scope != "" {
+			dest += " · " + scope
+		}
+		lines = append(lines, kv("Destino", dest, width))
+	}
+	lines = append(lines, "", lipgloss.NewStyle().Width(width).Render(faintStyle.Render("La tarea se lee de "+tracker+" y los commits, del clon local de cada repo del proyecto.")))
+	return strings.Join(lines, "\n")
+}
+
+// repoLine is a repo of the project with its clone, or a dash when the project
+// has no such side.
+func repoLine(label string, r deploy.Repo, deployable bool, width int) string {
+	if !deployable {
+		return kv(label, "", width)
+	}
+	where := r.WorkDir
+	if where == "" {
+		where = "directorio actual"
+	}
+	name := r.Name
+	if name == "" {
+		name = "sin nombre"
+	}
+	return kv(label, name+faintStyle.Render("  "+where), width)
+}
 
 // formView is a form with the error of its last submission above it.
 func formView(f *huh.Form, err string, width int) string {
+	return lipgloss.NewStyle().Padding(1, 2).MaxWidth(width).Render(formBody(f, err, width))
+}
+
+func formBody(f *huh.Form, err string, width int) string {
 	body := f.View()
 	if err != "" {
 		body = lipgloss.JoinVertical(lipgloss.Left, lipgloss.NewStyle().Width(max(width-4, 10)).Render(errStyle.Render("✗ "+err)), "", body)
 	}
-	return lipgloss.NewStyle().Padding(1, 2).MaxWidth(width).Render(body)
+	return body
 }

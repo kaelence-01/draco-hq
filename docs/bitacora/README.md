@@ -102,6 +102,20 @@ Sin entradas: se hizo antes de que existiera la bitácora.
 | [060](./fase-6/060-qa-prefijo-perfil.md) | QA reconoce el documento con cualquier plantilla | `fix/qa-prefijo-perfil` | 2026-10-22 | `HasDocumentLink` recibe varios prefijos: los de la plantilla de cada proyecto (perfil, repo, usuario), sin proyecto y el incluido; una plantilla que no carga se avisa |
 | [061](./fase-6/061-roadmap-equipos.md) | Roadmap: después de la v1.0, trackers y modo equipo | `docs/roadmap-equipos` | 2026-10-27 | `v0.3.1`–`v0.3.3` en el roadmap; otros trackers con sus requisitos (credenciales por perfil, QA solo Jira) y modo equipo (paquete compartido en Git) después de la v1.0, en el mismo draco |
 
+### Fase 7 — Rediseño del modo visual: maestro-detalle elástico
+
+| # | Actividad | Rama | Fecha | Resumen |
+|---|---|---|---|---|
+| [062](./fase-7/062-plan-fase-7.md) | Diseño y plan de la fase 7 | `docs/plan-fase-7` | 2026-10-27 | Tres propuestas en maquetas; el autor eligió maestro-detalle elástico y la probó en un prototipo; `tui.md` §11 y la fase en 8 actividades |
+| [063](./fase-7/063-prototipo-fase-7.md) | El prototipo de la fase 7 en el repo | `docs/prototipo-fase-7` | 2026-10-27 | `prototipo-fase-7.html` como referencia visual; `tui.md` §11 con la tabla pantalla → archivo → actividad y lo que no se implementa; cómo retomar la fase en otra sesión |
+| [064](./fase-7/064-tui-marco.md) | Marco: cabecera de una línea, pie compacto y línea de resultado | `feature/tui-marco` | 2026-10-28 | Cabecera con la ruta que cede por la izquierda; pie con las teclas principales y `? más` (`moreKeys` para las secundarias); tras publicar queda `✓ OPS-7 publicado en «…»` sobre el pie, con `⚠` si falta el enlace; `layout.go` |
+| [065](./fase-7/065-tui-principal.md) | Principal: descripciones, atajos, panel con pasos y contexto | `feature/tui-principal` | 2026-10-28 | Menú con descripción y atajos `1`–`6`; panel con los pasos; desde 120 columnas, Proyecto activo y Tu configuración; la regla de QA pasa a `config.QAState`; en 80 columnas el texto de la opción va bajo el menú |
+| [066](./fase-7/066-tui-generar-b.md) | Generar: tarea con lo que sigue, commits con detalle y ubicación con resumen | `feature/tui-generar-b` | 2026-10-28 | Commits en tabla con el detalle y los archivos de cada commit (un hash a la vez, cacheado) y la franja de seleccionados; Tarea con «Lo que sigue»; Ubicación con resumen y filtro visible; línea de pasos; `profile.Scope` |
+| [067](./fase-7/067-tui-vista-renderizada.md) | Vista previa renderizada en Generar y QA | `feature/tui-vista-renderizada` | 2026-10-28 | Renderizador propio del Markdown de draco (sin dependencia nueva): tablas con los anchos de `draco:tabla`, recuadro, casillas, enlaces; lo desconocido, tal cual; `m` alterna con el Markdown crudo; línea de estado y pasos |
+| [068](./fase-7/068-tui-qa-b.md) | QA: contadores, tabla a todo el ancho y detalle junto al consolidado | `feature/tui-qa-b` | 2026-10-28 | `qa.StatusOf` y `qa.Tally` en el flujo (una consulta fallida es «sin verificar», nunca «con fallas»); Evaluar con contadores, estado por fila, detalle de la tarea y consolidado lado a lado; sin datos inventados |
+| [069](./fase-7/069-tui-listas-b.md) | Proyectos, Hallazgos, Exportar y Configuración en columnas proporcionales | `feature/tui-listas-b` | 2026-10-28 | `panels` (lista y detalle como dos cajas hasta el pie); Configuración con el detalle real de cada sección (nunca el token); filtro visible en todas; teclas compactas; Perfiles incluido |
+| [070](./fase-7/070-cierre-fase-7.md) | Cierre de la fase 7 | `docs/cierre-fase-7` | 2026-10-28 | Fase 7 cerrada; sale como `v0.4.0` (*minor*), a cargo del autor; regla de numeración fijada: *minor* por fase y *patch* por correcciones; pruebas manuales de las fases 4 a 7 reunidas |
+
 ## Formato de cada entrada
 
 Archivo `fase-N/NNN-<tema>.md`: `N` es la fase del roadmap, `NNN` el número

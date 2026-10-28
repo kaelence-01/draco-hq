@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	useKey     = key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "usar en esta sesión"))
+	useKey     = key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "usar"))
 	defaultKey = key.NewBinding(key.WithKeys("d"), key.WithHelp("d", "por defecto"))
 	newKey     = key.NewBinding(key.WithKeys("n"), key.WithHelp("n", "nuevo"))
 	editKey    = key.NewBinding(key.WithKeys("e"), key.WithHelp("e", "editar"))
@@ -43,7 +43,11 @@ func newProjects(st *state) *projects {
 func (p *projects) title() string { return "Proyectos" }
 
 func (p *projects) keys() []key.Binding {
-	return []key.Binding{upKey, downKey, useKey, defaultKey, newKey, editKey, removeKey, filterKey}
+	return []key.Binding{moveKey, useKey, newKey, editKey, filterKey}
+}
+
+func (p *projects) moreKeys() []key.Binding {
+	return []key.Binding{upKey, downKey, defaultKey, removeKey}
 }
 
 // captures keeps the keys while the user confirms, and those of the filter.
@@ -144,30 +148,58 @@ func (p *projects) view(width, height int) string {
 	if p.st.cfg == nil {
 		return " " + warnStyle.Render("⚠ "+p.st.notice)
 	}
-	list, detail := p.list(), p.detail()
+	status := p.status()
+	if width >= panelMinWidth {
+		boxes := height
+		if status != "" {
+			boxes--
+		}
+		out := panels(width, boxes, 4, 6,
+			func(_, lines int) string { return p.listText(lines) },
+			func(w, _ int) string { return p.detailText(w) })
+		if status != "" {
+			out = lipgloss.JoinVertical(lipgloss.Left, out, lipgloss.NewStyle().PaddingLeft(1).Render(status))
+		}
+		return out
+	}
+	detailWidth := width - 6
+	if width >= 80 {
+		detailWidth = width - 44
+	}
+	list, detail := p.list(), p.detail(detailWidth)
 	var body string
 	if width >= 80 {
 		body = lipgloss.JoinHorizontal(lipgloss.Top, list, "  ", detail)
 	} else {
 		body = lipgloss.JoinVertical(lipgloss.Left, list, detail)
 	}
-	var lines []string
+	lines := []string{body, ""}
+	if status != "" {
+		lines = append(lines, status)
+	}
+	return lipgloss.NewStyle().Padding(1, 1, 0).Render(lipgloss.JoinVertical(lipgloss.Left, lines...))
+}
+
+// status is the question being asked or the result of the last change.
+func (p *projects) status() string {
 	switch {
 	case p.removing != "":
-		lines = append(lines, warnStyle.Render("¿Eliminar el proyecto «"+p.removing+"»? s confirma, cualquier otra tecla cancela"))
+		return warnStyle.Render("¿Eliminar el proyecto «" + p.removing + "»? s confirma, cualquier otra tecla cancela")
 	case p.note != "" && p.failed:
-		lines = append(lines, errStyle.Render("✗ "+p.note))
+		return errStyle.Render("✗ " + p.note)
 	case p.note != "":
-		lines = append(lines, okStyle.Render("✓ ")+p.note)
+		return okStyle.Render("✓ ") + p.note
 	}
-	return lipgloss.NewStyle().Padding(1, 1, 0).Render(lipgloss.JoinVertical(lipgloss.Left, append([]string{body, ""}, lines...)...))
+	return ""
 }
 
 func (p *projects) list() string {
-	var rows []string
-	if f := p.filter.view(); f != "" {
-		rows = append(rows, f)
-	}
+	return boxStyle.Width(36).Render(p.listText(1 << 10))
+}
+
+// listText is the filter line and the projects that fit in lines lines.
+func (p *projects) listText(lines int) string {
+	rows := []string{p.filter.line()}
 	names := p.names()
 	if len(names) == 0 {
 		if p.filter.text != "" {
@@ -177,7 +209,9 @@ func (p *projects) list() string {
 		}
 	}
 	sel := p.selected()
-	for _, n := range names {
+	start := window(p.cursor, len(names), max(lines-len(rows), 1))
+	for i := start; i < min(start+max(lines-len(rows), 1), len(names)); i++ {
+		n := names[i]
 		cursor, label := "  ", n
 		if n == sel {
 			cursor, label = accentStyle.Render("▸ "), accentStyle.Bold(true).Render(n)
@@ -191,10 +225,18 @@ func (p *projects) list() string {
 		}
 		rows = append(rows, cursor+label+"  "+strings.Join(marks, " "))
 	}
-	return boxStyle.Width(36).Render(lipgloss.JoinVertical(lipgloss.Left, rows...))
+	return strings.Join(rows, "\n")
 }
 
-func (p *projects) detail() string {
+func (p *projects) detail(width int) string {
+	if p.selected() == "" {
+		return ""
+	}
+	return boxStyle.Render(p.detailText(width))
+}
+
+// detailText is everything the config says about the project under the cursor.
+func (p *projects) detailText(width int) string {
 	name := p.selected()
 	if name == "" {
 		return ""
@@ -204,7 +246,7 @@ func (p *projects) detail() string {
 		if v == "" {
 			v = faintStyle.Render("—")
 		}
-		return faintStyle.Render(label+strings.Repeat(" ", 15-len(label))) + v
+		return hang(faintStyle.Render(padRight(label, 15)), v, width)
 	}
 	lines := []string{
 		accentStyle.Bold(true).Render(name), "",
@@ -230,5 +272,5 @@ func (p *projects) detail() string {
 			lines = append(lines, "- "+c)
 		}
 	}
-	return boxStyle.Render(lipgloss.JoinVertical(lipgloss.Left, lines...))
+	return strings.Join(lines, "\n")
 }
