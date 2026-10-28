@@ -53,6 +53,7 @@ de Windows (`cmd`) se ve más limitado.
 | 5 | Resto de pantallas: backlog, QA, exportar | ✅ `v0.2.1` |
 | 6 | Configuración en formularios, aviso de versión nueva, barra de comandos con autocompletado, ayuda, temas | ✅ `v0.3.0` |
 | — | Mejoras y correcciones sobre la fase 6, con draco ya en uso | ✅ `v0.3.1`–`v0.3.3` |
+| 7 | Rediseño del modo visual: maestro-detalle elástico | 🔄 |
 | v1.0 | Instaladores, checksums, migración desde gtt (✅ adelantada), README completo | ⬜ |
 | Después de la v1.0 | Otros trackers y plataformas; modo equipo (plantillas y perfiles compartidos) | ⬜ |
 
@@ -298,6 +299,32 @@ Jira:
 | `v0.3.2` | 2026-10-22 | Cada proyecto con su perfil (055), guía consistente con el código (056), documento de Confluence como el de gtt (057), `make merge` y atajos (058) |
 | `v0.3.3` | 2026-10-22 | Importar la configuración de gtt (059), QA reconoce el documento con cualquier plantilla (060) |
 
+### Fase 7 — maestro-detalle elástico
+
+Antes de la v1.0, el autor pidió aprovechar el espacio de la terminal. De
+tres propuestas (riel lateral, maestro-detalle elástico, mosaico de
+paneles) eligió la segunda y la probó en un prototipo navegable con todas
+sus mejoras. Diseño en **`docs/arquitectura/tui.md` §11**. Las pantallas y
+los flujos son los mismos; cambia cómo usan el ancho y el alto.
+
+| # | Actividad | Rama | Criterio de cierre |
+|---|---|---|---|
+| 1 | ✅ Diseño y plan de la fase | `docs/plan-fase-7` | `tui.md` §11 y actividades con criterio de cierre |
+| 2 | Marco: cabecera de una línea con la ruta, pie compacto con `? más`, línea de resultado, `layout.go` | `feature/tui-marco` | Todas las pantallas ganan una línea; cada tecla sigue en la ayuda completa; tests del marco en 80×24 y 160×40 |
+| 3 | Principal: descripciones, atajos `1`–`6`, panel con pasos, Proyecto activo y Tu configuración | `feature/tui-principal` | Funciona en 80×24 y llena 160×40 (test); el estado de la config sale de funciones puras de `config` |
+| 4 | Generar: tarea con lo que sigue, Commits en tabla con detalle y archivos del commit, franja de seleccionados, pasos del flujo; Ubicación con resumen | `feature/tui-generar-b` | `/g -i OPS-7 -b a1b2c3d` sigue llegando a Commits con el hash marcado; los archivos se leen en un `tea.Cmd` y se guardan por hash; los tests de Generar pasan |
+| 5 | Vista previa renderizada en Generar y QA, `m` para el Markdown crudo | `feature/tui-vista-renderizada` | Un test por construcción; una línea desconocida se ve tal cual; ninguna dependencia nueva |
+| 6 | QA: `qa.Tally`, contadores, tabla a todo el ancho, detalle y consolidado lado a lado | `feature/tui-qa-b` | Una consulta fallida cuenta como sin verificar (test); los tests de QA pasan |
+| 7 | Proyectos, Hallazgos, Exportar y Configuración en columnas proporcionales, con filtro visible | `feature/tui-listas-b` | Cada una en 80×24 y 160×40 (test) |
+| 8 | Cierre de la fase 7 y release | `docs/cierre-fase-7` | Release instalado con `draco update` y las pantallas abiertas desde el binario instalado |
+
+El marco va primero porque todas las pantallas lo usan. Después, la
+principal, que es lo primero que se ve. Generar y su vista previa siguen,
+porque son lo que más usa la gente. QA reusa la vista previa, y las listas
+restantes van al final porque solo cambian de layout. Cada actividad
+actualiza la guía de usuario si cambia una tecla o lo que se ve. La versión
+del release la decide el autor (decisión pendiente sobre la numeración).
+
 ### v1.0
 
 - Instaladores: ✅ script de un comando (`scripts/install.sh` e
@@ -397,6 +424,7 @@ cambia una, le llega sin rehacer el cambio a mano.
 | Ramas `main` → `develop` → `feature/<tema>`, un commit por actividad, PR a `develop` | Historial corto y legible; `main` solo recibe lo integrado |
 | Bitácora por actividad, agrupada por fase (`docs/bitacora/fase-N/`), y comentarios mínimos en el código | La historia de cada decisión en un solo lugar, el código limpio |
 | Migrar desde gtt importando su `config.yaml` tal cual, solo si draco no tiene configuración, sin tocar el de gtt | Sus campos son un subconjunto de los de draco; quien viene de gtt no vuelve a configurar nada (bitácora 059) |
+| Modo visual maestro-detalle elástico (fase 7), antes de la v1.0 | Elegido por el autor entre tres propuestas y probado en un prototipo (bitácora 062): aprovecha el ancho sin cambiar la navegación ni los flujos |
 | Modo equipo después de la v1.0, dentro del mismo draco | Decisión del autor (bitácora 061): cambiar una plantilla una vez para todo el equipo; una edición aparte para grupos duplicaría el producto |
 | La fase 5 se publicó como *patch* (`v0.2.1`) y la fase 6 como *minor* (`v0.3.0`) | Decisiones del autor (bitácoras 039 y 049). La 039 había fijado `v0.2.x` para las dos; al cerrar la 6, el autor eligió *minor*, que es lo que pide semver para funciones nuevas |
 
