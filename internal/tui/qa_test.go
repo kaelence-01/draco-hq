@@ -128,14 +128,15 @@ func TestQAKanbanEvaluatesEachTask(t *testing.T) {
 	e := newQAApp(t, qaTracker("QA@example.test"))
 	e.evaluate("", "")
 	out := view(e.m)
+	flat := squash(out)
 	for _, want := range []string{
-		"Inicio › Consolidado QA › Evaluar", "Kanban · 07/09 al 21/09/2026", "✓ Cuenta QA@example.test · 2 tareas para revisión · 1 tarea QA propia", "Err Dev Doc PR",
-		"OPS-7   ✓   ✓   ✓   ✓   Filtro de pagos", "OPS-8   ✗   ✓   ?   ✗   Monto máximo",
+		"Inicio › Consolidado QA › Evaluar", "Kanban · 07/09 al 21/09/2026", "✓ Cuenta QA@example.test · 2 tareas para revisión · 1 tarea QA propia", "ERR DEV DOC PR",
+		"OPS-7 ✓ ✓ ✓ ✓ Filtro de pagos completa", "OPS-8 ✗ ✓ ? ✗ Monto máximo con fallas",
 		"⚠ OPS-8: no se pudo verificar el documento de despliegue",
 		"OPS-8", "Observaciones: falta validar el monto",
-		"se creará «Consolidado de Pruebas QA - 07/09 al 21/09/2026»", "enter vista previa",
+		"No hay un consolidado publicado", "creará", "07/09 al 21/09/2026", "enter vista previa",
 	} {
-		if !strings.Contains(out, want) {
+		if !strings.Contains(flat, want) {
 			t.Errorf("falta %q:\n%s", want, out)
 		}
 	}
@@ -143,8 +144,14 @@ func TestQAKanbanEvaluatesEachTask(t *testing.T) {
 		t.Errorf("la tarea de revisión no es una fila del reporte:\n%s", out)
 	}
 	send(e.m, keyUp)
-	if out := view(e.m); !strings.Contains(out, "OPS-7 · revisión OPS-20") {
-		t.Errorf("el detalle sigue al cursor y muestra la tarea de revisión:\n%s", out)
+	out = view(e.m)
+	for _, want := range []string{"OPS-7 Filtro de pagos", "Revisión QA OPS-20", "ninguno", "enlazado", "aprobado"} {
+		if !strings.Contains(squash(out), want) {
+			t.Errorf("el detalle sigue al cursor y muestra la tarea de revisión: falta %q\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "Observaciones: falta validar") || strings.Contains(out, "no se pudo verificar") {
+		t.Errorf("el detalle es el de OPS-7, no el de OPS-8:\n%s", out)
 	}
 }
 
@@ -156,8 +163,8 @@ func TestQASprintFindsTheExistingReport(t *testing.T) {
 	}
 	e.evaluate("12", "Pagos")
 	out := view(e.m)
-	for _, want := range []string{"Sprint 12 · Pagos", "Ya existe «" + title + "»: se actualizará conservando lo escrito a mano"} {
-		if !strings.Contains(out, want) {
+	for _, want := range []string{"Sprint 12 · Pagos", "Ya existe", "actualizará", "conservando"} {
+		if !strings.Contains(squash(out), want) {
 			t.Errorf("falta %q:\n%s", want, out)
 		}
 	}
@@ -196,7 +203,7 @@ func TestQARowsArriveLiveAndEscCancels(t *testing.T) {
 	e := newQAApp(t, q)
 	e.evaluate("", "")
 	out := view(e.m)
-	if !strings.Contains(out, "OPS-7   ✓   ✓   ✓   ✓") || !strings.Contains(out, "Evaluando OPS-8 (2 de 2)") {
+	if !strings.Contains(squash(out), "OPS-7 ✓ ✓ ✓ ✓") || !strings.Contains(out, "Evaluando OPS-8 (2 de 2)") {
 		t.Fatalf("cada fila aparece al evaluarse, sin esperar a las demás:\n%s", out)
 	}
 	send(e.m, keyEsc)

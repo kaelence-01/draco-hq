@@ -33,6 +33,16 @@ func stretch(content string, width, height int) string {
 	return boxStyle.Width(width).Height(max(height, 3)).Render(content)
 }
 
+// panel is a stretched box with content wrapped to it; what does not fit in
+// the height is cut with an ellipsis.
+func panel(content string, width, height int) string {
+	lines := strings.Split(lipgloss.NewStyle().Width(max(width-4, 1)).Render(content), "\n")
+	if room := height - 2; len(lines) > room {
+		lines = append(lines[:max(room-1, 0)], faintStyle.Render("…"))
+	}
+	return stretch(strings.Join(lines, "\n"), width, height)
+}
+
 // stepper draws the steps of a flow: the ones done checked, the current one
 // highlighted, the rest dim.
 func stepper(names []string, current int) string {

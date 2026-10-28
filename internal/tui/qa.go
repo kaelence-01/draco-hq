@@ -138,6 +138,7 @@ type qaProgress struct {
 	own      int                // tasks of the QA account
 	done     int                // rows evaluated
 	warnings []string
+	notes    map[int][]string // the warnings of each task, to show with it
 	existing *provider.DocRef
 	cursor   int
 	started  bool
@@ -147,7 +148,7 @@ type qaProgress struct {
 }
 
 func newQAProgress(st *state, bundle *profile.Bundle, s *qa.Session) *qaProgress {
-	p := &qaProgress{st: st, bundle: bundle, session: s, spinner: spinner.New(spinner.WithSpinner(spinner.MiniDot))}
+	p := &qaProgress{st: st, bundle: bundle, session: s, notes: map[int][]string{}, spinner: spinner.New(spinner.WithSpinner(spinner.MiniDot))}
 	p.ctx, p.cancel = context.WithCancel(context.Background())
 	return p
 }
@@ -160,9 +161,16 @@ func (p *qaProgress) keys() []key.Binding {
 	case p.step != qaDone:
 		return nil
 	case len(p.rows) > 0:
-		return []key.Binding{upKey, downKey, previewKey}
+		return []key.Binding{moveKey, previewKey}
 	}
 	return []key.Binding{previewKey}
+}
+
+func (p *qaProgress) moreKeys() []key.Binding {
+	if p.step != qaDone || len(p.rows) == 0 {
+		return nil
+	}
+	return []key.Binding{upKey, downKey}
 }
 
 func (p *qaProgress) init() tea.Cmd {
@@ -248,6 +256,9 @@ func (p *qaProgress) finished(msg qaStepMsg) tea.Cmd {
 		p.done = msg.task + 1
 		p.cursor = msg.task
 		p.warnings = append(p.warnings, msg.warnings...)
+		if len(msg.warnings) > 0 {
+			p.notes[msg.task] = msg.warnings
+		}
 		if p.done < len(p.rows) {
 			return p.run(qaEvaluate, p.done)
 		}
@@ -284,14 +295,30 @@ func (p *qaProgress) command() string {
 	return "draco qa -s " + strconv.Itoa(t.Sprint) + " -m " + shellQuote(t.Module)
 }
 
+// mode is what the report covers: a sprint of a module, or the Kanban window.
+func (p *qaProgress) mode() string {
+	t := p.session.Target
+	if t.Kanban {
+		return "Kanban · " + t.Period
+	}
+	return "Sprint " + strconv.Itoa(t.Sprint) + " · " + t.Module
+}
+
 func (p *qaProgress) view(width, height int) string {
+	if width >= panelMinWidth && p.step >= qaEvaluate && len(p.rows) > 0 {
+		if out, ok := p.wide(width, height); ok {
+			return out
+		}
+	}
+	return p.narrow(width, height)
+}
+
+// narrow is the list of tasks with what the user needs under it, one block
+// after the other.
+func (p *qaProgress) narrow(width, height int) string {
 	t := p.session.Target
 	wrap := lipgloss.NewStyle().Width(width - 2)
-	mode := "Sprint " + strconv.Itoa(t.Sprint) + " · " + t.Module
-	if t.Kanban {
-		mode = "Kanban · " + t.Period
-	}
-	head := []string{boldStyle.Render(mode) + faintStyle.Render("  "+t.Title)}
+	head := []string{boldStyle.Render(p.mode()) + faintStyle.Render("  "+t.Title)}
 	for _, w := range t.Warnings {
 		head = append(head, wrap.Render(warnStyle.Render("⚠ "+w)))
 	}
@@ -311,6 +338,9 @@ func (p *qaProgress) view(width, height int) string {
 		head = append(head, account, wrap.Render(warnStyle.Render("⚠ No hay tareas en revisión para este período")+own))
 	} else {
 		head = append(head, wrap.Render(account+" · "+plural(len(p.rows), "tarea", "tareas")+" para revisión"+own))
+		if p.step >= qaEvaluate {
+			head = append(head, wrap.Render(p.counters("  ")))
+		}
 	}
 
 	var foot []string
@@ -327,7 +357,7 @@ func (p *qaProgress) view(width, height int) string {
 		foot = append(foot, "", p.outcome(wrap), faintStyle.Render("enter abre la vista previa; nada se publica hasta que lo confirmes."))
 	}
 
-	room := max(height-len(head)-lipgloss.Height(strings.Join(foot, "\n"))-4, 3)
+	room := max(height-lipgloss.Height(strings.Join(head, "\n"))-lipgloss.Height(strings.Join(foot, "\n"))-4, 3)
 	body := append(head, "")
 	if len(p.rows) > 0 {
 		body = append(body, p.table(room, width-2)...)
@@ -400,6 +430,160 @@ func (p *qaProgress) detail(wrap lipgloss.Style) []string {
 		out = append(out, wrap.Render(faintStyle.Render("Observaciones: ")+r.Observations))
 	}
 	return out
+}
+
+// counters is how the tasks stand: the evaluated ones classified by
+// qa.Tally, the rest pending.
+func (p *qaProgress) counters(sep string) string {
+	c := qa.Tally(p.rows, p.done)
+	return strings.Join([]string{
+		boldStyle.Render(plural(c.Total, "tarea", "tareas")),
+		okStyle.Render("✓ " + plural(c.Complete, "completa", "completas")),
+		errStyle.Render("✗ " + strconv.Itoa(c.Failing) + " con fallas"),
+		warnStyle.Render("? " + strconv.Itoa(c.Unverified) + " sin verificar"),
+		faintStyle.Render("· " + strconv.Itoa(c.Pending()) + " por evaluar"),
+	}, sep)
+}
+
+// wide is the counters and the table of tasks across the screen and, under
+// them, the task under the cursor beside the report. It reports false when
+// the height is too short for both.
+func (p *qaProgress) wide(width, height int) (string, bool) {
+	t := p.session.Target
+	inner := width - 2
+	steps := slices.Clone(qaSteps)
+	if p.step == qaEvaluate {
+		steps[1] = "Evaluar " + strconv.Itoa(p.done) + "/" + strconv.Itoa(len(p.rows))
+	}
+	wrap := lipgloss.NewStyle().Width(inner)
+	head := []string{titleLine(boldStyle.Render(p.mode()), steps, 1, inner)}
+	for _, w := range t.Warnings {
+		head = append(head, wrap.Render(warnStyle.Render("⚠ "+w)))
+	}
+	own := faintStyle.Render(" · " + plural(p.own, "tarea QA propia", "tareas QA propias"))
+	head = append(head, wrap.Render(okStyle.Render("✓ ")+"Cuenta "+p.account+" · "+plural(len(p.rows), "tarea", "tareas")+" para revisión"+own), "")
+	headBlock := strings.Join(head, "\n")
+
+	listWidth, sideWidth := columns(inner, 2, 6, 4)
+	detail, side := p.detailText(listWidth-4), p.consolidated(sideWidth-4)
+	natural := max(lipgloss.Height(detail), lipgloss.Height(side)) + 2
+	room := height - lipgloss.Height(headBlock) - 4 // the table's border, counters and header
+	rows := min(len(p.rows), max(room-min(natural, 11), 3))
+	bottom := room - rows
+	if bottom < 6 {
+		return "", false
+	}
+	cols := lipgloss.JoinHorizontal(lipgloss.Top, panel(detail, listWidth, bottom), "  ", panel(side, sideWidth, bottom))
+	return lipgloss.NewStyle().PaddingLeft(1).Render(lipgloss.JoinVertical(lipgloss.Left, headBlock, p.wideTable(rows, inner), cols)), true
+}
+
+// wideTable is the counters and one row per task, with its marks and its
+// state, in a box as wide as the screen.
+func (p *qaProgress) wideTable(rows, width int) string {
+	const marksWidth, stateWidth = 20, 14
+	keyWidth := len("TAREA")
+	for _, r := range p.rows {
+		keyWidth = max(keyWidth, lipgloss.Width(r.Key))
+	}
+	summaryWidth := max(width-4-(2+keyWidth+2+marksWidth+2+2+stateWidth), 10)
+	line := func(prefix, key, marks, summary, state string) string {
+		return prefix + padRight(key, keyWidth) + "  " + marks + "  " + cell(summary, summaryWidth) + "  " + state
+	}
+	lines := []string{p.counters("      "), faintStyle.Render(line("  ", "TAREA", padRight("ERR", 5)+padRight("DEV", 5)+padRight("DOC", 5)+padRight("PR", 5), "RESUMEN", "ESTADO"))}
+	start := window(p.cursor, len(p.rows), rows)
+	for i := start; i < min(start+rows, len(p.rows)); i++ {
+		r := p.rows[i]
+		cursor, key, summary := "  ", accentStyle.Render(r.Key), r.Summary
+		if i == p.cursor {
+			cursor, key, summary = accentStyle.Render("▸ "), accentStyle.Bold(true).Render(r.Key), boldStyle.Render(r.Summary)
+		}
+		marks := faintStyle.Render(padRight(" ·", 5) + padRight(" ·", 5) + padRight(" ·", 5) + padRight(" ·", 5))
+		if i < p.done {
+			marks = padRight(" "+check(!r.HasCodingErrors), 5) + padRight(" "+check(!r.HasDevReturns), 5) + padRight(" "+docMark(r), 5) + padRight(" "+check(r.PRMerged), 5)
+		}
+		lines = append(lines, line(cursor, key, marks, summary, p.stateCell(i)))
+	}
+	return boxStyle.Width(width).Render(strings.Join(lines, "\n"))
+}
+
+// stateCell is where a task stands: what its checks say, or that it is being
+// evaluated or waits its turn.
+func (p *qaProgress) stateCell(i int) string {
+	switch {
+	case i < p.done:
+		switch qa.StatusOf(p.rows[i]) {
+		case qa.Complete:
+			return okStyle.Render("completa")
+		case qa.Failing:
+			return errStyle.Render("con fallas")
+		}
+		return warnStyle.Render("sin verificar")
+	case i == p.done && p.step == qaEvaluate:
+		return accentStyle.Render(p.spinner.View() + " evaluando…")
+	}
+	return faintStyle.Render("por evaluar")
+}
+
+// detailText is the task under the cursor and what each of its checks found.
+// The tracker answers yes or no, so there are no counts of errors or returns.
+func (p *qaProgress) detailText(width int) string {
+	i := min(p.cursor, len(p.rows)-1)
+	r := p.rows[i]
+	lines := []string{accentStyle.Render(r.Key) + " " + boldStyle.Render(r.Summary)}
+	if r.ReviewTaskKey != "" {
+		lines = append(lines, faintStyle.Render("Revisión QA "+r.ReviewTaskKey))
+	}
+	if i >= p.done {
+		return strings.Join(append(lines, "", faintStyle.Render("Todavía sin evaluar.")), "\n")
+	}
+	doc := "sin documento de despliegue"
+	switch {
+	case r.DeployDocUnknown:
+		doc = warnStyle.Render("no se pudo verificar")
+	case r.HasDeployDoc:
+		doc = "enlazado"
+	}
+	lines = append(lines, "",
+		fact(check(!r.HasCodingErrors), "Errores de código", pick(r.HasCodingErrors, "con errores registrados", "ninguno"), width),
+		fact(check(!r.HasDevReturns), "Devoluciones", pick(r.HasDevReturns, "con devoluciones a desarrollo", "ninguna"), width),
+		fact(docMark(r), "Documento", doc, width),
+		fact(check(r.PRMerged), "Pull request", pick(r.PRMerged, "aprobado", "sin aprobar"), width), "")
+	if r.Observations != "" {
+		lines = append(lines, hang(faintStyle.Render("Observaciones: "), r.Observations, width))
+	} else {
+		lines = append(lines, faintStyle.Render("Observaciones: ninguna"))
+	}
+	for _, w := range p.notes[i] {
+		lines = append(lines, warnStyle.Render("⚠ "+w))
+	}
+	return strings.Join(lines, "\n")
+}
+
+func pick(yes bool, a, b string) string {
+	if yes {
+		return a
+	}
+	return b
+}
+
+// fact is one check of a task: its mark, its name and what it found.
+func fact(mark, label, value string, width int) string {
+	return hang(mark+" "+padRight(label, 19), faintStyle.Render(value), width)
+}
+
+// consolidated is the report these tasks make and what happens to it next.
+func (p *qaProgress) consolidated(width int) string {
+	lines := []string{faintStyle.Render("CONSOLIDADO"), p.session.Target.Title, ""}
+	wrap := lipgloss.NewStyle().Width(width)
+	switch p.step {
+	case qaEvaluate:
+		lines = append(lines, p.status("Evaluando "+p.rows[p.done].Key+" ("+strconv.Itoa(p.done+1)+" de "+strconv.Itoa(len(p.rows))+")"))
+	case qaFind:
+		lines = append(lines, p.status("Buscando el consolidado publicado"))
+	case qaDone:
+		lines = append(lines, p.outcome(wrap), "", faintStyle.Render("enter abre la vista previa; nada se publica hasta que lo confirmes."))
+	}
+	return strings.Join(lines, "\n")
 }
 
 // outcome says what publishing would do.

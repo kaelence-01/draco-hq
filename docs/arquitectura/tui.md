@@ -74,7 +74,7 @@ draco <comando> …                                 →  modo comando, sin cambi
 internal/tui/
   tui.go        Run(ctx, Deps) error; Deps: las dependencias que pasa cmd
   app.go        modelo raíz: pila de pantallas, tamaño, cabecera, pie, teclas globales
-  layout.go     ayudas de layout: extremos de una línea, ruta que cede, columnas proporcionales, caja que se estira, línea de pasos
+  layout.go     ayudas de layout: extremos de una línea, ruta que cede, columnas proporcionales, caja que se estira (con contenido ajustado), línea de pasos
   styles.go     estilos de Lip Gloss en un solo lugar y los temas (applyTheme)
   logo.go       DRACO en letras grandes
   home.go       pantalla principal (menú con descripciones y atajos, panel de la función elegida)
@@ -92,7 +92,7 @@ internal/tui/
   export.go     Exportar: tarea, documentos que la mencionan, texto y guardado
   backlog.go    Backlog: formulario y progreso por repo
   findings.go   Backlog: hallazgos con filtro y detalle
-  qa.go         QA: formulario y evaluación en vivo
+  qa.go         QA: formulario y evaluación en vivo (contadores, tabla, detalle y consolidado)
   docrun.go     docRun: lo que vista previa, ubicación y publicar piden a Generar y a QA
   settings.go   Configuración: secciones con su estado y asistente sin configuración
   connection.go Configuración: conexión con Atlassian y verificación de la cuenta
@@ -390,6 +390,30 @@ Los pasos de `qa.Session`, con las decisiones de `draco qa`:
   `DeployDocUnknown`; resumen). Arriba, el período o módulo y sprint, los
   `Warnings` del target, la cuenta y las tareas; debajo, los avisos de cada
   tarea. `esc` cancela entre tareas.
+- **Disposición (fase 7).** Desde 96 columnas: la línea de pasos con el avance
+  (`Evaluar 2/8`), los `Warnings` y la cuenta; una caja a todo el ancho con
+  los **contadores** y la tabla (tarea, `ERR DEV DOC PR`, resumen y **estado**:
+  `completa`, `con fallas`, `sin verificar`, y mientras se evalúa
+  `evaluando…` o `por evaluar`); y debajo, hasta el pie, el **detalle** de la
+  tarea elegida (6/10) al lado del **consolidado** (4/10: título, qué hará
+  publicar y el avance). Si la altura no deja sitio para las dos cajas
+  (menos de 6 líneas), la pantalla vuelve a la lista de una columna: nunca
+  dibuja las cajas cortadas. Debajo de 96 columnas se conserva la estructura
+  de antes, con los contadores.
+- **La regla de los contadores está en el flujo:** `qa.StatusOf` dice si una
+  tarea evaluada está completa, con fallas o sin verificar, y `qa.Tally` las
+  cuenta (solo las ya evaluadas: una tarea sin evaluar no tiene el documento
+  comprobado y no es una falla). **Una consulta fallida
+  (`DeployDocUnknown`) es «sin verificar», nunca «con fallas»**, y una falla
+  real nunca se esconde detrás de una consulta fallida. La pantalla solo
+  muestra el resultado.
+- **El detalle no inventa datos.** El tracker responde sí o no
+  (`QAIssue` trae booleanos): el detalle dice «con errores registrados» o
+  «ninguno», sin conteo, y no hay columna de responsable. El motivo de un
+  «no se pudo verificar» es el aviso real de esa tarea (`EvaluateTask`
+  devuelve el error del tracker), guardado por tarea para mostrarlo con ella.
+  Una tarea que todavía no se evaluó dice «Todavía sin evaluar», sin las
+  comprobaciones que no se han hecho.
 - **La pantalla guarda su copia de las filas:** al terminar `Collect` copia
   `Session.Tasks`, y de cada `EvaluateTask(i)` copia solo la fila `i`. Así
   nunca lee la `Session` mientras el paso siguiente la escribe.
