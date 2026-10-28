@@ -57,9 +57,9 @@ desvió de `origin/develop`, falla en vez de mezclar. Ningún objetivo escribe
 commits locales en `main`: `make promote` fusiona en GitHub, siempre con
 *merge commit* y después de preguntar, y `make release` solo etiqueta `main`
 ya integrada, limpia e igual a `origin/main` (guía: `docs/release.md`). El
-`bump` de cada release lo decide el autor: la fase 5 salió como *patch*
-(`v0.2.1`) y la 6 como *minor* (`v0.3.0`); la regla hasta la v1.0 está
-pendiente en el roadmap. Las plataformas del release
+`bump` de cada release lo decide el autor. La regla hasta la v1.0: *minor*
+por fase cerrada (la 6 salió `v0.3.0`, la 7 sale `v0.4.0`) y *patch* para
+correcciones y mejoras entre fases (`v0.3.1` a `v0.3.3`). Las plataformas del release
 (`PLATFORMS` del Makefile) y `updater.Platforms` deben coincidir; un test lo
 verifica.
 
