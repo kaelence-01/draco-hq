@@ -58,6 +58,26 @@ type Bundle struct {
 	qaErr error
 }
 
+// Scope is where the profile's documents go with these options: a Confluence
+// space key or a Markdown folder; empty when none is set.
+func Scope(p *config.Profile, o Options) string {
+	scope := o.Scope
+	switch p.Docs.Provider {
+	case "confluence":
+		if scope == "" {
+			scope = o.ProjectSpace
+		}
+		if scope == "" {
+			scope = p.Docs.Space
+		}
+	case "markdown":
+		if scope == "" {
+			scope = config.ExpandHome(p.Docs.Path)
+		}
+	}
+	return scope
+}
+
 // Open builds the adapters of the profile.
 func Open(cfg *config.Config, o Options) (*Bundle, error) {
 	p, name, err := cfg.Profile(o.Name)
@@ -93,15 +113,9 @@ func Open(cfg *config.Config, o Options) (*Bundle, error) {
 		return nil, unknown(name, "tracker", p.Tracker.Provider, "jira")
 	}
 
-	scope := o.Scope
+	scope := Scope(p, o)
 	switch p.Docs.Provider {
 	case "confluence":
-		if scope == "" {
-			scope = o.ProjectSpace
-		}
-		if scope == "" {
-			scope = p.Docs.Space
-		}
 		if scope == "" && !o.AnyScope {
 			return nil, ErrNoSpace
 		}
@@ -111,9 +125,6 @@ func Open(cfg *config.Config, o Options) (*Bundle, error) {
 		}
 		b.Docs = atlassian.NewDocStore(c, scope)
 	case "markdown":
-		if scope == "" {
-			scope = config.ExpandHome(p.Docs.Path)
-		}
 		if scope == "" {
 			return nil, fmt.Errorf("perfil '%s': docs.path es obligatorio con provider: markdown", name)
 		}

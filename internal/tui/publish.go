@@ -118,7 +118,12 @@ func (p *publish) view(width, height int) string {
 		lines = append(lines, warnStyle.Render("¿Publicar? enter confirma · esc vuelve sin publicar"))
 	}
 	lines = append(lines, "", faintStyle.Render("Lo mismo en modo comando:"), "$ "+a.command)
-	return pad(lipgloss.NewStyle().Width(width - 2).Render(lipgloss.JoinVertical(lipgloss.Left, lines...)))
+	if width < panelMinWidth {
+		return pad(lipgloss.NewStyle().Width(width - 2).Render(lipgloss.JoinVertical(lipgloss.Left, lines...)))
+	}
+	top := titleLine(boldStyle.Render("Publicar"), a.steps, 4, width-2)
+	box := boxStyle.Width(min(width-2, 96)).Render(lipgloss.JoinVertical(lipgloss.Left, lines...))
+	return lipgloss.NewStyle().Padding(0, 1).Render(lipgloss.JoinVertical(lipgloss.Left, top, "", box))
 }
 
 // summary is the line the frame keeps after publishing; it warns when the

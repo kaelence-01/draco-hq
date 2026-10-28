@@ -356,12 +356,20 @@ terminal, con `draco` o sin él: `/g -i OPS-7 -b a1b2c3d`.
 ### Generar documento
 
 1. **Tarea y proyecto.** Aquí se abre el perfil: si falta una credencial o un
-   space, lo dice antes de seguir.
-2. **Commits.** Muestra la lista de commits recientes de cada repo, con la
-   rama en la que está el clon.
+   space, lo dice antes de seguir. Desde 96 columnas, a la derecha del
+   formulario, **Lo que sigue** muestra los pasos, los repos del proyecto con
+   su carpeta y el destino del perfil (el space o la carpeta Markdown), y se
+   actualiza al cambiar de proyecto.
+2. **Commits.** Muestra una tabla con los commits recientes de cada repo (hash,
+   mensaje, autor, fecha y número de archivos), con la rama en la que está el
+   clon. Desde 96 columnas, a la derecha va el **detalle del commit con sus
+   archivos**, y abajo, **Seleccionados**: los commits marcados en los dos
+   repos y el total de archivos, contando cada uno una vez por repo. En
+   terminales angostas el detalle baja y la tabla suelta el autor y la fecha
+   cuando no caben.
    - `espacio` marca un commit;
    - `tab` cambia entre backend y frontend;
-   - `h` agrega un hash a mano (por ejemplo, de otra rama);
+   - `h` agrega un hash a mano (por ejemplo, de otra rama): está en `?`;
    - `enter` continúa.
 3. **Preparar documento.** Lee la tarea, busca si ya hay un documento y lee
    los archivos de los commits. Si el documento existe, pregunta si
@@ -370,10 +378,17 @@ terminal, con `draco` o sin él: `/g -i OPS-7 -b a1b2c3d`.
    aquí no publica nada. Al actualizar, si el documento actual no tiene una
    sección que se conserva, lo avisa y pide `s` para seguir.
 5. **Ubicación** (solo al crear). `/` filtra la lista y `enter` elige dónde
-   crear el documento.
+   crear el documento. A la derecha (debajo, en terminales angostas), el
+   **Resumen** dice qué se creará: el título, el destino, la página nueva
+   junto a la elegida y el enlace que se agregará en la tarea. Nada se
+   publica todavía.
 6. **Publicar.** `enter` publica. Mientras publica, `esc` no sale, para no
    dejar el documento sin su enlace en la tarea. Al terminar muestra la URL;
    si falló el enlace en Jira, lo dice.
+
+Desde 96 columnas, cada paso lleva arriba la línea de pasos
+(`✓ Tarea › ✓ Commits › Vista previa › Ubicación › Publicar`), con `✓` en los
+que ya hiciste. En el consolidado QA, Ubicación y Publicar llevan la suya.
 
 Lo que el equipo escribió a mano en «A considerar» se conserva al actualizar.
 

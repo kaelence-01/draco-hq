@@ -210,6 +210,10 @@ func (p *progress) view(width, height int) string {
 }
 
 func (p *progress) frame(width int, lines []string) string {
+	if width >= panelMinWidth {
+		lines = append([]string{titleLine(boldStyle.Render("Preparar documento"), deploySteps, 2, width-2), ""}, lines...)
+		return lipgloss.NewStyle().Padding(0, 1).Width(width).Render(lipgloss.JoinVertical(lipgloss.Left, lines...))
+	}
 	return lipgloss.NewStyle().Padding(1, 1, 0).Width(width).Render(lipgloss.JoinVertical(lipgloss.Left, lines...))
 }
 

@@ -31,8 +31,14 @@ type docAbout struct {
 	dest    string // the destination provider
 	issue   string // the task publishing links from; empty for none
 	tracker string
-	command string // the same run in the command mode
+	command string   // the same run in the command mode
+	steps   []string // the screens of the flow, for the line of steps
 }
+
+var (
+	deploySteps = []string{"Tarea", "Commits", "Vista previa", "Ubicación", "Publicar"}
+	qaSteps     = []string{"Sprint o Kanban", "Evaluar", "Vista previa", "Ubicación", "Publicar"}
+)
 
 type docDraft struct {
 	title, markdown string
@@ -64,7 +70,7 @@ type genRun struct {
 
 func (r *genRun) about() docAbout {
 	return docAbout{noun: "Documento", recent: "documentos de despliegue recientes", dest: r.bundle.Profile.Docs.Provider,
-		issue: r.session.Target.Issue, tracker: r.bundle.Profile.Tracker.Provider, command: r.command}
+		issue: r.session.Target.Issue, tracker: r.bundle.Profile.Tracker.Provider, command: r.command, steps: deploySteps}
 }
 
 func (r *genRun) updating() bool { return r.replace }
@@ -109,7 +115,7 @@ type qaRun struct {
 }
 
 func (r *qaRun) about() docAbout {
-	return docAbout{noun: "Consolidado", recent: "consolidados QA previos", dest: r.bundle.Profile.Docs.Provider, command: r.command}
+	return docAbout{noun: "Consolidado", recent: "consolidados QA previos", dest: r.bundle.Profile.Docs.Provider, command: r.command, steps: qaSteps}
 }
 
 func (r *qaRun) updating() bool { return r.session.Existing != nil }
