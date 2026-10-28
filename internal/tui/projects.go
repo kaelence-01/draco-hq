@@ -43,8 +43,10 @@ func newProjects(st *state) *projects {
 func (p *projects) title() string { return "Proyectos" }
 
 func (p *projects) keys() []key.Binding {
-	return []key.Binding{upKey, downKey, useKey, defaultKey, newKey, editKey, removeKey, filterKey}
+	return []key.Binding{upKey, downKey, useKey, newKey, editKey, filterKey}
 }
+
+func (p *projects) moreKeys() []key.Binding { return []key.Binding{defaultKey, removeKey} }
 
 // captures keeps the keys while the user confirms, and those of the filter.
 func (p *projects) captures(k tea.KeyPressMsg) bool {

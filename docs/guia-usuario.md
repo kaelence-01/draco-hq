@@ -301,10 +301,16 @@ en la consola clásica de Windows (`cmd`) se ve más limitado.
 
 - A la izquierda, el **menú**. A la derecha (desde 96 columnas), un **panel**
   con qué hace la función elegida y el mismo trabajo en modo comando.
-- Arriba, la cabecera: versión, proyecto activo y su perfil (el que usa
-  Generar; QA y Exportar usan el por defecto), y el aviso si hay una versión
-  nueva.
-- Abajo, el pie: las teclas de la pantalla actual.
+- Arriba, una línea de cabecera: la versión y el camino por donde llegaste
+  (`Inicio › Proyectos`), y a la derecha el proyecto activo y su perfil (el
+  que usa Generar; QA y Exportar usan el por defecto). Si la terminal es
+  angosta, primero se quita el perfil, después el proyecto y, al final, las
+  primeras pantallas del camino. Si hay una versión nueva, el aviso va junto
+  a la versión.
+- Abajo, el pie: las teclas principales de la pantalla actual y `? más`.
+- Sobre el pie, tras publicar un documento, queda una línea con el resultado
+  (`✓ OPS-7 publicado en «Despliegues»`) hasta que salgas de draco. Si el
+  documento no se pudo enlazar desde la tarea, la línea lo avisa con `⚠`.
 
 ### Teclas en todas las pantallas
 
@@ -312,7 +318,7 @@ en la consola clásica de Windows (`cmd`) se ve más limitado.
 |---|---|
 | `ctrl+c` | Sale de draco, siempre |
 | `esc` | Vuelve a la pantalla anterior |
-| `?` | Muestra todas las teclas de la pantalla |
+| `?` | Muestra todas las teclas de la pantalla, también las que el pie compacto no trae (de nuevo, las oculta) |
 | `q` | Sale, desde la principal |
 | `enter` / `tab` / `shift+tab` | En un formulario: siguiente campo / siguiente / anterior |
 
@@ -414,6 +420,8 @@ la principal o desde Configuración.
 | `e` | Edita el proyecto (conserva el checklist y el resto del backlog) |
 | `x` | Elimina el proyecto (pide `s`) |
 | `/` | Filtra la lista |
+
+El pie muestra `enter`, `n`, `e` y `/`; `d` y `x` aparecen al pulsar `?`.
 
 Si tienes dos o más perfiles, el formulario pregunta el **perfil del
 proyecto** («El perfil por defecto» o uno de la lista). Termina con una

@@ -2,6 +2,7 @@ package tui
 
 import (
 	"context"
+	"slices"
 	"strings"
 
 	"charm.land/bubbles/v2/help"
@@ -29,12 +30,26 @@ type (
 	// closer releases what the screen started (a step's context) when it is
 	// closed.
 	closer interface{ close() }
+	// moreKeyer lists the keys that only the full help shows; the footer
+	// shows the ones in keys().
+	moreKeyer interface{ moreKeys() []key.Binding }
 )
 
 type openMsg struct{ s screen }
 type backMsg struct{}
 type backToMsg struct{ s screen }
 type homeMsg struct{}
+
+// resultMsg sets the line above the footer, which stays until draco closes.
+type resultMsg struct {
+	text string
+	warn bool
+}
+
+// report asks the frame to show what an action did.
+func report(text string, warn bool) tea.Cmd {
+	return func() tea.Msg { return resultMsg{text, warn} }
+}
 
 // open stacks s over the current screen.
 func open(s screen) tea.Cmd { return func() tea.Msg { return openMsg{s} } }
@@ -50,8 +65,9 @@ func toHome() tea.Msg { return homeMsg{} }
 
 var (
 	quitKey = key.NewBinding(key.WithKeys("ctrl+c"), key.WithHelp("ctrl+c", "salir"))
-	helpKey = key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "ayuda"))
+	helpKey = key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "más"))
 	backKey = key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "volver"))
+	lessKey = key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "menos"))
 )
 
 // app is the root model: a stack of screens inside a common frame.
@@ -87,6 +103,9 @@ func (m *app) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case newVersionMsg:
 		m.st.newVersion = msg.version
+		return m, nil
+	case resultMsg:
+		m.st.result, m.st.resultWarn = msg.text, msg.warn
 		return m, nil
 	case tea.KeyPressMsg:
 		if key.Matches(msg, quitKey) {
@@ -166,55 +185,64 @@ func (m *app) render() string {
 	return lipgloss.JoinVertical(lipgloss.Left, header, body, footer)
 }
 
+// header is one line: version and path on the left, profile and project on
+// the right while they fit.
 func (m *app) header() string {
 	left := boldStyle.Render("draco") + " " + faintStyle.Render(m.st.deps.Version)
 	if v := m.st.newVersion; v != "" {
 		left += faintStyle.Render(" · ") + warnStyle.Render(v+" disponible")
 	}
-	var parts []string
-	if m.st.profile != "" {
-		parts = append(parts, "perfil: "+accentStyle.Render(m.st.profile)+faintStyle.Render(" ("+m.st.tracker+" → "+m.st.docs+")"))
-	}
-	if m.st.project != "" {
-		parts = append(parts, "proyecto: "+accentStyle.Render(m.st.project))
-	}
-	right := strings.Join(parts, "  ")
-	gap := m.width - lipgloss.Width(left) - lipgloss.Width(right) - 2
-	if gap < 1 {
-		right, gap = "", m.width-lipgloss.Width(left)-2
-	}
-	line := " " + left + strings.Repeat(" ", max(gap, 1)) + right + " "
-	out := lipgloss.NewStyle().MaxWidth(m.width).Render(line) + "\n" + m.rule()
-	if len(m.stack) > 1 {
-		out += "\n" + lipgloss.NewStyle().MaxWidth(m.width).Render(" "+m.crumbs())
-	}
-	return out
-}
-
-// crumbs is the path of open screens, the current one highlighted.
-func (m *app) crumbs() string {
-	var parts []string
+	left += faintStyle.Render(" │ ")
+	titles := make([]string, len(m.stack))
 	for i, s := range m.stack {
-		if i == len(m.stack)-1 {
-			parts = append(parts, boldStyle.Render(s.title()))
-		} else {
-			parts = append(parts, faintStyle.Render(s.title()))
-		}
+		titles[i] = s.title()
 	}
-	return strings.Join(parts, faintStyle.Render(" › "))
+	width := m.width - 2 // a space on each side
+	left += trail(titles, width-lipgloss.Width(left))
+
+	var prof, project string
+	if m.st.project != "" {
+		project = "proyecto: " + accentStyle.Render(m.st.project)
+	}
+	if m.st.profile != "" {
+		prof = "perfil: " + accentStyle.Render(m.st.profile) + faintStyle.Render(" ("+m.st.tracker+" → "+m.st.docs+")")
+	}
+	rights := []string{strings.TrimSpace(prof + "  " + project), project}
+	line := " " + edges(width, left, slices.DeleteFunc(rights, func(s string) bool { return s == "" })...) + " "
+	return lipgloss.NewStyle().MaxWidth(m.width).Render(line) + "\n" + m.rule()
 }
 
+// footer shows the screen's main keys and ? for the rest; with the full help
+// open it lists every key. What the last action did goes above it.
 func (m *app) footer() string {
-	bindings := m.top().keys()
+	top, full := m.top(), m.help.ShowAll
+	bindings := slices.Clone(top.keys())
+	if more, ok := top.(moreKeyer); ok && full {
+		bindings = append(bindings, more.moreKeys()...)
+	}
 	if len(m.stack) > 1 && !m.captured(tea.KeyPressMsg{Code: tea.KeyEscape}) {
 		bindings = append(bindings, backKey)
 	}
 	if !m.captured(tea.KeyPressMsg{Code: '?', Text: "?"}) {
-		bindings = append(bindings, helpKey)
+		if full {
+			bindings = append(bindings, lessKey)
+		} else {
+			bindings = append(bindings, helpKey)
+		}
 	}
-	bindings = append(bindings, quitKey)
+	if full {
+		bindings = append(bindings, quitKey)
+	}
 	m.help.Styles = helpStyles
-	return m.rule() + "\n " + m.help.View(keyMap(bindings))
+	out := m.rule() + "\n " + m.help.View(keyMap(bindings))
+	if m.st.result != "" {
+		mark := okStyle.Render("✓")
+		if m.st.resultWarn {
+			mark = warnStyle.Render("⚠")
+		}
+		out = lipgloss.NewStyle().Width(m.width).Padding(0, 1).Render(mark+" "+m.st.result) + "\n" + out
+	}
+	return out
 }
 
 func (m *app) rule() string { return ruleStyle.Render(strings.Repeat("─", m.width)) }
