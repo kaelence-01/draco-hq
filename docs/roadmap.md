@@ -52,7 +52,9 @@ de Windows (`cmd`) se ve más limitado.
 | 4 | Modo visual mínimo: pantalla principal, proyectos, generar documento | ✅ `v0.2.0` |
 | 5 | Resto de pantallas: backlog, QA, exportar | ✅ `v0.2.1` |
 | 6 | Configuración en formularios, aviso de versión nueva, barra de comandos con autocompletado, ayuda, temas | ✅ `v0.3.0` |
+| — | Mejoras y correcciones sobre la fase 6, con draco ya en uso | ✅ `v0.3.1`–`v0.3.3` |
 | v1.0 | Instaladores, checksums, migración desde gtt (✅ adelantada), README completo | ⬜ |
+| Después de la v1.0 | Otros trackers y plataformas; modo equipo (plantillas y perfiles compartidos) | ⬜ |
 
 ### Fase 2 — hecho
 
@@ -110,9 +112,8 @@ se cierra con un criterio verificable.
 Listar commits recientes para el selector de la TUI entra en el puerto de
 cambios (`ChangeSource.RecentCommits`) en la actividad 3b.
 
-Después de la fase 3 (modo comando): segundo tracker (GitHub Issues o Linear),
-segundo destino remoto (Notion o SharePoint), PRs de Bitbucket, notificaciones
-y plantillas remotas, en ese orden según demanda (diseño, §9).
+Segundo tracker, segundo destino remoto, PRs, notificaciones y plantillas
+remotas quedan para después de la v1.0 (ver «Después de la v1.0»).
 
 ### Fase 3 — modo comando (cerrada)
 
@@ -286,6 +287,17 @@ y `make release bump=minor` (bitácora 049). Quedan a cargo del autor:
 - las pruebas manuales de las bitácoras 042 a 047, que se suman a las de
   las fases 4 y 5 (029 a 032 y 035 a 038).
 
+### `v0.3.1` a `v0.3.3` — mejoras con draco en uso
+
+Releases *patch* sobre la fase 6, con usuarios trabajando sobre todo con
+Jira:
+
+| Release | Fecha | Incluye |
+|---|---|---|
+| `v0.3.1` | 2026-10-21 | Instalación con un comando y guía de usuario (050), Configuración con lo necesario primero (051), backlog en el formulario de proyecto (052), `~` en las rutas y space solo para Confluence (053), regla del proyecto en `config` (054) |
+| `v0.3.2` | 2026-10-22 | Cada proyecto con su perfil (055), guía consistente con el código (056), documento de Confluence como el de gtt (057), `make merge` y atajos (058) |
+| `v0.3.3` | 2026-10-22 | Importar la configuración de gtt (059), QA reconoce el documento con cualquier plantilla (060) |
+
 ### v1.0
 
 - Instaladores: ✅ script de un comando (`scripts/install.sh` e
@@ -301,6 +313,72 @@ y `make release bump=minor` (bitácora 049). Quedan a cargo del autor:
   instalación; la guía se actualiza en el mismo commit que cambia lo que el
   usuario ve (`make check` lo avisa). Falta: bitácora enlazada por versión
   (Solicitud → Motivación → Diseño técnico → Archivos → Cómo verificar).
+
+### Después de la v1.0
+
+Dos líneas de trabajo, sin orden fijo entre ellas: se elige según lo que
+pidan los usuarios. Ninguna tiene actividades todavía; cada una empieza con
+su diseño y su plan.
+
+#### Otros trackers y plataformas
+
+Una **plantilla** define cómo se ve el documento (estructura, título,
+secciones a conservar); no conecta draco con otra herramienta. Leer tareas de
+otro **tracker** pide un adaptador en Go con su autenticación, paginación y
+formato, compilado en el binario (`docs/arquitectura/proveedores.md`).
+
+Hoy: tracker **Jira**; destino **Confluence** o **Markdown local** (el `.md`
+puede vivir en un repo de cualquier plataforma); cambios desde el **clon git
+local**, sea cual sea el remoto. Candidatos, con la prioridad del diseño
+(§9):
+
+| Rol | Plataformas | Prioridad |
+|---|---|---|
+| Tracker | GitHub Issues, Linear | P1 |
+| Tracker | GitLab Issues, Azure Boards | P2 |
+| Tracker | Asana, monday, Zoho Projects, ClickUp, Trello, YouTrack | Sin evaluar |
+| Cambios | PRs de Bitbucket | P1 |
+| Cambios | PRs de GitHub, GitLab, Azure Repos | P2 |
+| Destino | Notion, SharePoint | P2 |
+| Destino | Wiki de GitHub/GitLab, Google Docs | P3 |
+| Notificación | Teams, Slack, webhook | P2 |
+
+Antes del segundo tracker:
+
+- **Credenciales y URL por perfil** (hoy son globales): sin eso no se
+  combinan dos plataformas ni dos instancias.
+- **QA sigue siendo solo de Jira:** depende de campos personalizados,
+  estados y sprints. Con otro tracker habrá documento de despliegue pero no
+  consolidado, hasta decidir el mapeo de estados.
+- El siguiente tracker lo decide la demanda real de los usuarios, no la
+  prioridad del diseño.
+
+Idea a evaluar: un **adaptador declarativo** (YAML que describe endpoint,
+campos y autenticación de un tracker REST) para trackers simples, sin
+compilar uno nuevo por plataforma. Los complejos seguirían en Go.
+
+#### Modo equipo: plantillas y perfiles compartidos
+
+Un líder de equipo prepara las plantillas (y, si quiere, perfiles y
+`qa_jira`) una sola vez; cada desarrollador las consume y, cuando el líder
+cambia una, le llega sin rehacer el cambio a mano.
+
+- **Un solo draco**, no una edición individual y otra de grupos: el modo
+  equipo es una fuente compartida que se conecta, y un usuario sin equipo
+  sigue igual.
+- Hoy ya funciona a medias: `.draco/templates/<tipo>/` commiteado en el repo
+  lo usa todo el que lo clone, pero es por repo.
+- **Paquete del equipo** en un repo Git, versionado con tags; el desarrollador
+  lo conecta una vez (por ejemplo, `draco init --from <repo>@v1`, como la
+  importación de gtt) o desde `template:` del perfil. Absorbe las
+  **plantillas remotas** que el diseño ya tenía pendientes: versión fija o URL
+  con checksum SHA-256.
+- El líder decide cuándo se actualiza el equipo (versión fija) y el checksum
+  impide que el paquete cambie sin que se note.
+- **Las credenciales nunca viajan en el paquete:** cada quien pone las suyas
+  (`docs/security/patrones-seguros.md`).
+- Varios equipos o áreas: varios paquetes o varios perfiles, sin un modelo
+  especial.
 
 ## Decisiones tomadas
 
@@ -319,6 +397,7 @@ y `make release bump=minor` (bitácora 049). Quedan a cargo del autor:
 | Ramas `main` → `develop` → `feature/<tema>`, un commit por actividad, PR a `develop` | Historial corto y legible; `main` solo recibe lo integrado |
 | Bitácora por actividad, agrupada por fase (`docs/bitacora/fase-N/`), y comentarios mínimos en el código | La historia de cada decisión en un solo lugar, el código limpio |
 | Migrar desde gtt importando su `config.yaml` tal cual, solo si draco no tiene configuración, sin tocar el de gtt | Sus campos son un subconjunto de los de draco; quien viene de gtt no vuelve a configurar nada (bitácora 059) |
+| Modo equipo después de la v1.0, dentro del mismo draco | Decisión del autor (bitácora 061): cambiar una plantilla una vez para todo el equipo; una edición aparte para grupos duplicaría el producto |
 | La fase 5 se publicó como *patch* (`v0.2.1`) y la fase 6 como *minor* (`v0.3.0`) | Decisiones del autor (bitácoras 039 y 049). La 039 había fijado `v0.2.x` para las dos; al cerrar la 6, el autor eligió *minor*, que es lo que pide semver para funciones nuevas |
 
 ## Decisiones pendientes
@@ -333,5 +412,10 @@ y `make release bump=minor` (bitácora 049). Quedan a cargo del autor:
 - Portar o no la skill `backlog-tareas`.
 - Proveedores: mapeo de estados entre trackers, gestor de secretos del sistema
   para las credenciales, plantillas remotas (`docs/arquitectura/proveedores.md`).
+- Cuál es el segundo tracker, y si se intenta un adaptador declarativo.
+- Modo equipo: dónde publica el líder (repo Git, que es lo natural para
+  desarrolladores, o una página de Confluence o carpeta compartida si los
+  líderes no son técnicos) y qué entra en el paquete además de las
+  plantillas.
 - Logo: confirmar origen y licencia de la imagen, quitar el ©, vectorizar,
   versión para fondo claro y versión para 16–32 px.
