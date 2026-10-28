@@ -19,6 +19,46 @@ func edges(width int, left string, rights ...string) string {
 	return left
 }
 
+// columns splits width into two columns in the ratio a:b, with gap columns
+// between them.
+func columns(width, gap, a, b int) (left, right int) {
+	usable := max(width-gap, 0)
+	left = usable * a / (a + b)
+	return left, usable - left
+}
+
+// stretch is a box of width columns that fills height lines, whatever its
+// content; the caller keeps the content within height-2 lines.
+func stretch(content string, width, height int) string {
+	return boxStyle.Width(width).Height(max(height, 3)).Render(content)
+}
+
+// stepper draws the steps of a flow: the ones done checked, the current one
+// highlighted, the rest dim.
+func stepper(names []string, current int) string {
+	parts := make([]string, len(names))
+	for i, n := range names {
+		switch {
+		case i < current:
+			parts[i] = okStyle.Render("✓ " + n)
+		case i == current:
+			parts[i] = accentStyle.Bold(true).Render(n)
+		default:
+			parts[i] = faintStyle.Render(n)
+		}
+	}
+	return strings.Join(parts, faintStyle.Render("  ›  "))
+}
+
+// titleLine is the first line of a step of a flow: its title and, from
+// panelMinWidth columns on, the steps at the end of the line.
+func titleLine(title string, steps []string, current, width int) string {
+	if width < panelMinWidth {
+		return title
+	}
+	return edges(width, title, stepper(steps, current))
+}
+
 // hang puts text beside prefix, wrapping it under itself instead of under the
 // prefix, in width columns.
 func hang(prefix, text string, width int) string {

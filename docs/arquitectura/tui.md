@@ -74,7 +74,7 @@ draco <comando> …                                 →  modo comando, sin cambi
 internal/tui/
   tui.go        Run(ctx, Deps) error; Deps: las dependencias que pasa cmd
   app.go        modelo raíz: pila de pantallas, tamaño, cabecera, pie, teclas globales
-  layout.go     ayudas de layout del marco: extremos de una línea y ruta que cede
+  layout.go     ayudas de layout: extremos de una línea, ruta que cede, columnas proporcionales, caja que se estira, línea de pasos
   styles.go     estilos de Lip Gloss en un solo lugar y los temas (applyTheme)
   logo.go       DRACO en letras grandes
   home.go       pantalla principal (menú con descripciones y atajos, panel de la función elegida)
@@ -275,6 +275,24 @@ mismas decisiones que pregunta `draco g`:
   commit de otra rama se agrega con `h`; la pantalla dice en qué rama está
   (`CurrentBranch`). Cada lado es una pestaña (`tab`), para caber en 80
   columnas; la pestaña cuenta los commits marcados.
+- **Archivos de cada commit (fase 7).** La pantalla Commits los lee con
+  `ChangedFiles` de **un solo hash**, en un `tea.Cmd`, cuando el cursor llega
+  al commit, cuando se agrega un hash a mano y, al abrirla desde la barra, para
+  cada hash marcado. Se guardan por hash (`side.files`): un commit no se lee
+  dos veces. Alimentan el detalle, la columna `ARCH.` y el total de la franja
+  de seleccionados, que cuenta cada archivo una vez **por lado**, como el
+  documento. El puerto no cambia. `ChangedFiles` devuelve rutas sin estado, así
+  que el detalle no muestra la letra A/M/D del prototipo.
+- **Disposición (fase 7).** Desde 96 columnas: formulario y «Lo que sigue»
+  (pasos, repos del proyecto con su clon y destino del perfil) en Tarea; en
+  Commits, la tabla (hash, mensaje, autor, fecha, archivos) al 60 % y el
+  detalle del commit al 40 %, con la franja **Seleccionados** debajo. La
+  tabla suelta autor y fecha cuando el mensaje se quedaría con menos de 24
+  columnas (el detalle los trae). Debajo de 96 columnas el detalle baja a dos
+  líneas: archivos del commit y cuenta de marcados.
+- **Destino del perfil:** `profile.Scope` (función pura, la regla que usa
+  `profile.Open`): el space de la petición, el del proyecto, el del perfil, o
+  la carpeta Markdown. Tarea lo muestra sin repetir la regla.
 - El paso 3 termina con los archivos leídos por carpeta; `enter` abre la
   vista previa.
 - **Vista previa:** pestañas Documento (el Markdown en un `viewport`, con las
@@ -403,6 +421,15 @@ type docRun interface {
 - En QA, `enter` al terminar la evaluación abre la vista previa; el
   resultado dice «Consolidado creado» o «actualizado».
 - Los tests de Generar pasaron sin cambios.
+- **Fase 7:** Ubicación y Publicar llevan la línea de pasos que trae
+  `docAbout.steps` (cada flujo dice los suyos). Ubicación va en dos columnas
+  (6/4) desde 96 columnas: la lista con su línea `/ filtrar` siempre visible y,
+  al lado, el **Resumen** (título, destino, la página que se creará junto a la
+  elegida y el enlace posterior desde la tarea); debajo de 96 columnas el
+  resumen baja. Publicar sigue pidiendo una confirmación aparte, y su
+  resultado va en una caja. No hay progreso paso a paso al publicar:
+  `Session.Publish` es una sola llamada sin avisos intermedios, y mostrar
+  «Creando… / Enlazando…» sería inventarlo.
 
 ### Configuración
 
@@ -909,6 +936,13 @@ Se suman a las normas del §10:
   las usa (actividad 4 en adelante), para no dejar código sin uso. La
   principal no usa columnas proporcionales: su menú tiene ancho fijo porque
   las descripciones son de una línea.
+- **Commits clasifica sus teclas:** `↑↓`, `espacio`, `tab` (repo) y `enter` en
+  el pie; `h` y `↑/k`, `↓/j` en la ayuda completa. La ayuda de `tab` es
+  «repo» y no «backend/frontend»: con la segunda el pie no cabía en 80
+  columnas y se perdía `? más`.
+- **El título de la tarea no se muestra en Commits:** se lee en el paso
+  siguiente (`FetchIssue`); la línea de Commits lleva solo la clave. Leerlo
+  antes sería una llamada más al tracker solo para esta línea.
 - **`q salir` y `ctrl+c` van en la ayuda completa de la principal**, como en el
   prototipo: el pie compacto lleva `↑↓ elegir`, `enter`, `1-6` y `/` para que
   `? más` quepa en 80 columnas.

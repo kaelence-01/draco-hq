@@ -47,7 +47,12 @@ func (t *fakeTracker) LinkDocument(_ context.Context, key string, d provider.Doc
 }
 
 // fakeGit has a backend and a frontend clone; the hash "malo" does not exist.
-type fakeGit struct{ read map[string][]string }
+// read is the last list of hashes asked for each clone, and calls how many
+// times files were asked for: the commits screen reads one hash at a time.
+type fakeGit struct {
+	read  map[string][]string
+	calls map[string]int
+}
 
 func (fakeGit) CurrentBranch(_ context.Context, dir string) (string, error) {
 	return map[string]string{"/code/pagos-api": "develop", "/code/pagos-web": "filtro-fechas"}[dir], nil
@@ -67,6 +72,7 @@ func (fakeGit) RecentCommits(_ context.Context, dir string, _ int) ([]provider.C
 
 func (g fakeGit) ChangedFiles(_ context.Context, dir string, hashes []string) ([]string, error) {
 	g.read[dir] = hashes
+	g.calls[dir]++
 	if slices.Contains(hashes, "malo") {
 		return nil, errors.New("el commit malo no existe en el repo local")
 	}
@@ -93,7 +99,7 @@ func newGenerateApp(t *testing.T, openErr error) *generateEnv {
 	if err != nil {
 		t.Fatal(err)
 	}
-	e := &generateEnv{tracker: &fakeTracker{canceled: make(chan struct{})}, git: fakeGit{read: map[string][]string{}}, docs: docs, store: docs}
+	e := &generateEnv{tracker: &fakeTracker{canceled: make(chan struct{})}, git: fakeGit{read: map[string][]string{}, calls: map[string]int{}}, docs: docs, store: docs}
 	cfg := &config.Config{
 		DefaultProject: "pagos",
 		Projects: map[string]*config.ProjectConfig{
@@ -173,7 +179,7 @@ func TestGenerateExplainsAProfileError(t *testing.T) {
 	send(e.m, keyEnter)
 	send(e.m, keyEnter)
 	out := view(e.m)
-	if !strings.Contains(out, "space key no configurado") || !strings.Contains(out, "ponlo en el proyecto") || !strings.Contains(out, "Tarea") {
+	if !strings.Contains(out, "space key no configurado") || !strings.Contains(out, "ponlo en el") || !strings.Contains(out, "docs.space del perfil") || !strings.Contains(out, "Tarea") {
 		t.Errorf("el error se explica y el formulario sigue:\n%s", out)
 	}
 }
@@ -182,13 +188,13 @@ func TestCommitsListsEachSideWithItsBranch(t *testing.T) {
 	e := newGenerateApp(t, nil)
 	e.toCommits(t, "OPS-7")
 	out := view(e.m)
-	for _, want := range []string{"▸ Backend", "Frontend", "pagos-api", "rama develop", "a1b2c3d", "Agrega filtro por rango de fechas", "Ana · 2026-10-19"} {
+	for _, want := range []string{"▸ Backend", "Frontend", "pagos-api · develop", "a1b2c3d", "Agrega filtro por rango de fechas", "Ana · 2026-10-19 · develop", "ARCHIVOS (2)", "app/Http/Pagos/FiltroController.php"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("falta %q:\n%s", want, out)
 		}
 	}
 	send(e.m, tea.KeyPressMsg{Code: tea.KeyTab})
-	if out := view(e.m); !strings.Contains(out, "rama filtro-fechas") || !strings.Contains(out, "e4f5a6b") {
+	if out := view(e.m); !strings.Contains(out, "pagos-web · filtro-fechas") || !strings.Contains(out, "e4f5a6b") {
 		t.Errorf("tab cambia al frontend:\n%s", out)
 	}
 }
@@ -284,8 +290,9 @@ func TestGenerateAsksAboutAnExistingDocument(t *testing.T) {
 		if out := view(e.m); !strings.Contains(out, "Ya existe: Documento de Despliegue - OPS-7 - Título viejo") || !strings.Contains(out, "1 actualizar") {
 			t.Fatalf("pregunta qué hacer con el documento existente:\n%s", out)
 		}
+		before := e.git.calls["/code/pagos-api"]
 		typeText(e.m, c.key)
-		_, read := e.git.read["/code/pagos-api"]
+		read := e.git.calls["/code/pagos-api"] > before
 		if read != c.read {
 			t.Errorf("%s: archivos leídos = %v", c.key, read)
 		}
