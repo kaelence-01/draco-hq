@@ -111,6 +111,7 @@ Sin entradas: se hizo antes de que existiera la bitácora.
 | [064](./fase-7/064-tui-marco.md) | Marco: cabecera de una línea, pie compacto y línea de resultado | `feature/tui-marco` | 2026-10-28 | Cabecera con la ruta que cede por la izquierda; pie con las teclas principales y `? más` (`moreKeys` para las secundarias); tras publicar queda `✓ OPS-7 publicado en «…»` sobre el pie, con `⚠` si falta el enlace; `layout.go` |
 | [065](./fase-7/065-tui-principal.md) | Principal: descripciones, atajos, panel con pasos y contexto | `feature/tui-principal` | 2026-10-28 | Menú con descripción y atajos `1`–`6`; panel con los pasos; desde 120 columnas, Proyecto activo y Tu configuración; la regla de QA pasa a `config.QAState`; en 80 columnas el texto de la opción va bajo el menú |
 | [066](./fase-7/066-tui-generar-b.md) | Generar: tarea con lo que sigue, commits con detalle y ubicación con resumen | `feature/tui-generar-b` | 2026-10-28 | Commits en tabla con el detalle y los archivos de cada commit (un hash a la vez, cacheado) y la franja de seleccionados; Tarea con «Lo que sigue»; Ubicación con resumen y filtro visible; línea de pasos; `profile.Scope` |
+| [067](./fase-7/067-tui-vista-renderizada.md) | Vista previa renderizada en Generar y QA | `feature/tui-vista-renderizada` | 2026-10-28 | Renderizador propio del Markdown de draco (sin dependencia nueva): tablas con los anchos de `draco:tabla`, recuadro, casillas, enlaces; lo desconocido, tal cual; `m` alterna con el Markdown crudo; línea de estado y pasos |
 
 ## Formato de cada entrada
 

@@ -374,8 +374,14 @@ terminal, con `draco` o sin él: `/g -i OPS-7 -b a1b2c3d`.
 3. **Preparar documento.** Lee la tarea, busca si ya hay un documento y lee
    los archivos de los commits. Si el documento existe, pregunta si
    actualizarlo, crear otro o cancelar. `esc` cancela el paso.
-4. **Vista previa.** `tab` cambia entre el documento y los archivos. Salir de
-   aquí no publica nada. Al actualizar, si el documento actual no tiene una
+4. **Vista previa.** El documento se ve **dibujado** (títulos, tablas,
+   casillas y recuadros como los verá el equipo), con una línea que dice qué
+   pasará: «Se creará un documento nuevo», o lo que se conserva al
+   actualizar. `m` alterna con el Markdown tal como se publicará, y `tab`
+   cambia entre el documento y los archivos (`m` está en `?`). `↑↓` y
+   `pgup`/`pgdn` desplazan. Una línea que draco no sabe dibujar (con una
+   plantilla propia, por ejemplo) se muestra tal cual. Salir de aquí no
+   publica nada. Al actualizar, si el documento actual no tiene una
    sección que se conserva, lo avisa y pide `s` para seguir.
 5. **Ubicación** (solo al crear). `/` filtra la lista y `enter` elige dónde
    crear el documento. A la derecha (debajo, en terminales angostas), el
@@ -400,8 +406,9 @@ Lo que el equipo escribió a mano en «A considerar» se conserva al actualizar.
    cancela entre tareas. En las columnas, `✓` es un control que pasa y `✗`
    uno que falla. `?` significa que la consulta falló: nunca se publica como
    un control fallido.
-3. `enter` abre la **vista previa**, y después **Ubicación** y **Publicar**,
-   como en Generar.
+3. `enter` abre la **vista previa**, dibujada como en Generar (y con `m` para
+   el Markdown), y después **Ubicación** y **Publicar**, también como en
+   Generar.
 
 Solo la cuenta de `qa_email` publica el consolidado. Es una protección contra
 errores, no un permiso: los permisos reales son los de Atlassian. Un

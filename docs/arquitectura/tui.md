@@ -84,7 +84,8 @@ internal/tui/
   generate.go   Generar: tarea y proyecto (formulario); abre el perfil
   commits.go    Generar: selector de commits por lado, con hash a mano
   progress.go   Generar: pasos de deploy.Session con progreso y cancelación
-  preview.go    Generar y QA: vista previa (Markdown y archivos) y secciones no conservadas
+  preview.go    Generar y QA: vista previa (documento dibujado o Markdown, y archivos) y secciones no conservadas
+  mdrender.go   renderizador del Markdown que genera draco, para la vista previa
   locations.go  Generar y QA: ubicación del documento nuevo, con filtro
   publish.go    Generar y QA: confirmación, publicación y resultado
   filter.go     filtro de una lista (/), compartido por Proyectos, Ubicación y Exportar
@@ -295,8 +296,13 @@ mismas decisiones que pregunta `draco g`:
   la carpeta Markdown. Tarea lo muestra sin repetir la regla.
 - El paso 3 termina con los archivos leídos por carpeta; `enter` abre la
   vista previa.
-- **Vista previa:** pestañas Documento (el Markdown en un `viewport`, con las
-  líneas largas ajustadas) y Archivos. Reemplaza a `--dry-run`: salir ahí no
+- **Vista previa (fase 7):** pestañas Documento y Archivos. El documento se
+  ve **dibujado** por defecto (`mdrender.go`) y `m` alterna con el Markdown
+  tal como se publicará, en el mismo `viewport` y con las líneas largas
+  ajustadas; `m` solo vale en la pestaña del documento y va en la ayuda
+  completa. La línea de título lleva los pasos (si el título no deja sitio,
+  pasan a la línea de estado, que dice qué pasará: «Se creará un documento
+  nuevo», o lo que se conserva al actualizar). Reemplaza a `--dry-run`: salir ahí no
   publica nada. Al actualizar dice si lo escrito a mano se conserva; si el
   documento actual no tiene una sección a conservar (`NotPreserved`), lo
   avisa y `enter` no sigue hasta que el usuario acepta con `s`.
@@ -936,6 +942,27 @@ Se suman a las normas del §10:
   las usa (actividad 4 en adelante), para no dejar código sin uso. La
   principal no usa columnas proporcionales: su menú tiene ancho fijo porque
   las descripciones son de una línea.
+- **El renderizador (`mdrender.go`) lee líneas, no un árbol.** El Markdown de
+  draco es un subconjunto pequeño y conocido, y `goldmark` se queda solo en
+  los adaptadores (norma de `CLAUDE.md`). Dibuja títulos, párrafos, listas
+  con casillas, tablas, el recuadro y las marcas `✔ ✖ ?`; negrita, cursiva,
+  código y enlaces; quita los escapes (`\|`, `\*`). Las convenciones del
+  conversor de Confluence (`proveedores.md` §5) las sigue igual: los
+  comentarios `draco:tabla` y `draco:recuadro` no se muestran, una fila de
+  encabezado vacía se descarta, una celda toda en negrita es una etiqueta, y
+  `<br>` con cada línea en `- ` son viñetas. Los anchos de `anchos=` son
+  proporciones del ancho disponible, con tope inferior: una columna no baja
+  de su palabra más larga (hasta 14 columnas) mientras haya sitio. Una celda
+  que solo es una URL muestra su cola (`…/browse/OPS-7`) si no cabe, como la
+  tarjeta de Confluence muestra la clave.
+- **Lo que no reconoce se muestra tal cual** (citas, bloques de código,
+  listas numeradas, líneas horizontales, HTML, una línea con `|` sin su fila
+  de guiones): una plantilla del usuario con otro Markdown no se rompe ni se
+  traga texto. No se prueba contra `goldmark`: se prueba por construcción
+  y contra los goldens de los documentos reales, a varios anchos.
+- **El título de la vista previa y los pasos:** con 160 columnas caben en una
+  línea; con 110 y un título largo los pasos bajan a la línea de estado.
+  Debajo de 96 columnas no hay línea de pasos.
 - **Commits clasifica sus teclas:** `↑↓`, `espacio`, `tab` (repo) y `enter` en
   el pie; `h` y `↑/k`, `↓/j` en la ayuda completa. La ayuda de `tab` es
   «repo» y no «backend/frontend»: con la segunda el pie no cabía en 80
