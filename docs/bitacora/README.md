@@ -113,6 +113,7 @@ Sin entradas: se hizo antes de que existiera la bitácora.
 | [066](./fase-7/066-tui-generar-b.md) | Generar: tarea con lo que sigue, commits con detalle y ubicación con resumen | `feature/tui-generar-b` | 2026-10-28 | Commits en tabla con el detalle y los archivos de cada commit (un hash a la vez, cacheado) y la franja de seleccionados; Tarea con «Lo que sigue»; Ubicación con resumen y filtro visible; línea de pasos; `profile.Scope` |
 | [067](./fase-7/067-tui-vista-renderizada.md) | Vista previa renderizada en Generar y QA | `feature/tui-vista-renderizada` | 2026-10-28 | Renderizador propio del Markdown de draco (sin dependencia nueva): tablas con los anchos de `draco:tabla`, recuadro, casillas, enlaces; lo desconocido, tal cual; `m` alterna con el Markdown crudo; línea de estado y pasos |
 | [068](./fase-7/068-tui-qa-b.md) | QA: contadores, tabla a todo el ancho y detalle junto al consolidado | `feature/tui-qa-b` | 2026-10-28 | `qa.StatusOf` y `qa.Tally` en el flujo (una consulta fallida es «sin verificar», nunca «con fallas»); Evaluar con contadores, estado por fila, detalle de la tarea y consolidado lado a lado; sin datos inventados |
+| [069](./fase-7/069-tui-listas-b.md) | Proyectos, Hallazgos, Exportar y Configuración en columnas proporcionales | `feature/tui-listas-b` | 2026-10-28 | `panels` (lista y detalle como dos cajas hasta el pie); Configuración con el detalle real de cada sección (nunca el token); filtro visible en todas; teclas compactas; Perfiles incluido |
 
 ## Formato de cada entrada
 

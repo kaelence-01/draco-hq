@@ -46,7 +46,7 @@ func newProfiles(st *state) *profiles {
 func (p *profiles) title() string { return "Perfiles" }
 
 func (p *profiles) keys() []key.Binding {
-	return []key.Binding{upKey, downKey, defaultKey, newKey, editKey, removeKey, filterKey}
+	return []key.Binding{moveKey, newKey, editKey, filterKey}
 }
 
 func (p *profiles) captures(k tea.KeyPressMsg) bool {
@@ -134,7 +134,25 @@ func (p *profiles) view(width, height int) string {
 	if p.st.cfg == nil {
 		return pad(lipgloss.NewStyle().Width(width - 2).Render(warnStyle.Render("⚠ " + p.st.notice)))
 	}
-	list, detail := p.list(), p.detail()
+	status := p.status()
+	if width >= panelMinWidth {
+		boxes := height
+		if status != "" {
+			boxes--
+		}
+		out := panels(width, boxes, 4, 6,
+			func(w, lines int) string { return p.listText(w, lines) },
+			func(w, _ int) string { return p.detailText(w) })
+		if status != "" {
+			out = lipgloss.JoinVertical(lipgloss.Left, out, lipgloss.NewStyle().PaddingLeft(1).Render(status))
+		}
+		return out
+	}
+	detailWidth := width - 6
+	if width >= 80 {
+		detailWidth = width - 44
+	}
+	list, detail := p.list(), p.detail(detailWidth)
 	var body string
 	if width >= 80 {
 		body = lipgloss.JoinHorizontal(lipgloss.Top, list, "  ", detail)
@@ -142,33 +160,45 @@ func (p *profiles) view(width, height int) string {
 		body = lipgloss.JoinVertical(lipgloss.Left, list, detail)
 	}
 	lines := []string{body, ""}
-	switch {
-	case p.removing != "":
-		lines = append(lines, warnStyle.Render("¿Eliminar el perfil «"+p.removing+"»? s confirma, cualquier otra tecla cancela"))
-	case p.note != "" && p.failed:
-		lines = append(lines, errStyle.Render("✗ "+p.note))
-	case p.note != "":
-		lines = append(lines, okStyle.Render("✓ ")+p.note)
+	if status != "" {
+		lines = append(lines, status)
 	}
 	return lipgloss.NewStyle().Padding(1, 1, 0).Width(width).Render(lipgloss.JoinVertical(lipgloss.Left, lines...))
 }
 
-func (p *profiles) list() string {
-	var rows []string
-	if f := p.filter.view(); f != "" {
-		rows = append(rows, f)
+// status is the question being asked or the result of the last change.
+func (p *profiles) status() string {
+	switch {
+	case p.removing != "":
+		return warnStyle.Render("¿Eliminar el perfil «" + p.removing + "»? s confirma, cualquier otra tecla cancela")
+	case p.note != "" && p.failed:
+		return errStyle.Render("✗ " + p.note)
+	case p.note != "":
+		return okStyle.Render("✓ ") + p.note
 	}
+	return ""
+}
+
+func (p *profiles) list() string {
+	return boxStyle.Width(36).Render(p.listText(32, 1<<10))
+}
+
+// listText is the filter line and the profiles that fit in lines lines.
+func (p *profiles) listText(width, lines int) string {
+	rows := []string{p.filter.line()}
 	names := p.names()
 	switch {
 	case len(names) == 0 && p.filter.text != "":
 		rows = append(rows, faintStyle.Render("Ningún perfil coincide"))
 	case len(names) == 0:
 		implicit, _, _ := p.st.cfg.Profile("")
-		rows = append(rows, lipgloss.NewStyle().Width(32).Render(faintStyle.Render(
+		rows = append(rows, lipgloss.NewStyle().Width(width).Render(faintStyle.Render(
 			"Sin perfiles: se usa el implícito '"+config.LegacyProfile+"' ("+profileSummary(implicit)+"). n agrega uno, y el implícito también se guarda.")))
 	}
 	sel := p.selected()
-	for _, n := range names {
+	start := window(p.cursor, len(names), max(lines-len(rows), 1))
+	for i := start; i < min(start+max(lines-len(rows), 1), len(names)); i++ {
+		n := names[i]
 		cursor, label := "  ", n
 		if n == sel {
 			cursor, label = accentStyle.Render("▸ "), accentStyle.Bold(true).Render(n)
@@ -179,10 +209,18 @@ func (p *profiles) list() string {
 		}
 		rows = append(rows, cursor+label+mark)
 	}
-	return boxStyle.Width(36).Render(lipgloss.JoinVertical(lipgloss.Left, rows...))
+	return strings.Join(rows, "\n")
 }
 
-func (p *profiles) detail() string {
+func (p *profiles) detail(width int) string {
+	if p.selected() == "" {
+		return ""
+	}
+	return boxStyle.Render(p.detailText(width))
+}
+
+// detailText is everything the config says about the profile under the cursor.
+func (p *profiles) detailText(width int) string {
 	name := p.selected()
 	if name == "" {
 		return ""
@@ -192,14 +230,18 @@ func (p *profiles) detail() string {
 		if v == "" {
 			v = faintStyle.Render("—")
 		}
-		return faintStyle.Render(label+strings.Repeat(" ", 11-len(label))) + v
+		return hang(faintStyle.Render(padRight(label, 11)), v, width)
 	}
-	return boxStyle.Render(lipgloss.JoinVertical(lipgloss.Left,
+	return strings.Join([]string{
 		accentStyle.Bold(true).Render(name), "",
 		field("tracker", pr.Tracker.Provider),
 		field("destino", pr.Docs.Provider),
 		field("space", pr.Docs.Space),
 		field("carpeta", pr.Docs.Path),
 		field("plantillas", pr.Template),
-	))
+	}, "\n")
+}
+
+func (p *profiles) moreKeys() []key.Binding {
+	return []key.Binding{upKey, downKey, defaultKey, removeKey}
 }

@@ -43,6 +43,17 @@ func panel(content string, width, height int) string {
 	return stretch(strings.Join(lines, "\n"), width, height)
 }
 
+// panels lays a list and its detail side by side, in the ratio a:b, as two
+// boxes as tall as height. Each side is given the room inside its box (width
+// and lines) and returns its content.
+func panels(width, height, a, b int, left, right func(width, lines int) string) string {
+	leftWidth, rightWidth := columns(width-2, 2, a, b)
+	boxes := lipgloss.JoinHorizontal(lipgloss.Top,
+		panel(left(leftWidth-4, height-2), leftWidth, height), "  ",
+		panel(right(rightWidth-4, height-2), rightWidth, height))
+	return lipgloss.NewStyle().PaddingLeft(1).Render(boxes)
+}
+
 // stepper draws the steps of a flow: the ones done checked, the current one
 // highlighted, the rest dim.
 func stepper(names []string, current int) string {

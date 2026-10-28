@@ -39,7 +39,7 @@ func newFindings(r *backlogRun, results []scanResult) *findings {
 func (f *findings) title() string { return "Hallazgos" }
 
 func (f *findings) keys() []key.Binding {
-	keys := []key.Binding{upKey, downKey, filterKey, saveReportKey}
+	keys := []key.Binding{moveKey, saveReportKey}
 	if len(f.results) > 1 {
 		keys = append([]key.Binding{repoTabKey}, keys...)
 	}
@@ -135,32 +135,34 @@ func (f *findings) view(width, height int) string {
 		head = append(head, wrap.Render(errStyle.Render("✗ "+f.note)))
 	}
 	head = append(head, "")
-	if v := f.filter.view(); v != "" {
-		head = append(head, v)
-	}
-
 	rows := f.rows()
 	if len(rows) == 0 {
 		empty := "Ningún hallazgo coincide"
 		if len(r.rep.Findings) == 0 {
 			empty = "Sin hallazgos en el período"
 		}
-		return pad(lipgloss.JoinVertical(lipgloss.Left, append(head, okStyle.Render("✓ ")+empty)...))
+		return pad(lipgloss.JoinVertical(lipgloss.Left, append(head, f.filter.line(), okStyle.Render("✓ ")+empty)...))
 	}
 	cur := min(f.cursor, len(rows)-1)
-	room := max(height-lipgloss.Height(strings.Join(head, "\n"))-1, 3)
 
 	if width >= panelMinWidth {
-		listWidth := width * 11 / 20
-		list := f.list(rows, cur, room, listWidth)
-		detail := f.detail(rows[cur], width-listWidth-6, room-2)
-		body := lipgloss.JoinHorizontal(lipgloss.Top, list, "  ", detail)
-		return pad(lipgloss.JoinVertical(lipgloss.Left, append(head, body)...))
+		boxes := max(height-lipgloss.Height(strings.Join(head, "\n")), 6)
+		cols := panels(width, boxes, 6, 4,
+			func(w, lines int) string { return f.listText(rows, cur, w, lines) },
+			func(w, _ int) string { return f.detailText(rows[cur], w) })
+		return lipgloss.JoinVertical(lipgloss.Left, lipgloss.NewStyle().PaddingLeft(1).Render(strings.Join(head, "\n")), cols)
 	}
+	head = append(head, f.filter.line())
+	room := max(height-lipgloss.Height(strings.Join(head, "\n"))-1, 3)
 	detailHeight := min(findingsDetailLines, room/2)
 	list := f.list(rows, cur, room-detailHeight-3, width-2)
-	detail := f.detail(rows[cur], width-6, detailHeight)
+	detail := boxStyle.Render(lipgloss.NewStyle().MaxHeight(max(detailHeight, 3)).Render(f.detailText(rows[cur], width-6)))
 	return pad(lipgloss.JoinVertical(lipgloss.Left, append(head, list, detail)...))
+}
+
+// listText is the filter line and the findings that fit in lines lines.
+func (f *findings) listText(rows []backlog.Finding, cur, width, lines int) string {
+	return f.filter.line() + "\n" + f.list(rows, cur, max(lines-1, 1), width)
 }
 
 // summary is the count, points and modules of a report.
@@ -200,8 +202,8 @@ func (f *findings) list(rows []backlog.Finding, cur, height, width int) string {
 	return lipgloss.JoinVertical(lipgloss.Left, out...)
 }
 
-// detail is everything about a finding: kind, files and evidence.
-func (f *findings) detail(fd backlog.Finding, width, height int) string {
+// detailText is everything about a finding: kind, files and evidence.
+func (f *findings) detailText(fd backlog.Finding, width int) string {
 	text := lipgloss.NewStyle().Width(max(width, 10))
 	lines := []string{
 		text.Render(boldStyle.Render(fd.Title)),
@@ -216,5 +218,7 @@ func (f *findings) detail(fd backlog.Finding, width, height int) string {
 	for _, e := range fd.Evidence {
 		lines = append(lines, text.Render(faintStyle.Render("· "+e)))
 	}
-	return boxStyle.Render(lipgloss.NewStyle().MaxHeight(max(height, 3)).Render(lipgloss.JoinVertical(lipgloss.Left, lines...)))
+	return strings.Join(lines, "\n")
 }
+
+func (f *findings) moreKeys() []key.Binding { return []key.Binding{filterKey, upKey, downKey} }

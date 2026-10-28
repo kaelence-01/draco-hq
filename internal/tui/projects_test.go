@@ -85,7 +85,7 @@ func TestProjectsFooterKeepsEveryKeyInTheFullHelp(t *testing.T) {
 	m, _ := newProjectsApp(t)
 	lines := strings.Split(view(m), "\n")
 	short := lines[len(lines)-1]
-	for _, want := range []string{"enter usar en esta sesión", "n nuevo", "e editar", "/ filtrar", "? más"} {
+	for _, want := range []string{"enter usar", "n nuevo", "e editar", "/ filtrar", "? más"} {
 		if !strings.Contains(short, want) {
 			t.Errorf("el pie lleva %q: %q", want, short)
 		}
