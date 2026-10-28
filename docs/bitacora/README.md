@@ -109,6 +109,7 @@ Sin entradas: se hizo antes de que existiera la bitácora.
 | [062](./fase-7/062-plan-fase-7.md) | Diseño y plan de la fase 7 | `docs/plan-fase-7` | 2026-10-27 | Tres propuestas en maquetas; el autor eligió maestro-detalle elástico y la probó en un prototipo; `tui.md` §11 y la fase en 8 actividades |
 | [063](./fase-7/063-prototipo-fase-7.md) | El prototipo de la fase 7 en el repo | `docs/prototipo-fase-7` | 2026-10-27 | `prototipo-fase-7.html` como referencia visual; `tui.md` §11 con la tabla pantalla → archivo → actividad y lo que no se implementa; cómo retomar la fase en otra sesión |
 | [064](./fase-7/064-tui-marco.md) | Marco: cabecera de una línea, pie compacto y línea de resultado | `feature/tui-marco` | 2026-10-28 | Cabecera con la ruta que cede por la izquierda; pie con las teclas principales y `? más` (`moreKeys` para las secundarias); tras publicar queda `✓ OPS-7 publicado en «…»` sobre el pie, con `⚠` si falta el enlace; `layout.go` |
+| [065](./fase-7/065-tui-principal.md) | Principal: descripciones, atajos, panel con pasos y contexto | `feature/tui-principal` | 2026-10-28 | Menú con descripción y atajos `1`–`6`; panel con los pasos; desde 120 columnas, Proyecto activo y Tu configuración; la regla de QA pasa a `config.QAState`; en 80 columnas el texto de la opción va bajo el menú |
 
 ## Formato de cada entrada
 

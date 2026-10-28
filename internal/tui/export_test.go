@@ -145,7 +145,7 @@ func TestExportFromStartToEnd(t *testing.T) {
 		t.Errorf("el resultado da la ruta y el comando equivalente:\n%s", out)
 	}
 	send(e.m, keyEsc)
-	if out := view(e.m); strings.Contains(out, "›") || !strings.Contains(out, "Exportar página") {
+	if out := view(e.m); strings.Contains(headerLine(out), "›") || !strings.Contains(out, "Exportar página") {
 		t.Errorf("al terminar, esc vuelve a la principal:\n%s", out)
 	}
 }

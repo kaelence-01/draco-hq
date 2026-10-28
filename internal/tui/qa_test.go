@@ -275,7 +275,7 @@ func TestQAPublishesANewReport(t *testing.T) {
 		t.Errorf("el consolidado publicado trae las tareas evaluadas:\n%s", doc)
 	}
 	send(e.m, keyEnter)
-	if out := view(e.m); strings.Contains(out, "›") {
+	if out := view(e.m); strings.Contains(headerLine(out), "›") {
 		t.Errorf("al terminar se vuelve a la principal:\n%s", out)
 	}
 }

@@ -299,8 +299,17 @@ en la consola clásica de Windows (`cmd`) se ve más limitado.
 
 ### La pantalla principal
 
-- A la izquierda, el **menú**. A la derecha (desde 96 columnas), un **panel**
-  con qué hace la función elegida y el mismo trabajo en modo comando.
+- A la izquierda, el **menú**, con el logo arriba. Cada opción lleva un
+  número: `1` a `6` abren la función directo, sin mover el cursor. Desde 96
+  columnas, cada opción trae una línea con lo que hace.
+- A la derecha (desde 96 columnas), un **panel** con qué hace la función
+  elegida, las pantallas por las que pasa y el mismo trabajo en modo comando.
+  Si la terminal es más angosta, ese texto y el comando van debajo del menú.
+- Desde 120 columnas, si hay alto suficiente, bajo el panel van **Proyecto
+  activo** (rutas, VCS y space) y **Tu configuración**: `✓` lo que está en
+  orden, `⚠` lo que falta (conexión, proyectos, perfil, `qa_jira` y
+  `qa_report`) y `·` lo opcional sin configurar. Es un resumen: el detalle y
+  los cambios están en Configuración.
 - Arriba, una línea de cabecera: la versión y el camino por donde llegaste
   (`Inicio › Proyectos`), y a la derecha el proyecto activo y su perfil (el
   que usa Generar; QA y Exportar usan el por defecto). Si la terminal es
@@ -319,7 +328,8 @@ en la consola clásica de Windows (`cmd`) se ve más limitado.
 | `ctrl+c` | Sale de draco, siempre |
 | `esc` | Vuelve a la pantalla anterior |
 | `?` | Muestra todas las teclas de la pantalla, también las que el pie compacto no trae (de nuevo, las oculta) |
-| `q` | Sale, desde la principal |
+| `q` | Sale, desde la principal (el pie compacto de la principal no lo muestra: está en `?`) |
+| `1`–`6` | En la principal, abre esa función directo |
 | `enter` / `tab` / `shift+tab` | En un formulario: siguiente campo / siguiente / anterior |
 
 ### Barra de comandos

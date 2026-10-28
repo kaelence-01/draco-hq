@@ -77,7 +77,8 @@ internal/tui/
   layout.go     ayudas de layout del marco: extremos de una línea y ruta que cede
   styles.go     estilos de Lip Gloss en un solo lugar y los temas (applyTheme)
   logo.go       DRACO en letras grandes
-  home.go       pantalla principal (menú y panel de la función elegida)
+  home.go       pantalla principal (menú con descripciones y atajos, panel de la función elegida)
+  homecontext.go  principal: cajas «Proyecto activo» y «Tu configuración»
   projects.go   Proyectos: lista con filtro, activo, por defecto, borrar
   projectform.go  formulario de Huh para crear y editar un proyecto
   generate.go   Generar: tarea y proyecto (formulario); abre el perfil
@@ -192,16 +193,32 @@ aviso de versión nueva, barra de comandos, Ayuda y temas.
 ### Principal
 
 - DRACO en letras grandes con caracteres de bloque (ninguna terminal común
-  muestra el logo como imagen). Si el ancho no alcanza, solo `draco`.
+  muestra el logo como imagen), arriba a la izquierda. Si el ancho no alcanza,
+  solo `draco`.
 - Menú: Generar documento, Proyectos, Consolidado QA, Exportar página,
-  Backlog técnico, Configuración. Todas tienen pantalla desde la fase 6.
-- **Panel de la función elegida**, a la derecha del menú: qué hace y el mismo
-  trabajo en modo comando con un ejemplo (`$ draco g -i OPS-7 -b a1b2c3d`), y
-  si aún no tiene pantalla, lo dice. Enseña que los dos modos son uno. Si el
-  ancho no alcanza (menos de 96 columnas), no hay panel y cada función sin
-  pantalla muestra su comando en el menú.
+  Backlog técnico, Configuración. Todas tienen pantalla desde la fase 6. Cada
+  opción lleva su número (`1`–`6`, hasta `9`) y `1-6` la abre directo; no son
+  letras porque `q` sale. Desde 96 columnas, una línea tenue de descripción
+  bajo cada opción.
+- **Panel de la función elegida**, a la derecha del menú: qué hace, las
+  pantallas por las que pasa, y el mismo trabajo en modo comando con un
+  ejemplo (`$ draco g -i OPS-7 -b a1b2c3d`); si aún no tiene pantalla, lo
+  dice. Enseña que los dos modos son uno.
+- **Proyecto activo y Tu configuración**, dos cajas bajo el panel desde 120
+  columnas, cuando caben en el alto. Salen de funciones puras de `config`
+  (`HasAtlassianCredentials`, `QAState`, `HasQAReport`), las mismas reglas que
+  Configuración; una opcional sin configurar (QA) no se marca como problema.
+- **Cede lo accesorio, no lo esencial.** Con poco alto el menú pierde primero
+  los espacios entre opciones y después las descripciones; las cajas de
+  contexto no se dibujan cortadas.
+- **Debajo de 96 columnas** no hay panel ni descripciones: bajo el menú van
+  el texto de la opción elegida y su comando. Con pocas líneas (avisos
+  encima) se retiran el eslogan y después las letras grandes, antes que el
+  texto o el comando.
 - Sin configuración: la principal lo dice y propone abrir Configuración (o
-  `draco init`), que arranca como asistente (§6, «Configuración»).
+  `draco init`), que arranca como asistente (§6, «Configuración»). Los
+  avisos (config, versión nueva) y el mensaje de una función sin pantalla
+  ocupan todo el ancho.
 
 ### Proyectos
 
@@ -886,9 +903,20 @@ Se suman a las normas del §10:
   que devuelve `keys()` tocaba todas las pantallas a la vez. Cada pantalla
   clasifica sus teclas cuando se rediseña; Proyectos ya lo hace.
 - **`layout.go` crece con su primer consumidor.** El marco trae sus ayudas
-  (extremos de una línea, ruta que cede); las columnas proporcionales, la
-  caja que se estira y la línea de pasos llegan con la primera pantalla que
-  las usa (actividades 3 y 4), para no dejar código sin uso.
+  (extremos de una línea, ruta que cede); la principal suma `hang` (texto que
+  se ajusta bajo sí mismo, no bajo su etiqueta). Las columnas proporcionales,
+  la caja que se estira y la línea de pasos llegan con la primera pantalla que
+  las usa (actividad 4 en adelante), para no dejar código sin uso. La
+  principal no usa columnas proporcionales: su menú tiene ancho fijo porque
+  las descripciones son de una línea.
+- **`q salir` y `ctrl+c` van en la ayuda completa de la principal**, como en el
+  prototipo: el pie compacto lleva `↑↓ elegir`, `enter`, `1-6` y `/` para que
+  `? más` quepa en 80 columnas.
+- **La regla de QA sale de la pantalla:** `Config.QAState` (sin configurar,
+  incompleta, sin cuenta, lista) y `HasQAReport` son funciones puras de
+  `config`; Configuración y la principal las usan en vez de repetir la regla.
+  Que falte `qa_report` solo se marca en la principal: Configuración sigue
+  dando QA por lista con `qa_jira` y `qa_email`.
 
 ### Tests
 

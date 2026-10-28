@@ -91,13 +91,12 @@ func (s *settings) sections() []section {
 		prof.ok, prof.status = true, name+": "+profileSummary(p)
 	}
 	qa := section{name: "QA", status: "sin configurar: solo hace falta para el consolidado QA", optional: true}
-	switch {
-	case c.QAJira == nil:
-	case c.QAJira.Validate() != nil:
+	switch c.QAState() {
+	case config.QAIncomplete:
 		qa.status = "incompleta: ábrela para ver qué falta"
-	case c.QAEmail == "":
+	case config.QANoAccount:
 		qa.status = "falta el email de la cuenta de QA: nadie podría publicar el consolidado"
-	default:
+	case config.QAReady:
 		qa.ok, qa.status = true, "proyecto "+c.QAJira.Project+"; publica "+c.QAEmail
 	}
 	look := section{name: "Tema", ok: true, status: knownTheme(c.Theme), optional: true}

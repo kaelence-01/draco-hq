@@ -19,6 +19,12 @@ func edges(width int, left string, rights ...string) string {
 	return left
 }
 
+// hang puts text beside prefix, wrapping it under itself instead of under the
+// prefix, in width columns.
+func hang(prefix, text string, width int) string {
+	return lipgloss.JoinHorizontal(lipgloss.Top, prefix, lipgloss.NewStyle().Width(max(width-lipgloss.Width(prefix), 1)).Render(text))
+}
+
 // trail is the path of open screens, the current one highlighted. When it does
 // not fit in width, the first screens give way to an ellipsis.
 func trail(titles []string, width int) string {

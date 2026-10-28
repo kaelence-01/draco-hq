@@ -97,6 +97,9 @@ func typeText(m *app, s string) {
 
 func view(m *app) string { return ansi.Strip(m.View().Content) }
 
+// headerLine is the line of the frame with the path of open screens.
+func headerLine(out string) string { return strings.SplitN(out, "\n", 2)[0] }
+
 // squash joins the words of s with single spaces, for the columns of the full help.
 func squash(s string) string { return strings.Join(strings.Fields(s), " ") }
 
@@ -106,14 +109,14 @@ func TestHomeShowsLogoMenuAndFrame(t *testing.T) {
 	for _, want := range []string{
 		"██████", "draco v9.9.9", "perfil: equipo (jira → confluence)", "proyecto: pagos",
 		"▸ Generar documento de despliegue", "Proyectos", "Consolidado QA", "Backlog técnico",
-		"Lee la tarea", "$ draco g -i OPS-7 -b a1b2c3d", "q salir", "? más",
+		"Lee la tarea", "$ draco g -i OPS-7 -b a1b2c3d", "1-6 abrir directo", "? más",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("falta %q en la pantalla:\n%s", want, out)
 		}
 	}
-	if strings.Contains(out, "⚠") || strings.Contains(out, "›") {
-		t.Errorf("con la config completa no hay avisos, y la principal no lleva ruta:\n%s", out)
+	if strings.Contains(out, "⚠") || strings.Contains(headerLine(out), "›") || strings.Contains(out, "q salir") {
+		t.Errorf("con la config completa no hay avisos, la principal no lleva ruta y q salir está en la ayuda completa:\n%s", out)
 	}
 	if lines := strings.Split(out, "\n"); len(lines) != 30 {
 		t.Errorf("la pantalla ocupa %d líneas, se esperaban 30", len(lines))
@@ -140,7 +143,7 @@ func TestPanelFollowsTheMenu(t *testing.T) {
 	withFutureItem(m)
 	send(m, keyDown)
 	out = view(m)
-	for _, want := range []string{"▸ Función futura", "Todavía no está en el modo visual", "$ draco futura -x 1"} {
+	for _, want := range []string{"▸ Función futura", "Todavía no está en el modo", "$ draco futura -x 1"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("falta %q en el panel:\n%s", want, out)
 		}
@@ -153,12 +156,22 @@ func withFutureItem(m *app) {
 	h.items = append(h.items, menuItem{label: "Función futura", example: "draco futura -x 1", desc: "Llega después."})
 }
 
-func TestWithoutRoomForThePanelCommandsGoInTheMenu(t *testing.T) {
+func TestWithoutRoomForThePanelTheTextGoesUnderTheMenu(t *testing.T) {
 	m := newTestApp(t, testConfig(), nil, 80, 30)
 	withFutureItem(m)
 	out := view(m)
-	if strings.Contains(out, "$ draco") || !strings.Contains(out, "draco futura") || strings.Contains(out, "draco init") || strings.Contains(out, "draco qa") {
-		t.Errorf("sin panel, solo una función sin pantalla muestra su comando en el menú:\n%s", out)
+	if strings.Contains(out, "╭") || !strings.Contains(out, "$ draco g -i OPS-7") || strings.Contains(out, "draco futura") || strings.Contains(out, "Desde la tarea") {
+		t.Errorf("sin panel ni descripciones, bajo el menú va el texto y el comando de la opción elegida:\n%s", out)
+	}
+	send(m, keyUp)
+	out = view(m)
+	for _, want := range []string{"7 ▸ Función futura", "Llega después.", "Todavía no está en el modo visual.", "$ draco futura -x 1"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("una función sin pantalla lo dice bajo el menú, con su comando: falta %q\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "draco g -i") {
+		t.Errorf("solo se muestra la opción elegida:\n%s", out)
 	}
 }
 
@@ -240,7 +253,7 @@ func TestHelpToggle(t *testing.T) {
 	m := newTestApp(t, testConfig(), nil, 100, 30)
 	short := view(m)
 	send(m, keyHelp)
-	if full := view(m); full == short || !strings.Contains(full, "subir") {
+	if full := view(m); full == short || !strings.Contains(full, "subir") || !strings.Contains(squash(full), "q salir") || !strings.Contains(squash(full), "ctrl+c salir") {
 		t.Errorf("? muestra la ayuda completa:\n%s", full)
 	}
 }
