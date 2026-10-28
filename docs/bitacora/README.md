@@ -100,6 +100,7 @@ Sin entradas: se hizo antes de que existiera la bitácora.
 | [058](./fase-6/058-make-merge.md) | `make merge` y atajos combinados | `feature/make-merge` | 2026-10-22 | `make merge` fusiona en `develop` con merge commit tras confirmar; `push-pr`, `push-pr-merge`, `merge-finish` y `ship`; `make pr` muestra el PR abierto en vez de fallar |
 | [059](./fase-6/059-importar-gtt.md) | Importar la configuración de gtt | `feature/importar-gtt` | 2026-10-22 | `draco init` y el asistente de Configuración ofrecen importar `~/.config/gtt/config.yaml` cuando draco no tiene configuración; resumen sin el token; la de gtt no se toca |
 | [060](./fase-6/060-qa-prefijo-perfil.md) | QA reconoce el documento con cualquier plantilla | `fix/qa-prefijo-perfil` | 2026-10-22 | `HasDocumentLink` recibe varios prefijos: los de la plantilla de cada proyecto (perfil, repo, usuario), sin proyecto y el incluido; una plantilla que no carga se avisa |
+| [061](./fase-6/061-roadmap-equipos.md) | Roadmap: después de la v1.0, trackers y modo equipo | `docs/roadmap-equipos` | 2026-10-27 | `v0.3.1`–`v0.3.3` en el roadmap; otros trackers con sus requisitos (credenciales por perfil, QA solo Jira) y modo equipo (paquete compartido en Git) después de la v1.0, en el mismo draco |
 
 ## Formato de cada entrada
 
