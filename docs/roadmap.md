@@ -317,7 +317,7 @@ tabla es la siguiente.
 | # | Actividad | Rama | Criterio de cierre |
 |---|---|---|---|
 | 1 | ✅ Diseño y plan de la fase | `docs/plan-fase-7` | `tui.md` §11 y actividades con criterio de cierre |
-| 2 | Marco: cabecera de una línea con la ruta, pie compacto con `? más`, línea de resultado, `layout.go` | `feature/tui-marco` | Todas las pantallas ganan una línea; cada tecla sigue en la ayuda completa; tests del marco en 80×24 y 160×40 |
+| 2 | ✅ Marco: cabecera de una línea con la ruta, pie compacto con `? más`, línea de resultado, `layout.go` (falta la prueba manual del autor) | `feature/tui-marco` | Todas las pantallas apiladas ganan una línea; cada tecla sigue en la ayuda completa; tests del marco en 80×24 y 160×40 |
 | 3 | Principal: descripciones, atajos `1`–`6`, panel con pasos, Proyecto activo y Tu configuración | `feature/tui-principal` | Funciona en 80×24 y llena 160×40 (test); el estado de la config sale de funciones puras de `config` |
 | 4 | Generar: tarea con lo que sigue, Commits en tabla con detalle y archivos del commit, franja de seleccionados, pasos del flujo; Ubicación con resumen | `feature/tui-generar-b` | `/g -i OPS-7 -b a1b2c3d` sigue llegando a Commits con el hash marcado; los archivos se leen en un `tea.Cmd` y se guardan por hash; los tests de Generar pasan |
 | 5 | Vista previa renderizada en Generar y QA, `m` para el Markdown crudo | `feature/tui-vista-renderizada` | Un test por construcción; una línea desconocida se ve tal cual; ninguna dependencia nueva |

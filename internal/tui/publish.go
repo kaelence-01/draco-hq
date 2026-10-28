@@ -66,6 +66,10 @@ func (p *publish) update(msg tea.Msg) (screen, tea.Cmd) {
 			return p, nil
 		}
 		p.publishing, p.res, p.err = false, msg.res, msg.err
+		if p.res != nil {
+			text, warn := p.summary()
+			return p, report(text, warn)
+		}
 	case spinner.TickMsg:
 		if !p.publishing {
 			return p, nil
@@ -115,6 +119,30 @@ func (p *publish) view(width, height int) string {
 	}
 	lines = append(lines, "", faintStyle.Render("Lo mismo en modo comando:"), "$ "+a.command)
 	return pad(lipgloss.NewStyle().Width(width - 2).Render(lipgloss.JoinVertical(lipgloss.Left, lines...)))
+}
+
+// summary is the line the frame keeps after publishing; it warns when the
+// document could not be linked from the task.
+func (p *publish) summary() (text string, warn bool) {
+	a := p.run.about()
+	subject, verb, where := a.issue, "publicado", ""
+	if subject == "" {
+		subject = a.noun
+	}
+	if p.res.updated {
+		verb = "actualizado"
+	}
+	switch {
+	case p.sibling != nil:
+		where = p.sibling.Title
+	case p.draft.replaces != nil:
+		where = p.draft.replaces.Title
+	}
+	text = subject + " " + verb + " en «" + where + "»"
+	if p.res.linkErr != nil {
+		return text + "; sin enlace desde " + a.issue, true
+	}
+	return text, false
 }
 
 func (p *publish) result() []string {

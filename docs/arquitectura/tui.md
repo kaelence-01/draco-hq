@@ -74,6 +74,7 @@ draco <comando> …                                 →  modo comando, sin cambi
 internal/tui/
   tui.go        Run(ctx, Deps) error; Deps: las dependencias que pasa cmd
   app.go        modelo raíz: pila de pantallas, tamaño, cabecera, pie, teclas globales
+  layout.go     ayudas de layout del marco: extremos de una línea y ruta que cede
   styles.go     estilos de Lip Gloss en un solo lugar y los temas (applyTheme)
   logo.go       DRACO en letras grandes
   home.go       pantalla principal (menú y panel de la función elegida)
@@ -137,7 +138,7 @@ habla con los flujos; nunca con un adaptador.
       title() string                        // nombre en la ruta
       update(msg tea.Msg) (screen, tea.Cmd)
       view(width, height int) string        // solo el cuerpo, en ese tamaño
-      keys() []key.Binding                  // teclas del pie y de la ayuda
+      keys() []key.Binding                  // teclas principales: las del pie compacto
   }
   ```
 
@@ -145,6 +146,7 @@ habla con los flujos; nunca con un adaptador.
 
   | Interfaz | Para qué |
   |---|---|
+  | `moreKeys() []key.Binding` | Las teclas secundarias: solo aparecen en la ayuda completa (`?`). Sin ella, todas las de `keys()` van en el pie |
   | `captures(k tea.KeyPressMsg) bool` | Quitarle una tecla global (`?`, `esc`) al marco mientras la pantalla la necesita: un campo de texto, un filtro, una confirmación. `ctrl+c` nunca se captura |
   | `init() tea.Cmd` | Arrancar al mostrarse: al abrirse y al volver a quedar arriba. El formulario de Huh enfoca su primer campo (y, si ya se envió, se rehace con los mismos valores); una pantalla con pasos los lanza una sola vez |
   | `close()` | Soltar lo que la pantalla lanzó al cerrarse: cancela el `context` de un paso en curso |
@@ -157,10 +159,11 @@ habla con los flujos; nunca con un adaptador.
   `?` muestra la ayuda completa de teclas de la pantalla (`bubbles/help`);
   `esc` vuelve. Las tres últimas ceden ante `captures`, y el pie no ofrece
   una tecla que la pantalla captura en ese momento.
-- **Marco común:** cabecera con versión, perfil y proyecto activos; debajo,
-  fuera de la principal, la **ruta** con los títulos de la pila
-  (`Inicio › Proyectos › Nuevo proyecto`); pie con las teclas de la pantalla.
-  Las pantallas solo dibujan su cuerpo.
+- **Marco común:** cabecera de una línea con la versión y la **ruta** de los
+  títulos de la pila (`draco v0.3.3 │ Inicio › Proyectos › Nuevo proyecto`) a
+  la izquierda y, a la derecha, el perfil y el proyecto activos; pie con las
+  teclas principales de la pantalla y `? más`. Las pantallas solo dibujan su
+  cuerpo.
 - **Estado compartido (`state`):** la config leída con `LoadLocal` y el
   proyecto activo. `state.save(change)` es la única forma de guardar:
   `LoadFile` → `change` (funciones puras de `config`) → `SaveConfig` → vuelve
@@ -719,7 +722,8 @@ Obligatorias para toda pantalla nueva o modificada (las resume `CLAUDE.md`):
 4. **Teclas:** `ctrl+c` es del marco y nunca se captura. Si la pantalla tiene
    un campo de texto, un filtro o una confirmación, implementa `captures` y
    reclama `?` y `esc` mientras los necesita. Cada tecla propia va en
-   `keys()` con su ayuda en español; ninguna tecla oculta.
+   `keys()` (principal) o en `moreKeys()` (secundaria) con su ayuda en
+   español; ninguna tecla oculta.
 5. **Red, git y disco lento en un `tea.Cmd`**, nunca en `update`: la pantalla
    muestra un spinner y no lee la `Session` hasta recibir el mensaje. Leer y
    guardar la config local puede ir directo en `update`.
@@ -829,10 +833,14 @@ Se suman a las normas del §10:
 
 - **Cabecera de una línea:** versión y ruta a la izquierda
   (`draco v0.3.3 │ Inicio › Generar documento › Commits de OPS-7`), perfil y
-  proyecto a la derecha. Cada pantalla apilada gana una línea.
+  proyecto a la derecha. Cada pantalla apilada gana una línea. Si no cabe
+  todo, primero cede el perfil (queda solo el proyecto), después el
+  proyecto, y al final la ruta, que pierde sus primeras pantallas
+  (`… › Ubicación › Publicar`): la pantalla actual siempre se ve.
 - **Pie compacto:** las teclas principales de la pantalla y `? más`; `?`
-  muestra todas, como hoy. Cada tecla se marca como principal o secundaria
-  en `keys()`; ninguna desaparece, solo pasa a la ayuda completa.
+  muestra todas, como hoy. Cada tecla es principal (`keys()`) o secundaria
+  (`moreKeys()`); ninguna desaparece, solo pasa a la ayuda completa, donde
+  también está `ctrl+c`.
 - **Línea de resultado:** después de publicar, sobre el pie queda
   `✓ OPS-7 publicado en PAG › Despliegues` hasta salir de la TUI. Es estado
   en memoria del marco, como el proyecto activo.
@@ -873,6 +881,14 @@ Se suman a las normas del §10:
   esta fase: pide cambiar los puertos y los adaptadores.
 - **La barra sigue solo en la principal.** En las demás pantallas `/` filtra,
   como hoy.
+- **Teclas secundarias con una parte opcional (`moreKeys`)**, no con una marca
+  dentro de `keys()`: `key.Binding` no puede llevarla, y cambiar el tipo
+  que devuelve `keys()` tocaba todas las pantallas a la vez. Cada pantalla
+  clasifica sus teclas cuando se rediseña; Proyectos ya lo hace.
+- **`layout.go` crece con su primer consumidor.** El marco trae sus ayudas
+  (extremos de una línea, ruta que cede); las columnas proporcionales, la
+  caja que se estira y la línea de pasos llegan con la primera pantalla que
+  las usa (actividades 3 y 4), para no dejar código sin uso.
 
 ### Tests
 

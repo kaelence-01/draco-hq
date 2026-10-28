@@ -77,6 +77,7 @@ func TestCreateFromStartToEnd(t *testing.T) {
 		t.Fatalf("al crear se elige la ubicación:\n%s", out)
 	}
 	send(e.m, keyEnter)
+	e.m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
 	out := view(e.m)
 	for _, want := range []string{"Inicio › Generar documento › Commits de OPS-7 › Preparar documento › Vista previa › Ubicación › Publicar",
 		"Crear junto a «./ (raíz de la carpeta)»", "desde OPS-7 en jira", "$ draco g -i OPS-7 -b a1b2c3d -p pagos", "enter publicar"} {
@@ -97,6 +98,9 @@ func TestCreateFromStartToEnd(t *testing.T) {
 	send(e.m, keyEsc)
 	if len(e.m.stack) != 1 {
 		t.Errorf("al terminar, esc vuelve al inicio: pila %d", len(e.m.stack))
+	}
+	if out := view(e.m); !strings.Contains(out, "✓ OPS-7 publicado en «./ (raíz de la carpeta)»") {
+		t.Errorf("el resultado queda sobre el pie al volver al inicio:\n%s", out)
 	}
 }
 
@@ -125,6 +129,9 @@ func TestLinkErrorIsReported(t *testing.T) {
 	if !strings.Contains(out, "✓ Documento creado") || !strings.Contains(out, "No se pudo enlazar el documento desde OPS-7: sin permiso (403)") || !strings.Contains(out, "consolidado QA") {
 		t.Errorf("un enlace fallido se reporta junto al documento creado:\n%s", out)
 	}
+	if !strings.Contains(out, "⚠ OPS-7 publicado en «./ (raíz de la carpeta)»; sin enlace desde OPS-7") {
+		t.Errorf("el pie no da por bueno un documento sin enlace:\n%s", out)
+	}
 }
 
 func TestUpdateKeepsWhatWasWrittenByHand(t *testing.T) {
@@ -139,7 +146,7 @@ func TestUpdateKeepsWhatWasWrittenByHand(t *testing.T) {
 		t.Fatalf("al actualizar no se elige ubicación:\n%s", out)
 	}
 	send(e.m, keyEnter)
-	if out := view(e.m); !strings.Contains(out, "✓ Documento actualizado") {
+	if out := view(e.m); !strings.Contains(out, "✓ Documento actualizado") || !strings.Contains(out, "✓ OPS-7 actualizado en «"+oldTitle+"»") {
 		t.Fatalf("falta el resultado:\n%s", out)
 	}
 	body := e.published(t, newTitle)
