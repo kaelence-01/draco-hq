@@ -432,7 +432,9 @@ en «Observación» y «Consideraciones».
 1. **Tarea y space o carpeta** (vacío: el del perfil; en Confluence sin
    space, todos).
 2. **Documentos** que mencionan la tarea, el más reciente primero. `/`
-   filtra; con uno solo, sigue sin preguntar.
+   filtra (la línea `/ filtrar` está siempre a la vista); con uno solo, sigue
+   sin preguntar. Desde 96 columnas, a la derecha de la lista va el
+   **detalle** del elegido: su título, su enlace y qué hará `enter`.
 3. **Texto.** `↑↓` desplaza, y el campo de abajo tiene la ruta donde se
    guarda (la carpeta actual y un nombre sugerido). `enter` guarda; si el
    archivo existe, pide `s` para reemplazarlo.
@@ -445,8 +447,9 @@ en «Observación» y «Consideraciones».
    detiene al otro.
 3. **Hallazgos:**
    - `tab` cambia de repo;
-   - `/` filtra por texto;
-   - el detalle del elegido aparece al lado o debajo;
+   - `/` filtra por texto (la línea `/ filtrar` siempre está a la vista);
+   - el detalle del elegido aparece al lado (desde 96 columnas, con la lista
+     en 6/10 y el detalle en 4/10, hasta el pie) o debajo;
    - `s` guarda el reporte completo en JSON.
 
 No usa internet (salvo la revisión de dependencias) ni credenciales.
@@ -454,7 +457,10 @@ No usa internet (salvo la revisión de dependencias) ni credenciales.
 ### Proyectos
 
 Muestra la lista con filtro y el detalle del proyecto elegido. Se abre desde
-la principal o desde Configuración.
+la principal o desde Configuración. Desde 96 columnas, la lista (4/10) y el
+detalle (6/10) van lado a lado hasta el pie, y la línea `/ filtrar` está
+siempre a la vista; en una terminal más angosta, el detalle va al lado o
+debajo, según el ancho.
 
 | Tecla | Acción |
 |---|---|
@@ -465,7 +471,8 @@ la principal o desde Configuración.
 | `x` | Elimina el proyecto (pide `s`) |
 | `/` | Filtra la lista |
 
-El pie muestra `enter`, `n`, `e` y `/`; `d` y `x` aparecen al pulsar `?`.
+El pie muestra `↑↓`, `enter`, `n`, `e` y `/`; `d` y `x` aparecen al pulsar `?`.
+Perfiles funciona igual.
 
 Si tienes dos o más perfiles, el formulario pregunta el **perfil del
 proyecto** («El perfil por defecto» o uno de la lista). Termina con una
@@ -480,6 +487,13 @@ escrito se marca ahí mismo y no se guarda. El resto del backlog (`since`,
 Arriba, lo que necesita el documento de despliegue; debajo de **Opcional**,
 lo demás. Sin configuración arranca como asistente; si encuentra la de gtt,
 empieza por **Importar de gtt** (ver «¿Vienes de gtt?» en la sección 2).
+
+Desde 96 columnas, a la derecha de la lista, el **detalle** de la sección
+elegida muestra lo que tu configuración tiene hoy: la cuenta y la URL de
+Conexión (el token nunca se muestra: solo si está definido), los proyectos,
+los perfiles con su destino, `qa_email`, `qa_jira` y `qa_report` (con un
+aviso si faltan los nombres del encabezado) y los temas con el que está
+activo. Con `enter` se abre la sección.
 
 | Sección | Qué contiene |
 |---|---|

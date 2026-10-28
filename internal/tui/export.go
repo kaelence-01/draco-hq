@@ -163,7 +163,7 @@ func (d *exportDocs) keys() []key.Binding {
 	if !d.done || d.err != nil {
 		return nil
 	}
-	return []key.Binding{upKey, downKey, filterKey, pickKey}
+	return []key.Binding{moveKey, pickKey}
 }
 
 func (d *exportDocs) captures(k tea.KeyPressMsg) bool { return d.filter.captures(k) }
@@ -236,16 +236,51 @@ func (d *exportDocs) view(width, height int) string {
 	case !d.done:
 		return pad(d.spinner.View() + " Buscando documentos que mencionen " + issue + " en " + d.run.where() + "…")
 	}
-	lines := []string{faintStyle.Render(plural(len(d.run.session.Pages), "documento menciona", "documentos mencionan") + " " + issue + " en " + d.run.where() + ", el más reciente primero."), ""}
-	if f := d.filter.view(); f != "" {
-		lines = append(lines, f)
-	}
+	summary := faintStyle.Render(plural(len(d.run.session.Pages), "documento menciona", "documentos mencionan") + " " + issue + " en " + d.run.where() + ", el más reciente primero.")
 	pages := d.pages()
+	if width >= panelMinWidth {
+		head := lipgloss.NewStyle().Width(width - 2).PaddingLeft(1).Render(summary)
+		cols := panels(width, max(height-lipgloss.Height(head)-1, 6), 6, 4,
+			func(w, lines int) string { return d.listText(pages, w, lines) },
+			func(w, _ int) string { return d.detailText(pages, w) })
+		return lipgloss.JoinVertical(lipgloss.Left, head, "", cols)
+	}
+	lines := []string{summary, "", d.filter.line()}
 	if len(pages) == 0 {
 		lines = append(lines, faintStyle.Render("Ningún documento coincide"))
 	}
 	lines = append(lines, docRows(pages, d.cursor, max((height-len(lines)-2)/2, 1), width-2)...)
 	return pad(lipgloss.NewStyle().Width(width - 2).Render(lipgloss.JoinVertical(lipgloss.Left, lines...)))
+}
+
+// listText is the filter line and the documents that fit in lines lines.
+func (d *exportDocs) listText(pages []provider.DocRef, width, lines int) string {
+	rows := []string{d.filter.line()}
+	if len(pages) == 0 {
+		rows = append(rows, faintStyle.Render("Ningún documento coincide"))
+	}
+	return strings.Join(append(rows, docRows(pages, d.cursor, max((lines-len(rows))/2, 1), width)...), "\n")
+}
+
+// detailText is the document under the cursor and what enter does with it.
+func (d *exportDocs) detailText(pages []provider.DocRef, width int) string {
+	if len(pages) == 0 {
+		return faintStyle.Render("Ningún documento coincide con el filtro.")
+	}
+	p := pages[min(d.cursor, len(pages)-1)]
+	lines := []string{boldStyle.Render(p.Title)}
+	if p.Version > 0 {
+		lines = append(lines, faintStyle.Render("Versión "+strconv.Itoa(p.Version)))
+	}
+	lines = append(lines, accentStyle.Render(p.URL), "", faintStyle.Render("enter lee el documento y propone dónde guardarlo como texto."))
+	return strings.Join(lines, "\n")
+}
+
+func (d *exportDocs) moreKeys() []key.Binding {
+	if !d.done || d.err != nil {
+		return nil
+	}
+	return []key.Binding{filterKey, upKey, downKey}
 }
 
 func (d *exportDocs) explain() error {

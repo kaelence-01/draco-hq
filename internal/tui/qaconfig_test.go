@@ -25,7 +25,7 @@ func (e *settingsEnv) toQA(t *testing.T) {
 
 func TestQAConfigFromScratchWorksForTheReport(t *testing.T) {
 	e := newSettingsApp(t, savedConfig())
-	if out := view(e.m); !strings.Contains(out, "⚠ sin configurar: solo hace falta para el consolidado QA") {
+	if out := view(e.m); !strings.Contains(out, "⚠ sin configurar") || !strings.Contains(out, "consolidado QA") {
 		t.Fatalf("sin qa_jira, la sección lo dice:\n%s", out)
 	}
 	e.toQA(t)
@@ -49,7 +49,7 @@ func TestQAConfigFromScratchWorksForTheReport(t *testing.T) {
 		t.Errorf("el consolidado usa lo guardado: %+v", target)
 	}
 	out := view(e.m)
-	if len(e.m.stack) != 2 || !strings.Contains(out, "✓ QA guardado") || !strings.Contains(out, "✓ proyecto OPS; publica qa@example.test") {
+	if len(e.m.stack) != 2 || !strings.Contains(out, "✓ QA guardado") || !strings.Contains(out, "✓ proyecto OPS; publica") || !strings.Contains(out, "qa@example.test") {
 		t.Errorf("vuelve a Configuración con la sección completa:\n%s", out)
 	}
 	if c.AtlassianToken != "token-del-archivo" {

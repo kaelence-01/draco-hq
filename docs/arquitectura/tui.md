@@ -74,7 +74,7 @@ draco <comando> …                                 →  modo comando, sin cambi
 internal/tui/
   tui.go        Run(ctx, Deps) error; Deps: las dependencias que pasa cmd
   app.go        modelo raíz: pila de pantallas, tamaño, cabecera, pie, teclas globales
-  layout.go     ayudas de layout: extremos de una línea, ruta que cede, columnas proporcionales, caja que se estira (con contenido ajustado), línea de pasos
+  layout.go     ayudas de layout: extremos de una línea, ruta que cede, columnas proporcionales, caja que se estira (con contenido ajustado), lista y detalle (`panels`), línea de pasos
   styles.go     estilos de Lip Gloss en un solo lugar y los temas (applyTheme)
   logo.go       DRACO en letras grandes
   home.go       pantalla principal (menú con descripciones y atajos, panel de la función elegida)
@@ -987,6 +987,25 @@ Se suman a las normas del §10:
 - **El título de la vista previa y los pasos:** con 160 columnas caben en una
   línea; con 110 y un título largo los pasos bajan a la línea de estado.
   Debajo de 96 columnas no hay línea de pasos.
+- **Las listas con detalle usan `panels`** (`layout.go`): dos cajas en la
+  proporción pedida, tan altas como el cuerpo, y cada lado recibe el sitio que
+  tiene dentro de su caja. Proyectos y Perfiles van 4/6, Hallazgos y Exportar
+  6/4, Configuración 4/6. Debajo de 96 columnas cada una conserva su
+  disposición de antes, y todas muestran la línea `/ filtrar` (`filter.line`)
+  siempre, también ahí.
+- **El detalle de Configuración es lo que la config tiene hoy,** no el texto
+  de ejemplo del prototipo: Conexión (email, URL, space y si hay token, nunca
+  su valor), Proyectos, Perfiles con su destino, QA (`qa_email`, `qa_jira`,
+  `qa_report`, con el aviso de la actividad 3) y Tema (los tres, con el activo).
+  Sale de `config` y de las mismas reglas que la lista; `enter` abre la sección.
+- **El detalle de Exportar no lleva el texto del documento,** que el prototipo
+  sí muestra: leerlo pide una llamada por documento, y ya hay un paso que lo
+  hace (la pantalla siguiente). Muestra el título, el enlace, la versión y qué
+  hará `enter`.
+- **La ayuda de `enter` en Proyectos es «usar»** y no «usar en esta sesión»:
+  con la segunda el pie no cabía en 80 columnas y se perdía `? más`. La
+  guía explica qué hace. Perfiles, Hallazgos, Exportar y Configuración
+  también clasifican sus teclas (`↑↓` y `enter` en el pie; el resto en `?`).
 - **Commits clasifica sus teclas:** `↑↓`, `espacio`, `tab` (repo) y `enter` en
   el pie; `h` y `↑/k`, `↓/j` en la ayuda completa. La ayuda de `tab` es
   «repo» y no «backend/frontend»: con la segunda el pie no cabía en 80
