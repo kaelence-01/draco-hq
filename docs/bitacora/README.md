@@ -102,6 +102,12 @@ Sin entradas: se hizo antes de que existiera la bitácora.
 | [060](./fase-6/060-qa-prefijo-perfil.md) | QA reconoce el documento con cualquier plantilla | `fix/qa-prefijo-perfil` | 2026-10-22 | `HasDocumentLink` recibe varios prefijos: los de la plantilla de cada proyecto (perfil, repo, usuario), sin proyecto y el incluido; una plantilla que no carga se avisa |
 | [061](./fase-6/061-roadmap-equipos.md) | Roadmap: después de la v1.0, trackers y modo equipo | `docs/roadmap-equipos` | 2026-10-27 | `v0.3.1`–`v0.3.3` en el roadmap; otros trackers con sus requisitos (credenciales por perfil, QA solo Jira) y modo equipo (paquete compartido en Git) después de la v1.0, en el mismo draco |
 
+### Fase 7 — Rediseño del modo visual: maestro-detalle elástico
+
+| # | Actividad | Rama | Fecha | Resumen |
+|---|---|---|---|---|
+| [062](./fase-7/062-plan-fase-7.md) | Diseño y plan de la fase 7 | `docs/plan-fase-7` | 2026-10-27 | Tres propuestas en maquetas; el autor eligió maestro-detalle elástico y la probó en un prototipo; `tui.md` §11 y la fase en 8 actividades |
+
 ## Formato de cada entrada
 
 Archivo `fase-N/NNN-<tema>.md`: `N` es la fase del roadmap, `NNN` el número

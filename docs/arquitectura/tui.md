@@ -14,6 +14,10 @@ datos de la línea), la Ayuda y los temas. Se
 actualiza al implementar cada actividad. Las reglas para escribir una
 pantalla están en el §10 y son obligatorias.
 
+**Fase 7 en curso:** rediseño de cómo cada pantalla usa el espacio
+(maestro-detalle elástico). El diseño está en el §11; mientras se
+implementa, el §6 describe lo que existe hoy.
+
 ## 1. Alcance por fase
 
 | Fase | Pantallas |
@@ -21,6 +25,7 @@ pantalla están en el §10 y son obligatorias.
 | 4 | Principal, Proyectos, Generar documento (selector de commits, vista previa, ubicación con búsqueda, confirmación) |
 | 5 | Backlog (tabla filtrable), QA (progreso en vivo), Exportar |
 | 6 | Configuración (conexión, perfiles, QA, tema) en formularios, aviso de versión nueva, barra de comandos con autocompletado, ayuda, temas |
+| 7 | Las mismas pantallas en maestro-detalle elástico: marco compacto, columnas proporcionales, detalle al lado, vista previa renderizada (§11) |
 
 Mientras una pantalla no existe, su entrada del menú aparece atenuada con el
 comando equivalente: quien abre la TUI sabe que la función existe y cómo
@@ -739,3 +744,94 @@ Obligatorias para toda pantalla nueva o modificada (las resume `CLAUDE.md`):
     texto de `View` sin color con un tamaño fijo, y, si guarda, que el token
     del entorno no llega al archivo. Nunca `tea.NewProgram` en un test.
 
+
+## 11. Fase 7: maestro-detalle elástico
+
+Con draco en uso, el autor pidió aprovechar el espacio. Medido con la TUI
+real a 160×40: la principal centra todo y deja unas 60 columnas vacías por
+lado; Commits, Proyectos y QA ocupan un tercio del ancho y ponen el detalle
+debajo; el marco gasta tres líneas arriba (cabecera, raya y ruta).
+
+Se compararon tres propuestas en maquetas: riel lateral fijo,
+maestro-detalle elástico y mosaico de paneles. El autor eligió la
+**maestro-detalle elástico** y la probó en un prototipo navegable con todas
+las mejoras de este apartado (bitácora 062). Conserva el modelo: pila de
+pantallas, `esc` vuelve, un paso por pantalla, los mismos flujos. Cambia cómo
+cada pantalla reparte el ancho y el alto.
+
+### Reglas de layout
+
+Se suman a las normas del §10:
+
+- **Columnas proporcionales desde `panelMinWidth` (96).** Una pantalla de
+  lista con detalle va en dos columnas que crecen con la terminal: lista 6 y
+  detalle 4 (Commits, Ubicación, Hallazgos, Exportar), o lista 4 y detalle 6
+  (Proyectos, Configuración). Debajo de 96 columnas el detalle baja, como
+  hoy.
+- **Arriba a la izquierda y a todo el alto.** Nada se centra salvo la
+  principal con la barra abierta; las cajas se estiran hasta el pie.
+- **Ayudas de layout en `layout.go`:** columnas proporcionales, caja que se
+  estira y línea de pasos. Las usan todas las pantallas; ninguna las copia.
+- **Formularios de Huh con contexto al lado:** desde 96 columnas, a la
+  derecha del formulario va qué hará el paso (por ejemplo, los repos del
+  proyecto antes de leer los commits).
+
+### Marco
+
+- **Cabecera de una línea:** versión y ruta a la izquierda
+  (`draco v0.3.3 │ Inicio › Generar documento › Commits de OPS-7`), perfil y
+  proyecto a la derecha. Cada pantalla apilada gana una línea.
+- **Pie compacto:** las teclas principales de la pantalla y `? más`; `?`
+  muestra todas, como hoy. Cada tecla se marca como principal o secundaria
+  en `keys()`; ninguna desaparece, solo pasa a la ayuda completa.
+- **Línea de resultado:** después de publicar, sobre el pie queda
+  `✓ OPS-7 publicado en PAG › Despliegues` hasta salir de la TUI. Es estado
+  en memoria del marco, como el proyecto activo.
+- **Pasos del flujo:** en Generar y QA, la línea de título de cada paso
+  lleva `✓ Tarea › Commits › Vista previa › Ubicación › Publicar` desde 96
+  columnas.
+
+### Pantallas
+
+| Pantalla | Cambio |
+|---|---|
+| Principal | Logo arriba a la izquierda. Cada opción con su descripción en una línea tenue y atajos `1`–`6`; no letras, porque `q` es salir. Panel con la descripción, los pasos y el comando. Debajo, **Proyecto activo** y **Tu configuración** (credenciales, proyectos, perfil, `qa_jira` y `qa_report`, tema), leídos con funciones puras de `config`. En 80 columnas: menú sin descripciones y el texto de la opción elegida debajo |
+| Generar › Tarea | Formulario a la izquierda; a la derecha, lo que sigue: repos del proyecto (`deploy.ProjectSides`) y destino del perfil |
+| Commits | Tabla con hash, mensaje, autor, fecha y número de archivos; al lado, el detalle del commit con sus archivos. Abajo, la franja de seleccionados de los dos repos con el total de archivos sin repetir |
+| Vista previa | El documento **renderizado** por defecto; `m` alterna con el Markdown crudo y `tab` con la lista de archivos. Vale para Generar y QA (`docRun`) |
+| Ubicación | Lista con filtro visible y, al lado, el resumen: título, destino, qué pasará y el progreso al publicar |
+| QA › Evaluar | Contadores (completas, con fallas, sin verificar, por evaluar), tabla a todo el ancho y, debajo, el detalle de la tarea al lado del consolidado |
+| Proyectos, Hallazgos, Exportar, Configuración | Columnas proporcionales; las listas con filtro muestran la línea `/ filtrar` |
+
+### Decisiones
+
+- **Archivos de cada commit:** se leen con `ChangedFiles` de un solo hash,
+  en un `tea.Cmd`, cuando el cursor llega al commit, y se guardan por hash.
+  El total de la franja deduplica como el flujo. El puerto no cambia.
+- **Vista previa renderizada sin dependencia nueva:** un renderizador propio
+  en `internal/tui` del Markdown que genera draco: títulos, tablas, listas,
+  casillas, el recuadro y los anchos (`draco:tabla`, `draco:recuadro`, que no
+  se muestran) y enlaces. `goldmark` queda solo en los adaptadores, como dice
+  `CLAUDE.md`. Una línea que el renderizador no reconoce (una plantilla del
+  usuario con otro Markdown) se muestra tal cual.
+- **Contadores de QA en el flujo:** cuándo una tarea está completa, con
+  fallas o sin verificar es una regla de QA. Va como función pura en
+  `internal/qa` (`Tally`), con su test, y no en la pantalla (norma 1).
+  Una consulta fallida cuenta como sin verificar, nunca como falla.
+- **Lo que el prototipo mostraba y draco no lee:** estado, asignado y épica
+  de la tarea; cuerpo y hora del commit; responsable de cada tarea de QA y
+  número de errores o devoluciones (`QAIssue` trae booleanos). No entra en
+  esta fase: pide cambiar los puertos y los adaptadores.
+- **La barra sigue solo en la principal.** En las demás pantallas `/` filtra,
+  como hoy.
+
+### Tests
+
+- Lo que ya existe sigue: cada pantalla cabe en 80 columnas y los flujos de
+  punta a punta pasan sin cambios.
+- Cada pantalla rediseñada suma un test a 160×40 que comprueba el detalle a
+  la derecha de la lista y que las cajas llegan al pie.
+- El renderizador se prueba por construcción (título, tabla con anchos,
+  casillas, recuadro, línea desconocida) con tablas de casos.
+- `qa.Tally` se prueba con una tarea de cada estado, incluida la de una
+  consulta fallida.
