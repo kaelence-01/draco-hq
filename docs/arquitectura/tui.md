@@ -759,6 +759,55 @@ las mejoras de este apartado (bitácora 062). Conserva el modelo: pila de
 pantallas, `esc` vuelve, un paso por pantalla, los mismos flujos. Cambia cómo
 cada pantalla reparte el ancho y el alto.
 
+### Referencia visual: el prototipo
+
+**`docs/arquitectura/prototipo-fase-7.html`** es el prototipo que aprobó el
+autor. Es la referencia de cómo debe verse cada pantalla; este apartado es
+la de qué se implementa. Si los dos no coinciden, manda este apartado.
+
+- **Cómo abrirlo:** en un navegador, como archivo local (`xdg-open`,
+  `explorer.exe` desde WSL o `open`). Es un solo HTML sin dependencias; sin
+  conexión cae a la fuente monoespaciada del sistema. Se hace clic en la
+  terminal y se navega con el teclado como en draco. Los botones de abajo
+  envían las mismas teclas.
+- **Controles:**
+  - tamaño de terminal (80×24, 120×32, 160×40) y tema (`ansi`,
+    `alto-contraste`, `mono`): así se ve cómo se reacomoda cada pantalla
+    debajo de 96 columnas;
+  - **Mejoras para probar**, encendidas o apagadas. Se implementan todas,
+    encendidas y con el comportamiento que muestran; los interruptores son
+    solo del prototipo;
+  - **Ir a una pantalla** y **Probar en la barra**, para saltar a cada
+    estado.
+- **Pantalla del prototipo → archivo de `internal/tui`:**
+
+  | Prototipo | Archivo | Actividad |
+  |---|---|---|
+  | Cabecera, pie, línea de resultado | `app.go` (+ `layout.go` nuevo) | 2 |
+  | Inicio | `home.go` | 3 |
+  | Generar › Tarea | `generate.go` | 4 |
+  | Commits | `commits.go` | 4 |
+  | Ubicación, Publicado | `locations.go`, `publish.go` | 4 |
+  | Vista previa (Generar y QA) | `preview.go`, `docrun.go` | 5 |
+  | Consolidado QA › Evaluar | `qa.go` | 6 |
+  | Proyectos, Hallazgos, Exportar, Configuración | `projects.go`, `findings.go`, `export.go`, `settings.go` | 7 |
+
+- **Lo que el prototipo muestra y no se implementa** (draco no lo lee; ver
+  Decisiones):
+  - en Commits, «En progreso · Ana» junto a la tarea, y el cuerpo y la hora
+    del commit en el detalle;
+  - en QA, la columna RESP. y los textos «2 registrados» o «1 devolución»:
+    se muestra sí o no;
+  - en Configuración, la descripción de cada sección es de ejemplo.
+- **Lo que el prototipo simplifica y draco ya hace a su manera:** los
+  formularios son de Huh (no los campos del prototipo); publicar,
+  documento existente y secciones no conservadas siguen las reglas de
+  `docRun`; las pantallas sin flujo en el prototipo (formularios de
+  Proyectos, Conexión, Perfiles, QA) solo cambian de layout.
+- **Mismo dato, mismo lugar:** los ejemplos del prototipo (`OPS-7`, `pagos`,
+  `mi-org`, `a1b2c3d`) son los de los tests. Un test a 160×40 puede
+  comparar sus textos con lo que muestra el prototipo en esa pantalla.
+
 ### Reglas de layout
 
 Se suman a las normas del §10:

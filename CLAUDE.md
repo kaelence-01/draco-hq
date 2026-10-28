@@ -108,6 +108,7 @@ docs/
   roadmap.md                 Visión, fases, estado y decisiones
   arquitectura/proveedores.md    Puertos, adaptadores y plantillas (diseño)
   arquitectura/tui.md            Modo visual: pantallas, modelo y tests (diseño)
+  arquitectura/prototipo-fase-7.html  Prototipo aprobado de la fase 7 (tui.md §11)
   bitacora/fase-N/           Una entrada por actividad, en la carpeta de su fase
   security/patrones-seguros.md   Patrones P-001..P-008 (autoridad en seguridad)
 ```
