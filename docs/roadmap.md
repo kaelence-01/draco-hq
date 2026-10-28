@@ -321,7 +321,7 @@ tabla es la siguiente.
 | 3 | ✅ Principal: descripciones, atajos `1`–`6`, panel con pasos, Proyecto activo y Tu configuración (falta la prueba manual del autor) | `feature/tui-principal` | Funciona en 80×24 y llena 160×40 (test); el estado de la config sale de funciones puras de `config` |
 | 4 | ✅ Generar: tarea con lo que sigue, Commits en tabla con detalle y archivos del commit, franja de seleccionados, pasos del flujo; Ubicación con resumen (falta la prueba manual del autor) | `feature/tui-generar-b` | `/g -i OPS-7 -b a1b2c3d` sigue llegando a Commits con el hash marcado; los archivos se leen en un `tea.Cmd` y se guardan por hash; los tests de Generar pasan |
 | 5 | ✅ Vista previa renderizada en Generar y QA, `m` para el Markdown crudo (falta la prueba manual del autor) | `feature/tui-vista-renderizada` | Un test por construcción; una línea desconocida se ve tal cual; ninguna dependencia nueva |
-| 6 | QA: `qa.Tally`, contadores, tabla a todo el ancho, detalle y consolidado lado a lado | `feature/tui-qa-b` | Una consulta fallida cuenta como sin verificar (test); los tests de QA pasan |
+| 6 | ✅ QA: `qa.Tally`, contadores, tabla a todo el ancho, detalle y consolidado lado a lado (falta la prueba manual del autor) | `feature/tui-qa-b` | Una consulta fallida cuenta como sin verificar (test); los tests de QA pasan |
 | 7 | Proyectos, Hallazgos, Exportar y Configuración en columnas proporcionales, con filtro visible | `feature/tui-listas-b` | Cada una en 80×24 y 160×40 (test) |
 | 8 | Cierre de la fase 7 y release | `docs/cierre-fase-7` | Release instalado con `draco update` y las pantallas abiertas desde el binario instalado |
 

@@ -538,14 +538,7 @@ func cell(s string, width int) string {
 func padLeft(s string, n int) string { return strings.Repeat(" ", max(n-lipgloss.Width(s), 0)) + s }
 
 func (c *commits) detailBox(width, height int) string {
-	s := c.sides[c.cur]
-	inner := width - 4
-	text := lipgloss.NewStyle().Width(inner).Render(strings.Join(c.detail(s), "\n"))
-	lines := strings.Split(text, "\n")
-	if room := height - 2; len(lines) > room {
-		lines = append(lines[:max(room-1, 0)], faintStyle.Render("…"))
-	}
-	return stretch(strings.Join(lines, "\n"), width, height)
+	return panel(strings.Join(c.detail(c.sides[c.cur]), "\n"), width, height)
 }
 
 // detail is the commit under the cursor and the files it changed.

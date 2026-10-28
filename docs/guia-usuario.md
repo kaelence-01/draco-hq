@@ -402,10 +402,22 @@ Lo que el equipo escribió a mano en «A considerar» se conserva al actualizar.
 
 1. **Sprint y módulo.** Sin sprint, modo Kanban: las tareas que pasaron a
    Testing en los últimos 10 días hábiles.
-2. **Evaluación.** Se suma una fila por tarea a medida que se evalúa. `esc`
-   cancela entre tareas. En las columnas, `✓` es un control que pasa y `✗`
-   uno que falla. `?` significa que la consulta falló: nunca se publica como
-   un control fallido.
+2. **Evaluación.** Se evalúa una tarea tras otra y su fila se completa al
+   llegar. `esc` cancela entre tareas. En las columnas `ERR`, `DEV`, `DOC` y
+   `PR`, `✓` es un control que pasa y `✗` uno que falla. `?` significa que la
+   consulta falló: nunca se publica como un control fallido.
+   - Arriba, los **contadores**: tareas, `✓ completas`, `✗ con fallas`,
+     `? sin verificar` (la consulta del documento falló y ningún otro control
+     falló) y `· por evaluar`. Una falla real nunca queda como «sin
+     verificar».
+   - Cada fila lleva su **estado** (`completa`, `con fallas`, `sin verificar`).
+   - `↑↓` elige la tarea. Desde 96 columnas, el **detalle** de la elegida
+     (qué encontró cada control, su tarea de revisión, las observaciones y
+     los avisos de esa tarea) va debajo de la tabla, al lado del
+     **consolidado** (su título y qué pasará al publicar). El detalle dice
+     «con errores registrados» o «ninguno»: Jira entrega sí o no, no
+     cuántos. En terminales angostas o bajas, el detalle va debajo de la tabla
+     en una línea.
 3. `enter` abre la **vista previa**, dibujada como en Generar (y con `m` para
    el Markdown), y después **Ubicación** y **Publicar**, también como en
    Generar.
