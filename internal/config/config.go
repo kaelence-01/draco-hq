@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -124,6 +125,7 @@ type QAReportConfig struct {
 // QAJiraConfig maps the QA report onto the user's Jira instance. Instance
 // data, never compiled in (P-008).
 type QAJiraConfig struct {
+	// Project is the default Jira project of the report.
 	Project string `yaml:"project,omitempty"`
 
 	// Statuses (ids or names) of a task that reached QA or went past it.
@@ -135,6 +137,10 @@ type QAJiraConfig struct {
 	// SprintName is a template with {module} and {sprint}; empty means DefaultSprintName.
 	SprintName string `yaml:"sprint_name,omitempty"`
 
+	// Projects are other Jira projects of the report, by key: each one takes
+	// the values above unless it sets its own.
+	Projects map[string]QAJiraProject `yaml:"projects,omitempty"`
+
 	Fields QAJiraFields `yaml:"fields,omitempty"`
 
 	// ReviewPrefixes start the summaries of QA review tasks: they are not rows
@@ -145,6 +151,66 @@ type QAJiraConfig struct {
 	// ObservationMarker starts the comment text taken as an observation.
 	// Empty means DefaultObservationMarker.
 	ObservationMarker string `yaml:"observation_marker,omitempty"`
+}
+
+// QAJiraProject is what a Jira project of qa_jira.projects changes from the
+// default project's values; empty fields take them.
+type QAJiraProject struct {
+	Statuses      []string `yaml:"statuses,omitempty"`
+	TestingStatus string   `yaml:"testing_status,omitempty"`
+	SprintName    string   `yaml:"sprint_name,omitempty"`
+}
+
+// ProjectKeys returns the Jira projects of the report: the default first,
+// then the others sorted.
+func (q *QAJiraConfig) ProjectKeys() []string {
+	if q == nil {
+		return nil
+	}
+	var keys []string
+	if q.Project != "" {
+		keys = append(keys, q.Project)
+	}
+	for _, k := range sortedKeys(q.Projects) {
+		if !strings.EqualFold(k, q.Project) {
+			keys = append(keys, k)
+		}
+	}
+	return keys
+}
+
+// ForProject validates qa_jira and returns it for one Jira project (empty:
+// the default), with that project's own values over the defaults and no
+// Projects. The key is matched without case.
+func (q *QAJiraConfig) ForProject(key string) (*QAJiraConfig, error) {
+	if err := q.Validate(); err != nil {
+		return nil, err
+	}
+	key = strings.TrimSpace(key)
+	if key == "" {
+		key = q.Project
+	}
+	i := slices.IndexFunc(q.ProjectKeys(), func(k string) bool { return strings.EqualFold(k, key) })
+	if i < 0 {
+		return nil, fmt.Errorf("el proyecto de Jira '%s' no está en qa_jira. Proyectos: %s", key, strings.Join(q.ProjectKeys(), ", "))
+	}
+	r := *q
+	r.Project, r.Projects = q.ProjectKeys()[i], nil
+	for k, p := range q.Projects {
+		if !strings.EqualFold(k, r.Project) {
+			continue
+		}
+		if len(p.Statuses) > 0 {
+			r.Statuses = p.Statuses
+		}
+		if p.TestingStatus != "" {
+			r.TestingStatus = p.TestingStatus
+		}
+		if p.SprintName != "" {
+			r.SprintName = p.SprintName
+		}
+	}
+	return &r, nil
 }
 
 // DefaultReviewPrefixes is the ReviewPrefixes used when the config leaves it empty.
@@ -193,7 +259,7 @@ func (q *QAJiraConfig) SprintNameFor(module string, sprint int) string {
 
 // Empty reports whether nothing of qa_jira is set: QA is optional.
 func (q *QAJiraConfig) Empty() bool {
-	return q.Project == "" && len(q.Statuses) == 0 && q.TestingStatus == "" && q.SprintName == "" &&
+	return q.Project == "" && len(q.Statuses) == 0 && q.TestingStatus == "" && q.SprintName == "" && len(q.Projects) == 0 &&
 		q.Fields == (QAJiraFields{}) && len(q.ReviewPrefixes) == 0 && q.ObservationMarker == ""
 }
 
@@ -239,6 +305,14 @@ func (q *QAJiraConfig) Validate() error {
 	// Without {sprint} every run would search the same sprint.
 	if q.SprintName != "" && !strings.Contains(q.SprintName, "{sprint}") {
 		problems = append(problems, fmt.Sprintf("qa_jira.sprint_name: debe incluir {sprint} (ej: %s)", DefaultSprintName))
+	}
+	for k, p := range q.Projects {
+		if strings.TrimSpace(k) == "" || strings.ContainsAny(k, " \t\n,") {
+			problems = append(problems, fmt.Sprintf("qa_jira.projects: clave de proyecto inválida %q (ej: OPS)", k))
+		}
+		if p.SprintName != "" && !strings.Contains(p.SprintName, "{sprint}") {
+			problems = append(problems, fmt.Sprintf("qa_jira.projects.%s.sprint_name: debe incluir {sprint} (ej: %s)", k, DefaultSprintName))
+		}
 	}
 	for name, v := range map[string]string{
 		"coding_errors": q.Fields.CodingErrors,

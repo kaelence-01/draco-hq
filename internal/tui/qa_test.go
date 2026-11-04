@@ -62,9 +62,16 @@ type qaEnv struct {
 	tracker provider.Tracker
 	docs    *markdown.Store
 	store   provider.DocStore // what the profile publishes to; docs unless a test replaces it
+	opened  profile.Options
 }
 
 func newQAApp(t *testing.T, tracker provider.Tracker) *qaEnv {
+	t.Helper()
+	return newQAAppWith(t, tracker, nil)
+}
+
+// newQAAppWith is newQAApp with qa_jira.projects.
+func newQAAppWith(t *testing.T, tracker provider.Tracker, projects map[string]config.QAJiraProject) *qaEnv {
 	t.Helper()
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("USERPROFILE", os.Getenv("HOME"))
@@ -76,7 +83,7 @@ func newQAApp(t *testing.T, tracker provider.Tracker) *qaEnv {
 	cfg := &config.Config{
 		QAEmail: "qa@example.test",
 		QAJira: &config.QAJiraConfig{
-			Project: "OPS", Statuses: []string{"10001"},
+			Project: "OPS", Statuses: []string{"10001"}, Projects: projects,
 			Fields: config.QAJiraFields{CodingErrors: "customfield_1", DevReturns: "customfield_2", DevStatus: "customfield_3"},
 		},
 		DefaultProfile: "local",
@@ -90,6 +97,7 @@ func newQAApp(t *testing.T, tracker provider.Tracker) *qaEnv {
 		LoadConfig: func() (*config.Config, error) { return cfg, nil },
 		Now:        func() time.Time { return time.Date(2026, 9, 21, 12, 0, 0, 0, time.UTC) },
 		OpenProfile: func(c *config.Config, o profile.Options) (*profile.Bundle, error) {
+			e.opened = o
 			return &profile.Bundle{Name: "local", Profile: *c.Profiles["local"], Tracker: e.tracker, Docs: e.store}, nil
 		},
 	})
@@ -110,6 +118,37 @@ func (e *qaEnv) evaluate(sprint, module string) {
 	send(e.m, keyEnter)
 	typeText(e.m, module)
 	send(e.m, keyEnter)
+}
+
+func TestQAFormListsTheJiraProjectsWhenThereAreSeveral(t *testing.T) {
+	e := newQAApp(t, qaTracker("qa@example.test"))
+	if out := view(e.m); strings.Contains(out, "Proyecto de Jira") {
+		t.Errorf("con un solo proyecto el formulario es el de siempre:\n%s", out)
+	}
+
+	e = newQAAppWith(t, qaTracker("qa@example.test"), map[string]config.QAJiraProject{"PAG": {}})
+	if out := view(e.m); !strings.Contains(out, "Proyecto de Jira") || !strings.Contains(out, "OPS") || !strings.Contains(out, "PAG") {
+		t.Fatalf("con varios proyectos se elige de una lista:\n%s", out)
+	}
+	send(e.m, keyDown)
+	send(e.m, keyEnter)
+	e.evaluate("", "")
+	out := view(e.m)
+	if e.opened.QAProject != "PAG" || !strings.Contains(out, "PAG · Kanban") || !strings.Contains(out, "Consolidado de Pruebas QA - PAG - 07/09") {
+		t.Errorf("el consolidado es del proyecto elegido (%q):\n%s", e.opened.QAProject, out)
+	}
+}
+
+func TestBarOpensQAOfAJiraProject(t *testing.T) {
+	e := newQAAppWith(t, qaTracker("qa@example.test"), map[string]config.QAJiraProject{"PAG": {}})
+	runBar(e.m, "qa -j pag -s 12 -m Pagos")
+	if out := view(e.m); e.opened.QAProject != "PAG" || !strings.Contains(out, "PAG · Sprint 12 · Pagos") {
+		t.Errorf("-j abre el consolidado de ese proyecto (%q):\n%s", e.opened.QAProject, out)
+	}
+	runBar(e.m, "qa -j XYZ -s 12 -m Pagos")
+	if out := view(e.m); !strings.Contains(out, "'XYZ'") {
+		t.Errorf("un proyecto que no está en qa_jira es un error en la barra:\n%s", out)
+	}
 }
 
 func TestQAFormValidatesTheSprint(t *testing.T) {
@@ -251,7 +290,7 @@ func (e *qaEnv) published(t *testing.T, title string) string {
 	return string(data)
 }
 
-const kanbanTitle = "Consolidado de Pruebas QA - 07/09 al 21/09/2026"
+const kanbanTitle = "Consolidado de Pruebas QA - OPS - 07/09 al 21/09/2026"
 
 func TestQAPublishesANewReport(t *testing.T) {
 	e := newQAApp(t, qaTracker("qa@example.test"))
@@ -344,7 +383,7 @@ func TestQAWithoutAPreviousReport(t *testing.T) {
 	e.store = noReports{e.docs}
 	e.toPreview(t)
 	send(e.m, keyEnter)
-	if out := view(e.m); !strings.Contains(out, "no se encontró ningún consolidado QA previo") || !strings.Contains(out, "(por ejemplo") || !strings.Contains(out, "«Consolidado de Pruebas QA - 07/09") {
+	if out := view(e.m); !strings.Contains(out, "no se encontró ningún consolidado QA previo") || !strings.Contains(out, "(por ejemplo") || !strings.Contains(out, "«Consolidado de Pruebas QA - OPS - 07/09") {
 		t.Errorf("sin consolidado previo se explica con el título que falta:\n%s", out)
 	}
 }

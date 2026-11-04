@@ -43,6 +43,9 @@ type Options struct {
 	// AnyScope lets a Confluence destination work without a space, searching
 	// every space (exporting does).
 	AnyScope bool
+
+	// QAProject is the Jira project of the QA report; empty: qa_jira's default.
+	QAProject string
 }
 
 // Bundle is a profile with its adapters built.
@@ -104,10 +107,10 @@ func Open(cfg *config.Config, o Options) (*Bundle, error) {
 			return nil, err
 		}
 		b.Tracker = atlassian.NewTracker(c)
-		if err := cfg.QAJira.Validate(); err != nil {
+		if jira, err := cfg.QAJira.ForProject(o.QAProject); err != nil {
 			b.qaErr = err
 		} else {
-			b.qa = atlassian.NewQATracker(c, cfg.QAJira)
+			b.qa = atlassian.NewQATracker(c, jira)
 		}
 	default:
 		return nil, unknown(name, "tracker", p.Tracker.Provider, "jira")

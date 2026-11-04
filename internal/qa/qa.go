@@ -27,9 +27,10 @@ var (
 
 // Request is what the user asks for, before applying config.
 type Request struct {
-	Sprint int    // 0: Kanban mode
-	Module string // required in Sprint mode
-	Space  string // overrides the global space key
+	Project string // Jira project of qa_jira; empty: its default
+	Sprint  int    // 0: Kanban mode
+	Module  string // required in Sprint mode
+	Space   string // overrides the global space key
 
 	// Template is a folder with a QA template that overrides the repo's and
 	// the user's.
@@ -38,7 +39,8 @@ type Request struct {
 
 // Target is a Request resolved against config.
 type Target struct {
-	Kanban bool
+	Project string // the Jira project key, as written in qa_jira
+	Kanban  bool
 
 	// Sprint mode.
 	Sprint     int
@@ -81,27 +83,27 @@ func Resolve(cfg *config.Config, req Request, now time.Time) (*Target, error) {
 		return nil, fmt.Errorf("falta el módulo: es obligatorio en modo Sprint")
 	}
 
-	if err := cfg.QAJira.Validate(); err != nil {
+	jira, err := cfg.QAJira.ForProject(req.Project)
+	if err != nil {
 		return nil, err
 	}
-	t.ReviewPrefixes = cfg.QAJira.Reviews()
+	t.Project, t.ReviewPrefixes = jira.Project, jira.Reviews()
 	if err := t.loadTemplates(cfg, req.Template); err != nil {
 		return nil, err
 	}
 
 	var title string
-	var err error
 	if t.Kanban {
 		since, period := kanbanWindow(now)
 		t.Since, t.Period = since.Format("2006-01-02"), period
-		title, err = document.QATitle(t.template(), "", 0, period)
+		title, err = document.QATitle(t.template(), t.Project, "", 0, period)
 		if module != "" {
 			t.warn("el módulo no aplica en modo Kanban: se incluyen las tareas de todos los módulos.")
 		}
 	} else {
 		t.Sprint, t.Module = req.Sprint, module
-		t.SprintName = cfg.QAJira.SprintNameFor(module, req.Sprint)
-		title, err = document.QATitle(t.template(), module, req.Sprint, "")
+		t.SprintName = jira.SprintNameFor(module, req.Sprint)
+		title, err = document.QATitle(t.template(), t.Project, module, req.Sprint, "")
 	}
 	if err != nil {
 		return nil, err
@@ -336,17 +338,24 @@ func (s *Session) build() (string, error) {
 }
 
 // Locations lists recent consolidated reports as candidate siblings for a new
-// one: the module's in Sprint mode, any in Kanban mode. Without any, it falls
-// back to the destination's own locations (a Markdown folder offers itself).
+// one: the module's in Sprint mode; in Kanban mode the project's, else any.
+// Without any, it falls back to the destination's own locations (a Markdown
+// folder offers itself).
 func (s *Session) Locations(ctx context.Context) ([]provider.DocRef, error) {
 	prefix := s.Target.template().Manifest.Prefix
-	title := prefix
-	if s.Target.Module != "" {
-		title += " - " + s.Target.Module
+	titles := []string{prefix + " - " + s.Target.Module}
+	if s.Target.Kanban {
+		titles = []string{prefix + " - " + s.Target.Project, prefix}
 	}
-	pages, err := s.docs.SearchTitle(ctx, title)
-	if err != nil {
-		return nil, err
+	var pages []provider.DocRef
+	for _, title := range titles {
+		var err error
+		if pages, err = s.docs.SearchTitle(ctx, title); err != nil {
+			return nil, err
+		}
+		if len(pages) > 0 {
+			break
+		}
 	}
 	if len(pages) == 0 {
 		loc, err := s.docs.Locations(ctx, provider.LocationQuery{TitlePrefix: prefix})

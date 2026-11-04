@@ -27,7 +27,7 @@ func QAMarkdown(d QADoc) string {
 }
 
 func BuildQATitle(module string, sprint int) string {
-	title, err := QATitle(MustBuiltin("qa"), module, sprint, "")
+	title, err := QATitle(MustBuiltin("qa"), "OPS", module, sprint, "")
 	if err != nil {
 		panic(err)
 	}
@@ -35,7 +35,7 @@ func BuildQATitle(module string, sprint int) string {
 }
 
 func BuildQAKanbanTitle(period string) string {
-	title, err := QATitle(MustBuiltin("qa"), "", 0, period)
+	title, err := QATitle(MustBuiltin("qa"), "OPS", "", 0, period)
 	if err != nil {
 		panic(err)
 	}

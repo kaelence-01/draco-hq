@@ -42,7 +42,7 @@ func TestQAEvaluateFillsAWideTerminal(t *testing.T) {
 		"✓ Sprint o Kanban  ›  Evaluar  ›  Vista previa  ›  Ubicación  ›  Publicar",
 		"2 tareas", "✓ 1 completa", "✗ 1 con fallas", "? 0 sin verificar", "· 0 por evaluar",
 		"TAREA", "ERR", "DEV", "DOC", "PR", "RESUMEN", "ESTADO", "completa", "con fallas",
-		"CONSOLIDADO", "Consolidado de Pruebas QA - 07/09 al 21/09/2026", "Errores de código", "con errores registrados", "no se pudo verificar",
+		"CONSOLIDADO", "Consolidado de Pruebas QA - OPS - 07/09 al 21/09/2026", "Errores de código", "con errores registrados", "no se pudo verificar",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("falta %q:\n%s", want, out)

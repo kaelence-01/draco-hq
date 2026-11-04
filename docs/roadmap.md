@@ -54,6 +54,7 @@ de Windows (`cmd`) se ve más limitado.
 | 6 | Configuración en formularios, aviso de versión nueva, barra de comandos con autocompletado, ayuda, temas | ✅ `v0.3.0` |
 | — | Mejoras y correcciones sobre la fase 6, con draco ya en uso | ✅ `v0.3.1`–`v0.3.3` |
 | 7 | Rediseño del modo visual: maestro-detalle elástico | ✅ `v0.4.0` (por publicar) |
+| — | Mejoras sobre la fase 7: consolidado QA con varios proyectos de Jira, tan simple como en gtt | 🔄 |
 | v1.0 | Instaladores, checksums, migración desde gtt (✅ adelantada), README completo | ⬜ |
 | Después de la v1.0 | Otros trackers y plataformas; modo equipo (plantillas y perfiles compartidos) | ⬜ |
 
@@ -358,6 +359,22 @@ autor:
   fases 4 a 6 (029 a 032, 035 a 038 y 042 a 047). La más importante de esta
   fase: la vista previa con un documento real de su plantilla (067).
 
+### Mejoras sobre la fase 7 — QA con varios proyectos de Jira
+
+En gtt, a la QA solo se le preguntaban dos cosas: el sprint (Enter: Kanban) y el
+módulo. El proyecto, los estados y los campos de Jira estaban fijos en el
+código, así que gtt servía para un único tablero. draco lleva esos valores a
+`qa_jira`, y quedaron dos problemas: hay que escribir ids y nombres a mano, y
+solo se puede configurar un proyecto. Si la QA atiende dos tableros, tiene que
+editar la config entre un consolidado y otro. Los perfiles no lo resuelven
+porque no guardan el proyecto de Jira (bitácora 071).
+
+| # | Rama | Contenido | Estado |
+|---|---|---|---|
+| 071 | `feature/qa-multiproyecto` | `qa_jira.projects` (otros proyectos que heredan los valores del por defecto), `-j/--jira-project`, la lista de proyectos en el formulario solo cuando hay varios, el proyecto en el título del Kanban | ✅ |
+| 072 | `feature/qa-detectar-jira` | Configurar sin escribir ids: draco consulta Jira (proyectos, columnas del tablero, campos por nombre) y la QA solo elige; «¿en qué columna empieza QA?» reemplaza la lista de estados | ⬜ |
+| 073 | `feature/qa-listas` (opcional) | Módulo y sprint elegidos de listas (componentes y sprints del tablero) | ⬜ |
+
 ### v1.0
 
 - Instaladores: ✅ script de un comando (`scripts/install.sh` e
@@ -450,6 +467,9 @@ cambia una, le llega sin rehacer el cambio a mano.
 | La lógica se **copia** de gtt, no se importa | Go no permite importar `internal/` de otro módulo, y gtt no evoluciona |
 | Flujos preparar → revisar → publicar sin E/S | Un solo núcleo para el modo comando y el visual, testeable sin red |
 | Datos de instancia de Jira del QA en config (`qa_jira`) | El proyecto es abierto: lo propio de una instancia no se compila |
+| Varios proyectos de Jira en `qa_jira.projects`, que heredan los valores del por defecto; no en los perfiles | Los perfiles dicen dónde se publica, no de qué tablero; con el mismo flujo de trabajo, agregar un proyecto es escribir su clave. La forma de un solo proyecto se sigue leyendo igual (bitácora 071) |
+| El título del Kanban lleva el proyecto de Jira | Dos proyectos con Kanban en el mismo período tendrían el mismo título y el segundo actualizaría la página del primero. Costo: el Kanban del período en curso se crea como página nueva una vez (bitácora 071) |
+| `-j/--jira-project` para el proyecto de Jira | `-p` ya es el proyecto de draco en `g`, `backlog` y `template` (bitácora 071) |
 | Licencia MIT | La misma de gtt |
 | Multiplataforma por puertos y adaptadores, adaptadores compilados en el binario | Que draco sirva a equipos sin Jira ni Confluence; un solo ejecutable |
 | Estructura del documento en plantillas `text/template` → Markdown → formato del destino | Cada equipo ajusta su documento sin recompilar; una plantilla sirve para cualquier destino |

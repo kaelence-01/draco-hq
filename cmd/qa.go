@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/kaelence-01/draco-hq/internal/cli"
@@ -16,6 +17,7 @@ func init() {
 }
 
 var qaFlags = []cli.Flag{
+	{Long: "--jira-project", Short: "-j", Value: true, Desc: "Proyecto de Jira de qa_jira (sin él: el por defecto)"},
 	{Long: "--sprint", Short: "-s", Value: true, Desc: "Número del sprint (sin él: modo Kanban)"},
 	{Long: "--module", Short: "-m", Value: true, Desc: "Módulo (solo modo Sprint)"},
 	{Long: "--space", Value: true, Desc: "Space de Confluence o carpeta Markdown para esta ejecución"},
@@ -36,6 +38,15 @@ func runQA(a *App, args []string) error {
 		return usageError("argumento inesperado: %s", f.Args[0])
 	}
 
+	cfg, err := loadConfig()
+	if err != nil {
+		return err
+	}
+
+	project := f.Get("--jira-project")
+	if keys := cfg.QAJira.ProjectKeys(); !f.Has("--jira-project") && len(keys) > 1 {
+		project = a.ask(fmt.Sprintf("Proyecto de Jira (%s; Enter: %s): ", strings.Join(keys, ", "), keys[0]))
+	}
 	sprintText, module := f.Get("--sprint"), f.Get("--module")
 	if !f.Has("--sprint") {
 		sprintText = a.ask("Número de sprint (Enter para modo Kanban): ")
@@ -50,10 +61,6 @@ func runQA(a *App, args []string) error {
 		}
 	}
 
-	cfg, err := loadConfig()
-	if err != nil {
-		return err
-	}
 	prof, _, err := cfg.Profile(f.Get("--profile"))
 	if err != nil {
 		return err
@@ -62,11 +69,11 @@ func runQA(a *App, args []string) error {
 	if tmpl == "" {
 		tmpl = prof.TemplateDir("qa")
 	}
-	target, err := qa.Resolve(cfg, qa.Request{Sprint: sprint, Module: module, Space: f.Get("--space"), Template: tmpl}, now())
+	target, err := qa.Resolve(cfg, qa.Request{Project: project, Sprint: sprint, Module: module, Space: f.Get("--space"), Template: tmpl}, now())
 	if err != nil {
 		return err
 	}
-	bundle, err := openProfile(cfg, profile.Options{Name: f.Get("--profile"), Scope: target.SpaceKey})
+	bundle, err := openProfile(cfg, profile.Options{Name: f.Get("--profile"), Scope: target.SpaceKey, QAProject: target.Project})
 	if err != nil {
 		return explainProfile(err)
 	}
@@ -91,6 +98,7 @@ func runQA(a *App, args []string) error {
 		return err
 	}
 
+	a.printf("%s %s\n", a.style(bold, "Proyecto:"), a.style(cyan, target.Project))
 	if target.Kanban {
 		a.printf("%s %s\n\n", a.style(bold, "Período:"), a.style(cyan, target.Period))
 	} else {
@@ -200,31 +208,36 @@ func qaHelp(a *App) {
 	a.title("draco qa", "Publica el consolidado de pruebas QA")
 
 	a.section("Uso:")
-	a.printf("  draco qa [-s <SPRINT> -m <MÓDULO>] [flags]\n\n")
+	a.printf("  draco qa [-j <PROYECTO>] [-s <SPRINT> -m <MÓDULO>] [flags]\n\n")
 
 	a.section("Flags:")
-	a.printf("  -s, --sprint   Número del sprint                 (sin él: modo Kanban)\n")
-	a.printf("  -m, --module   Módulo                            (solo modo Sprint)\n")
-	a.printf("      --space    Space de Confluence o carpeta Markdown para esta ejecución\n")
-	a.printf("      --profile  Perfil de la config (su tracker debe soportar QA: Jira)\n")
-	a.printf("      --template Carpeta con una plantilla del consolidado\n")
-	a.printf("      --dry-run  Muestra el consolidado (Markdown) sin publicar nada\n")
-	a.printf("  -h, --help     Esta ayuda\n\n")
+	a.printf("  -j, --jira-project Proyecto de Jira de qa_jira  (sin él: el por defecto)\n")
+	a.printf("  -s, --sprint       Número del sprint             (sin él: modo Kanban)\n")
+	a.printf("  -m, --module       Módulo                        (solo modo Sprint)\n")
+	a.printf("      --space        Space de Confluence o carpeta Markdown para esta ejecución\n")
+	a.printf("      --profile      Perfil de la config (su tracker debe soportar QA: Jira)\n")
+	a.printf("      --template     Carpeta con una plantilla del consolidado\n")
+	a.printf("      --dry-run      Muestra el consolidado (Markdown) sin publicar nada\n")
+	a.printf("  -h, --help         Esta ayuda\n\n")
+	a.printf("  Sin -j, con varios proyectos en qa_jira, pregunta cuál; Enter: el por defecto.\n")
 	a.printf("  Sin -s pregunta el sprint; Enter elige el modo Kanban.\n\n")
 
 	a.section("Modos:")
 	a.printf("  Sprint  — tareas del módulo en el sprint (nombre según qa_jira.sprint_name)\n")
-	a.printf("  Kanban  — %s las tareas que pasaron a Testing en los últimos 10 días hábiles\n\n", a.style(bold, "todas"))
+	a.printf("  Kanban  — %s las tareas del proyecto que pasaron a Testing en los últimos\n", a.style(bold, "todas"))
+	a.printf("            10 días hábiles\n\n")
 
 	a.section("Configuración:")
 	a.printf("  qa_email     Cuenta que publica el consolidado (protección, no permisos)\n")
-	a.printf("  qa_jira      Proyecto, estados y campos de Jira; review_prefixes y\n")
-	a.printf("               observation_marker para las tareas de revisión y observaciones\n")
+	a.printf("  qa_jira      Proyecto por defecto, estados y campos de Jira; projects para\n")
+	a.printf("               otros proyectos; review_prefixes y observation_marker para las\n")
+	a.printf("               tareas de revisión y observaciones\n")
 	a.printf("  qa_report    Nombres del encabezado; los que faltan salen como —\n")
 	a.printf("  Todo en %s.\n\n", a.style(cyan, configPathHint()))
 
 	a.section("Ejemplos:")
 	a.printf("  draco qa                       # Kanban: últimos 10 días hábiles\n")
 	a.printf("  draco qa -s 12 -m Pagos        # Sprint\n")
+	a.printf("  draco qa -j PAG -s 12 -m Pagos # Sprint de otro proyecto de qa_jira\n")
 	a.printf("  draco qa -s 12 -m Pagos --dry-run\n")
 }

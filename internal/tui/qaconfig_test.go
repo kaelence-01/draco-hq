@@ -31,6 +31,7 @@ func TestQAConfigFromScratchWorksForTheReport(t *testing.T) {
 	e.toQA(t)
 	e.fill("qa@example.test", "Ana", "Luis", "Sofía",
 		"OPS", "10001, En QA", "", "",
+		"PAG",
 		"customfield_10001", "customfield_10002", "customfield_10003",
 		"", "")
 
@@ -41,6 +42,9 @@ func TestQAConfigFromScratchWorksForTheReport(t *testing.T) {
 	if !reflect.DeepEqual(c.QAJira.Statuses, []string{"10001", "En QA"}) || c.QAJira.ReviewPrefixes != nil || c.QAJira.TestingStatus != "" {
 		t.Errorf("las listas se separan por comas y lo vacío queda vacío: %+v", c.QAJira)
 	}
+	if got := c.QAJira.ProjectKeys(); !reflect.DeepEqual(got, []string{"OPS", "PAG"}) {
+		t.Errorf("los otros proyectos se guardan en qa_jira.projects: %q", got)
+	}
 	target, err := qa.Resolve(c, qa.Request{Sprint: 12, Module: "Pagos"}, time.Date(2026, 10, 21, 0, 0, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("qa.Resolve acepta la config creada desde la TUI: %v", err)
@@ -49,7 +53,7 @@ func TestQAConfigFromScratchWorksForTheReport(t *testing.T) {
 		t.Errorf("el consolidado usa lo guardado: %+v", target)
 	}
 	out := view(e.m)
-	if len(e.m.stack) != 2 || !strings.Contains(out, "✓ QA guardado") || !strings.Contains(out, "✓ proyecto OPS; publica") || !strings.Contains(out, "qa@example.test") {
+	if len(e.m.stack) != 2 || !strings.Contains(out, "✓ QA guardado") || !strings.Contains(out, "✓ proyectos OPS, PAG; publica") || !strings.Contains(out, "qa@example.test") {
 		t.Errorf("vuelve a Configuración con la sección completa:\n%s", out)
 	}
 	if c.AtlassianToken != "token-del-archivo" {
@@ -62,6 +66,7 @@ func TestQAConfigShowsEveryProblemAndSavesNothing(t *testing.T) {
 	e.toQA(t)
 	e.fill("qa@example.test", "", "", "",
 		"OPS", "", "", "Sprint",
+		"",
 		"campo", "", "",
 		"", "")
 	out := view(e.m)
@@ -94,7 +99,7 @@ func TestQAConfigWithoutJiraSavesOnlyTheEmail(t *testing.T) {
 	for range len([]rune("Sofía")) {
 		send(e.m, tea.KeyPressMsg{Code: tea.KeyBackspace})
 	}
-	for range 10 {
+	for range 11 {
 		send(e.m, keyEnter)
 	}
 	c := e.file.cfg
@@ -107,7 +112,8 @@ func TestQAConfigStartsFromTheFile(t *testing.T) {
 	cfg := savedConfig()
 	cfg.QAEmail = "qa@example.test"
 	cfg.QAJira = &config.QAJiraConfig{Project: "OPS", Statuses: []string{"10001", "En QA"}, ReviewPrefixes: []string{"Validación"},
-		Fields: config.QAJiraFields{CodingErrors: "customfield_10001", DevReturns: "customfield_10002", DevStatus: "customfield_10003"}}
+		Projects: map[string]config.QAJiraProject{"FAC": {Statuses: []string{"En pruebas"}}, "PAG": {}},
+		Fields:   config.QAJiraFields{CodingErrors: "customfield_10001", DevReturns: "customfield_10002", DevStatus: "customfield_10003"}}
 	e := newSettingsApp(t, cfg)
 	e.toQA(t)
 	for range 4 {
@@ -116,7 +122,7 @@ func TestQAConfigStartsFromTheFile(t *testing.T) {
 	if out := view(e.m); !strings.Contains(out, "10001, En QA") {
 		t.Fatalf("las listas se muestran separadas por comas:\n%s", out)
 	}
-	for range 9 {
+	for range 10 {
 		send(e.m, keyEnter)
 	}
 	if got := e.file.cfg.QAJira; got == nil || !reflect.DeepEqual(got, cfg.QAJira) {

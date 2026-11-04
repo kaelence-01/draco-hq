@@ -99,7 +99,7 @@ func (s *settings) sections() []section {
 	case config.QANoAccount:
 		qa.status = "falta el email de la cuenta de QA: nadie podría publicar el consolidado"
 	case config.QAReady:
-		qa.ok, qa.status = true, "proyecto "+c.QAJira.Project+"; publica "+c.QAEmail
+		qa.ok, qa.status = true, qaProjects(c.QAJira)+"; publica "+c.QAEmail
 	}
 	look := section{name: "Tema", ok: true, status: knownTheme(c.Theme), optional: true}
 	switch {
@@ -232,7 +232,7 @@ func (s *settings) detailText(width int) string {
 	case 3:
 		jira := ""
 		if c.QAJira != nil {
-			jira = strings.TrimSpace(c.QAJira.Project + " · " + plural(len(c.QAJira.Statuses), "estado", "estados"))
+			jira = strings.TrimSpace(strings.Join(c.QAJira.ProjectKeys(), ", ") + " · " + plural(len(c.QAJira.Statuses), "estado", "estados"))
 		}
 		report := ""
 		if c.HasQAReport() {

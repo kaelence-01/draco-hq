@@ -37,6 +37,7 @@ type fakeAPI struct {
 	gotQAEmail        string
 	gotLinkPrefixes   []string
 	gotTitleSearch    *string
+	titleSearches     []string
 	locations         []provider.DocRef
 	gotLocationPrefix string
 	commentsRead      []string
@@ -79,6 +80,7 @@ func (f *fakeAPI) Sections(context.Context, provider.DocRef, []string) ([]string
 
 func (f *fakeAPI) SearchTitle(_ context.Context, text string) ([]provider.DocRef, error) {
 	f.gotTitleSearch = &text
+	f.titleSearches = append(f.titleSearches, text)
 	return f.qaPages, nil
 }
 
@@ -423,6 +425,42 @@ func TestLocations(t *testing.T) {
 	api.gotLocationPrefix = ""
 	if got, err := newSession(api, sprintTarget(t)).Locations(ctx); err != nil || got[0].ID != "q1" || *api.gotTitleSearch != "Consolidado de Pruebas QA - Pagos" || api.gotLocationPrefix != "" {
 		t.Errorf("en Sprint se buscan los del módulo, sin respaldo si los hay: %v %q %v", got, *api.gotTitleSearch, err)
+	}
+}
+
+func TestKanbanLocationsPreferTheProject(t *testing.T) {
+	tg, _ := Resolve(validConfig(), Request{}, monday)
+	api := &fakeAPI{locations: []provider.DocRef{{ID: "./"}}}
+	if _, err := newSession(api, tg).Locations(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"Consolidado de Pruebas QA - OPS", "Consolidado de Pruebas QA"}; !reflect.DeepEqual(api.titleSearches, want) {
+		t.Errorf("en Kanban se buscan primero los del proyecto y después cualquiera: %q", api.titleSearches)
+	}
+	api = &fakeAPI{qaPages: []provider.DocRef{{ID: "q1"}}}
+	if _, err := newSession(api, tg).Locations(ctx); err != nil || len(api.titleSearches) != 1 {
+		t.Errorf("con consolidados del proyecto no se busca más: %q %v", api.titleSearches, err)
+	}
+}
+
+func TestResolveJiraProject(t *testing.T) {
+	cfg := validConfig()
+	cfg.QAJira.Projects = map[string]config.QAJiraProject{"FAC": {SprintName: "FAC Sprint {sprint}"}}
+	tg, err := Resolve(cfg, Request{Project: "fac", Sprint: 3, Module: "Facturacion"}, monday)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tg.Project != "FAC" || tg.SprintName != "FAC Sprint 3" || tg.Title != "Consolidado de Pruebas QA - Facturacion - Sprint 3" {
+		t.Errorf("el proyecto elegido pone su clave y su nombre de sprint: %+v", tg)
+	}
+	if tg, _ := Resolve(cfg, Request{Project: "FAC"}, monday); tg.Title != "Consolidado de Pruebas QA - FAC - 07/09 al 21/09/2026" {
+		t.Errorf("el Kanban lleva el proyecto en el título: %q", tg.Title)
+	}
+	if tg, _ := Resolve(cfg, Request{}, monday); tg.Project != "OPS" || tg.Title != "Consolidado de Pruebas QA - OPS - 07/09 al 21/09/2026" {
+		t.Errorf("sin proyecto, el por defecto: %+v", tg)
+	}
+	if _, err := Resolve(cfg, Request{Project: "XYZ"}, monday); err == nil || !strings.Contains(err.Error(), "'XYZ'") {
+		t.Errorf("un proyecto que no está en qa_jira falla antes de consultar: %v", err)
 	}
 }
 

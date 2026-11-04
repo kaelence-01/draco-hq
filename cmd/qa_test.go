@@ -80,7 +80,7 @@ func TestQAKanbanPublishes(t *testing.T) {
 		t.Fatalf("esperaba un consolidado, hay %v", files)
 	}
 	doc, _ := os.ReadFile(files[0])
-	if !strings.Contains(string(doc), "# Consolidado de Pruebas QA - 07/09 al 21/09/2026") || !strings.Contains(string(doc), "| ? |") {
+	if !strings.Contains(string(doc), "# Consolidado de Pruebas QA - OPS - 07/09 al 21/09/2026") || !strings.Contains(string(doc), "| ? |") {
 		t.Errorf("consolidado:\n%s", doc)
 	}
 }
@@ -94,6 +94,48 @@ func TestQASprintDryRun(t *testing.T) {
 	}
 	if files, _ := filepath.Glob(filepath.Join(dir, "*.md")); len(files) != 0 {
 		t.Errorf("--dry-run no debe escribir: %v", files)
+	}
+}
+
+func TestQAAsksTheJiraProjectWhenThereAreSeveral(t *testing.T) {
+	fixedNow(t)
+	cfg := qaConfig()
+	cfg.QAJira.Projects = map[string]config.QAJiraProject{"PAG": {}}
+	dir := fakeEnvWith(t, cfg, &qaTracker{email: "qa@example.test"})
+
+	// PAG; Enter: Kanban; [1] the folder; Enter: confirm.
+	code, out, errOut := runWith("PAG\n\n1\n\n", "qa")
+	if code != exitOK {
+		t.Fatalf("código %d\n%s\n%s", code, out, errOut)
+	}
+	for _, want := range []string{"Proyecto de Jira (OPS, PAG; Enter: OPS): ", "Proyecto: PAG", "Consolidado creado"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("falta %q en:\n%s", want, out)
+		}
+	}
+	files, _ := filepath.Glob(filepath.Join(dir, "*.md"))
+	if len(files) != 1 {
+		t.Fatalf("esperaba un consolidado, hay %v", files)
+	}
+	if doc, _ := os.ReadFile(files[0]); !strings.Contains(string(doc), "# Consolidado de Pruebas QA - PAG - 07/09 al 21/09/2026") {
+		t.Errorf("el Kanban lleva el proyecto elegido:\n%s", doc)
+	}
+
+	code, out, _ = run("qa", "-j", "pag", "-s", "12", "-m", "Pagos", "--dry-run")
+	if code != exitOK || strings.Contains(out, "Proyecto de Jira (") || !strings.Contains(out, "Proyecto: PAG") {
+		t.Errorf("con -j no pregunta y usa la clave de qa_jira: %d\n%s", code, out)
+	}
+	if code, _, errOut := run("qa", "-j", "XYZ", "-s", "12", "-m", "Pagos"); code != exitError || !strings.Contains(errOut, "'XYZ'") || !strings.Contains(errOut, "OPS, PAG") {
+		t.Errorf("un proyecto que no está en qa_jira se explica: %d %s", code, errOut)
+	}
+}
+
+func TestQAWithOneJiraProjectDoesNotAsk(t *testing.T) {
+	fixedNow(t)
+	fakeEnvWith(t, qaConfig(), &qaTracker{email: "qa@example.test"})
+	code, out, _ := run("qa", "-s", "12", "-m", "Pagos", "--dry-run")
+	if code != exitOK || strings.Contains(out, "Proyecto de Jira (") || !strings.Contains(out, "Proyecto: OPS") {
+		t.Errorf("con un solo proyecto, como siempre: %d\n%s", code, out)
 	}
 }
 

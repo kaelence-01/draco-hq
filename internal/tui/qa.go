@@ -20,13 +20,15 @@ import (
 	"github.com/kaelence-01/draco-hq/internal/qa"
 )
 
-// qaForm asks for the sprint and module; without a sprint, Kanban mode.
+// qaForm asks for the Jira project (with several in qa_jira), the sprint and
+// the module; without a sprint, Kanban mode.
 type qaForm struct {
-	st     *state
-	sprint string
-	module string
-	form   *huh.Form
-	err    string
+	st      *state
+	project string
+	sprint  string
+	module  string
+	form    *huh.Form
+	err     string
 }
 
 func newQAForm(st *state) *qaForm {
@@ -36,10 +38,16 @@ func newQAForm(st *state) *qaForm {
 }
 
 func (f *qaForm) build() *huh.Form {
-	return newForm(
+	var fields []huh.Field
+	if f.st.cfg != nil {
+		if keys := f.st.cfg.QAJira.ProjectKeys(); len(keys) > 1 {
+			fields = append(fields, huh.NewSelect[string]().Title("Proyecto de Jira").Options(huh.NewOptions(keys...)...).Value(&f.project))
+		}
+	}
+	return newForm(append(fields,
 		huh.NewInput().Title("Sprint").Placeholder("12 (vacío: modo Kanban, últimos 10 días hábiles)").Value(&f.sprint).Validate(validSprint),
 		huh.NewInput().Title("Módulo").Placeholder("Pagos (solo en modo Sprint)").Value(&f.module),
-	)
+	)...)
 }
 
 // validSprint accepts a positive number, or nothing for Kanban mode.
@@ -86,7 +94,7 @@ func (f *qaForm) next() (screen, error) {
 		return nil, errors.New(f.st.notice)
 	}
 	sprint, _ := strconv.Atoi(strings.TrimSpace(f.sprint))
-	bundle, err := f.st.deps.OpenProfile(f.st.cfg, profile.Options{})
+	bundle, err := f.st.deps.OpenProfile(f.st.cfg, profile.Options{QAProject: f.project})
 	if err != nil {
 		return nil, explainProfile(err)
 	}
@@ -97,7 +105,7 @@ func (f *qaForm) next() (screen, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%w\nCompleta lo que falta en Configuración › QA", err)
 	}
-	target, err := qa.Resolve(f.st.cfg, qa.Request{Sprint: sprint, Module: f.module, Template: bundle.Profile.TemplateDir("qa")}, f.st.deps.Now())
+	target, err := qa.Resolve(f.st.cfg, qa.Request{Project: f.project, Sprint: sprint, Module: f.module, Template: bundle.Profile.TemplateDir("qa")}, f.st.deps.Now())
 	if err != nil {
 		return nil, err
 	}
@@ -289,19 +297,27 @@ func notQAAccount(err error, me *provider.User, configured string) error {
 // command is the same report in the command mode.
 func (p *qaProgress) command() string {
 	t := p.session.Target
-	if t.Kanban {
-		return "draco qa   (Enter en el sprint: modo Kanban)"
+	cmd := "draco qa"
+	if keys := p.st.cfg.QAJira.ProjectKeys(); len(keys) > 1 && t.Project != keys[0] {
+		cmd += " -j " + shellQuote(t.Project)
 	}
-	return "draco qa -s " + strconv.Itoa(t.Sprint) + " -m " + shellQuote(t.Module)
+	if t.Kanban {
+		return cmd + "   (Enter en el sprint: modo Kanban)"
+	}
+	return cmd + " -s " + strconv.Itoa(t.Sprint) + " -m " + shellQuote(t.Module)
 }
 
 // mode is what the report covers: a sprint of a module, or the Kanban window.
 func (p *qaProgress) mode() string {
 	t := p.session.Target
+	mode := "Sprint " + strconv.Itoa(t.Sprint) + " · " + t.Module
 	if t.Kanban {
-		return "Kanban · " + t.Period
+		mode = "Kanban · " + t.Period
 	}
-	return "Sprint " + strconv.Itoa(t.Sprint) + " · " + t.Module
+	if len(p.st.cfg.QAJira.ProjectKeys()) > 1 {
+		mode = t.Project + " · " + mode
+	}
+	return mode
 }
 
 func (p *qaProgress) view(width, height int) string {
