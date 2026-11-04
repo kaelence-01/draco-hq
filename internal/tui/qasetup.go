@@ -11,6 +11,7 @@ import (
 	"charm.land/bubbles/v2/spinner"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
+	"charm.land/lipgloss/v2"
 
 	"github.com/kaelence-01/draco-hq/internal/config"
 	"github.com/kaelence-01/draco-hq/internal/profile"
@@ -18,7 +19,13 @@ import (
 	"github.com/kaelence-01/draco-hq/internal/qa"
 )
 
-var detectKey = key.NewBinding(key.WithKeys("d"), key.WithHelp("d", "detectar desde Jira"))
+var (
+	detectKey     = key.NewBinding(key.WithKeys("d"), key.WithHelp("d", "detectar desde Jira"))
+	formKey       = key.NewBinding(key.WithKeys("e"), key.WithHelp("e", "editar a mano"))
+	saveSetupKey  = key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "guardar"))
+	pickFieldsKey = key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "elegir los campos"))
+	changeKey     = key.NewBinding(key.WithKeys("e"), key.WithHelp("e", "cambiar"))
+)
 
 type qaSetupReadMsg struct {
 	owner *qaSetup
@@ -27,19 +34,22 @@ type qaSetupReadMsg struct {
 }
 
 // qaSetup fills qa_jira from what Jira lists: the project's statuses and the
-// instance's fields, picked by name. It asks the project, reads, then offers
-// the lists with what the config has, or the suggestion, already chosen.
+// instance's fields, picked by name. It asks the project, reads, and shows
+// what it proposes: enter saves it, or asks only the fields still missing; e
+// opens the lists.
 type qaSetup struct {
-	parent  *settings
-	project string
-	setup   *qa.Setup
-	choice  qa.Choice
-	reading bool
-	form    *huh.Form
-	err     string
-	spinner spinner.Model
-	ctx     context.Context
-	cancel  context.CancelFunc
+	parent     *settings
+	project    string
+	setup      *qa.Setup
+	choice     qa.Choice
+	reading    bool
+	summary    bool
+	fieldsOnly bool
+	form       *huh.Form
+	err        string
+	spinner    spinner.Model
+	ctx        context.Context
+	cancel     context.CancelFunc
 }
 
 func newQASetup(parent *settings, project string) *qaSetup {
@@ -58,18 +68,25 @@ func (q *qaSetup) title() string { return "Detectar desde Jira" }
 func (q *qaSetup) close()        { q.cancel() }
 
 func (q *qaSetup) keys() []key.Binding {
-	if q.reading {
+	switch {
+	case q.reading:
 		return nil
+	case q.summary && q.choice.Complete():
+		return []key.Binding{saveSetupKey, changeKey}
+	case q.summary:
+		return []key.Binding{pickFieldsKey, changeKey}
 	}
 	return []key.Binding{nextFieldKey, prevFieldKey}
 }
 
-func (q *qaSetup) captures(k tea.KeyPressMsg) bool { return !q.reading && !key.Matches(k, backKey) }
+func (q *qaSetup) captures(k tea.KeyPressMsg) bool {
+	return !q.reading && !q.summary && !key.Matches(k, backKey)
+}
 
 func (q *qaSetup) build() *huh.Form {
 	if q.setup == nil {
 		return newForm(huh.NewInput().Title("Proyecto de Jira").Description("La clave de la URL del tablero").
-			Placeholder("OPS").Value(&q.project).Validate(func(s string) error {
+			Value(&q.project).Validate(func(s string) error {
 			if strings.TrimSpace(s) == "" {
 				return errors.New("falta la clave del proyecto")
 			}
@@ -77,6 +94,14 @@ func (q *qaSetup) build() *huh.Form {
 		}))
 	}
 	s := q.setup
+	fields := huh.NewGroup(
+		fieldSelect("Campo de errores de codificación", s.FieldsOf(provider.FieldNumber), &q.choice.CodingErrors),
+		fieldSelect("Campo de devoluciones a desarrollo", s.FieldsOf(provider.FieldNumber), &q.choice.DevReturns),
+		fieldSelect("Campo del estado del PR", s.FieldsOf(provider.FieldPRStatus), &q.choice.DevStatus),
+	)
+	if q.fieldsOnly {
+		return newPagedForm(fields)
+	}
 	var names []huh.Option[string]
 	var reached []huh.Option[string]
 	for _, st := range s.Statuses {
@@ -100,11 +125,7 @@ func (q *qaSetup) build() *huh.Form {
 				return nil
 			}),
 		),
-		huh.NewGroup(
-			fieldSelect("Campo de errores de codificación", s.FieldsOf(provider.FieldNumber), &q.choice.CodingErrors),
-			fieldSelect("Campo de devoluciones a desarrollo", s.FieldsOf(provider.FieldNumber), &q.choice.DevReturns),
-			fieldSelect("Campo del estado del PR", s.FieldsOf(provider.FieldPRStatus), &q.choice.DevStatus),
-		),
+		fields,
 	)
 }
 
@@ -117,7 +138,7 @@ func fieldSelect(title string, fields []provider.Field, v *string) *huh.Select[s
 }
 
 func (q *qaSetup) init() tea.Cmd {
-	if q.reading {
+	if q.reading || q.summary {
 		return nil
 	}
 	if q.form.State != huh.StateNormal {
@@ -166,10 +187,11 @@ func (q *qaSetup) update(msg tea.Msg) (screen, tea.Cmd) {
 		}
 		q.choice = q.setup.Propose(current)
 		if err := q.missingFields(); err != nil {
-			q.setup, q.err = nil, err.Error()
+			q.setup, q.err, q.form = nil, err.Error(), q.build()
+			return q, q.form.Init()
 		}
-		q.form = q.build()
-		return q, q.form.Init()
+		q.summary = true
+		return q, nil
 	case spinner.TickMsg:
 		if !q.reading {
 			return q, nil
@@ -181,6 +203,23 @@ func (q *qaSetup) update(msg tea.Msg) (screen, tea.Cmd) {
 	if q.reading {
 		return q, nil
 	}
+	if q.summary {
+		k, ok := msg.(tea.KeyPressMsg)
+		switch {
+		case !ok:
+			return q, nil
+		case key.Matches(k, saveSetupKey) && q.choice.Complete():
+			return q, q.save()
+		case key.Matches(k, pickFieldsKey):
+			q.summary, q.fieldsOnly = false, true
+		case key.Matches(k, changeKey):
+			q.summary, q.fieldsOnly = false, false
+		default:
+			return q, nil
+		}
+		q.form = q.build()
+		return q, q.form.Init()
+	}
 	m, cmd := q.form.Update(msg)
 	q.form = m.(*huh.Form)
 	if q.form.State != huh.StateCompleted {
@@ -189,19 +228,25 @@ func (q *qaSetup) update(msg tea.Msg) (screen, tea.Cmd) {
 	if q.setup == nil {
 		return q, q.read()
 	}
-	var saved *config.QAJiraConfig
+	return q, q.save()
+}
+
+func (q *qaSetup) save() tea.Cmd {
 	err := q.parent.st.save(func(c *config.Config) error {
-		var err error
-		saved, err = q.setup.Apply(c.QAJira, q.choice)
+		saved, err := q.setup.Apply(c.QAJira, q.choice)
 		c.QAJira = saved
 		return err
 	})
 	if err != nil {
-		q.err, q.form = "No se guardó: "+err.Error(), q.build()
-		return q, q.form.Init()
+		q.err, q.summary, q.form = "No se guardó: "+err.Error(), false, q.build()
+		return q.form.Init()
 	}
-	q.parent.done(fmt.Sprintf("QA guardado: proyecto %s, %s", q.setup.Project, plural(len(q.choice.Statuses), "estado", "estados")), nil)
-	return q, back
+	note := fmt.Sprintf("QA guardado: proyecto %s, %s", q.setup.Project, plural(len(q.choice.Statuses), "estado", "estados"))
+	if file, err := q.parent.st.deps.LoadFile(); err == nil && file.QAEmail == "" {
+		note += ". Falta el email de la cuenta de QA: enter abre el formulario"
+	}
+	q.parent.done(note, nil)
+	return back
 }
 
 // missingFields explains a Jira without the fields the report reads.
@@ -216,8 +261,45 @@ func (q *qaSetup) missingFields() error {
 }
 
 func (q *qaSetup) view(width, height int) string {
-	if q.reading {
+	switch {
+	case q.reading:
 		return pad(q.spinner.View() + " Leyendo los estados de " + strings.TrimSpace(q.project) + " y los campos de Jira…")
+	case q.summary:
+		return pad(lipgloss.NewStyle().Width(width - 2).Render(q.summaryText(width - 2)))
 	}
 	return formView(q.form, q.err, width)
+}
+
+// summaryText is what will be saved, by name, and where it came from.
+func (q *qaSetup) summaryText(width int) string {
+	s, c := q.setup, q.choice
+	chosen, others := s.StatusNames(c.Statuses)
+	row := func(label, value string) string {
+		if value == "" {
+			value = warnStyle.Render("falta elegirlo")
+		}
+		return hang(faintStyle.Render(padRight(label, 27)), value, width)
+	}
+	origin := "Propuesto desde tu configuración."
+	if c.Suggested {
+		origin = "Sugerido por draco: el estado " + config.DefaultTestingStatus + " y los finalizados. Revisa si falta alguno de los demás (por ejemplo, uno de aprobación)."
+	}
+	lines := []string{
+		boldStyle.Render("Proyecto " + s.Project),
+		lipgloss.NewStyle().Width(width).Render(faintStyle.Render(origin)),
+		"",
+		row("Entra a QA con", c.Testing),
+		row(fmt.Sprintf("Ya llegó a QA (%d)", len(chosen)), strings.Join(chosen, ", ")),
+		row("Los demás estados", strings.Join(others, ", ")),
+		"",
+		row("Errores de codificación", s.FieldName(c.CodingErrors)),
+		row("Devoluciones a desarrollo", s.FieldName(c.DevReturns)),
+		row("Estado del PR", s.FieldName(c.DevStatus)),
+		"",
+	}
+	next := "enter guarda esto · e cambia los estados o los campos"
+	if !c.Complete() {
+		next = "enter elige los campos que faltan, con estos estados · e cambia también los estados"
+	}
+	return strings.Join(append(lines, lipgloss.NewStyle().Width(width).Render(faintStyle.Render(next))), "\n")
 }

@@ -62,6 +62,10 @@ type Choice struct {
 	CodingErrors string
 	DevReturns   string
 	DevStatus    string
+
+	// Suggested means the statuses are draco's guess, not what the config
+	// had: the user should check them.
+	Suggested bool
 }
 
 // Propose is the Choice the setup starts from: what current (nil: none)
@@ -95,6 +99,7 @@ func (s *Setup) Propose(current *config.QAJiraConfig) Choice {
 		c.Testing = s.statusName(config.DefaultTestingStatus)
 	}
 	if len(c.Statuses) == 0 {
+		c.Suggested = true
 		for _, st := range s.Statuses {
 			if st.Done || (c.Testing != "" && st.Name == c.Testing) {
 				c.Statuses = append(c.Statuses, st.ID)
@@ -122,6 +127,33 @@ func (s *Setup) Apply(q *config.QAJiraConfig, c Choice) (*config.QAJiraConfig, e
 		return nil, err
 	}
 	return out, nil
+}
+
+// Complete reports a choice with every value the report needs, which can be
+// saved as it is.
+func (c Choice) Complete() bool {
+	return c.Testing != "" && len(c.Statuses) > 0 && c.CodingErrors != "" && c.DevReturns != "" && c.DevStatus != ""
+}
+
+// StatusNames splits the project's statuses, by name, into the chosen ones
+// and the others, in the tracker's order.
+func (s *Setup) StatusNames(ids []string) (chosen, others []string) {
+	for _, st := range s.Statuses {
+		if slices.Contains(ids, st.ID) {
+			chosen = append(chosen, st.Name)
+		} else {
+			others = append(others, st.Name)
+		}
+	}
+	return chosen, others
+}
+
+// FieldName is the name of the field with that id; empty when missing.
+func (s *Setup) FieldName(id string) string {
+	if i := slices.IndexFunc(s.Fields, func(f provider.Field) bool { return f.ID == id }); i >= 0 {
+		return s.Fields[i].Name
+	}
+	return ""
 }
 
 // status finds a status by id or, without case, by name; -1 when missing.
