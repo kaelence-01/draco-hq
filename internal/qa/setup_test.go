@@ -66,7 +66,7 @@ func TestSetupReadNeedsAProjectWithStatuses(t *testing.T) {
 func TestSetupProposesFromScratch(t *testing.T) {
 	s := readSetup(t, jiraForSetup(), "OPS")
 	got := s.Propose(nil)
-	want := Choice{Testing: "Testing", Statuses: []string{"3", "5", "6"}, DevStatus: "customfield_1"}
+	want := Choice{Testing: "Testing", Statuses: []string{"3", "5", "6"}, DevStatus: "customfield_1", Suggested: true}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("sin config: Testing, los finalizados y el campo de desarrollo; los contadores sin elegir:\n%+v", got)
 	}
@@ -85,6 +85,25 @@ func TestSetupProposesWhatTheConfigHas(t *testing.T) {
 	want := Choice{Testing: "Testing", Statuses: []string{"4", "3"}, CodingErrors: "customfield_2", DevReturns: "customfield_3", DevStatus: "customfield_1"}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("lo de la config que sigue en Jira, por id o por nombre; lo que ya no existe se descarta:\n%+v", got)
+	}
+}
+
+func TestSetupNamesTheChoice(t *testing.T) {
+	s := readSetup(t, jiraForSetup(), "OPS")
+	c := s.Propose(nil)
+	if c.Complete() {
+		t.Error("sin los contadores la propuesta no está completa")
+	}
+	c.CodingErrors, c.DevReturns = "customfield_2", "customfield_3"
+	if !c.Complete() {
+		t.Errorf("con todo elegido está completa: %+v", c)
+	}
+	chosen, others := s.StatusNames(c.Statuses)
+	if !reflect.DeepEqual(chosen, []string{"Testing", "Finalizado", "Descartado"}) || !reflect.DeepEqual(others, []string{"Por hacer", "En curso", "Aprobado"}) {
+		t.Errorf("los elegidos y los demás, por nombre y en orden: %q %q", chosen, others)
+	}
+	if s.FieldName("customfield_3") != "Reprocesos" || s.FieldName("customfield_9") != "" {
+		t.Error("el nombre de un campo sale de Jira")
 	}
 }
 

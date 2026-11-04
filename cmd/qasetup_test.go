@@ -43,12 +43,12 @@ func setupHome(t *testing.T, trk provider.Tracker) {
 func TestQASetupPicksByNumber(t *testing.T) {
 	trk := &setupTracker{}
 	setupHome(t, trk)
-	// OPS; Enter: Testing; 3,4,5; a wrong number, then 1; 2. The only PR field is taken.
-	code, out, errOut := runWith("OPS\n\n3,4,5\n9\n1\n2\n", "qa", "setup")
+	// OPS; n: pick the statuses; Enter: Testing; 3,4,5; a wrong number, then 1; 2. The only PR field is taken.
+	code, out, errOut := runWith("OPS\nn\n\n3,4,5\n9\n1\n2\n", "qa", "setup")
 	if code != exitOK {
 		t.Fatalf("código %d\n%s\n%s", code, out, errOut)
 	}
-	for _, want := range []string{"Estados de OPS:", "[3] * Testing", "[5] * Finalizado  (finalizado)", "[3,5]", "entre 1 y 2", "Estado del PR: Desarrollo", "QA guardado: proyecto OPS, 3 estados", "falta qa_email"} {
+	for _, want := range []string{"Proyecto OPS", "Sugerido por draco", "Ya llegó a QA (2)", "Testing, Finalizado", "(falta elegirlo)", "¿Usar estos estados?", "Estados de OPS:", "[3] * Testing", "[5] * Finalizado  (finalizado)", "[3,5]", "entre 1 y 2", "Estado del PR: Desarrollo", "QA guardado: proyecto OPS, 3 estados", "falta qa_email"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("falta %q en:\n%s", want, out)
 		}
@@ -65,12 +65,30 @@ func TestQASetupPicksByNumber(t *testing.T) {
 		t.Errorf("el token del entorno no llega al archivo: %q", cfg.AtlassianToken)
 	}
 
-	// Again with -j: no question for the project, and Enter keeps what was saved.
-	if code, out, _ := runWith("\n\n\n\n", "qa", "setup", "-j", "OPS"); code != exitOK || strings.Contains(out, "Proyecto de Jira") || !strings.Contains(out, "[3,4,5]") {
-		t.Errorf("con -j no pregunta el proyecto y propone lo guardado: %d\n%s", code, out)
+	// Again with -j: no question for the project; what was saved is complete, Enter keeps it.
+	code, out, _ = runWith("\n", "qa", "setup", "-j", "OPS")
+	if code != exitOK || strings.Contains(out, "Proyecto de Jira") || strings.Contains(out, "Estados de OPS:") {
+		t.Errorf("con -j no pregunta el proyecto y, completo, no muestra las listas: %d\n%s", code, out)
+	}
+	for _, want := range []string{"Propuesto desde tu configuración", "Testing, Aprobado, Finalizado", "Reprocesos", "¿Guardar así?"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("falta %q en el resumen:\n%s", want, out)
+		}
 	}
 	if got := readConfig(t).QAJira; !reflect.DeepEqual(got, q) {
-		t.Errorf("Enter en todo deja la config igual: %+v", got)
+		t.Errorf("Enter deja la config igual: %+v", got)
+	}
+}
+
+func TestQASetupAcceptsTheSuggestedStatuses(t *testing.T) {
+	setupHome(t, &setupTracker{})
+	// OPS; Enter: these statuses; then only the two counters.
+	code, out, errOut := runWith("OPS\n\n1\n2\n", "qa", "setup")
+	if code != exitOK || strings.Contains(out, "Estados de OPS:") {
+		t.Fatalf("aceptar los estados salta su lista: %d\n%s\n%s", code, out, errOut)
+	}
+	if q := readConfig(t).QAJira; q == nil || !reflect.DeepEqual(q.Statuses, []string{"103", "105"}) || q.Fields.DevReturns != "customfield_3" {
+		t.Errorf("se guardan los estados sugeridos y los campos elegidos: %+v", q)
 	}
 }
 

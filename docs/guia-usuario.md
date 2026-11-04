@@ -289,13 +289,22 @@ QA y los que siguen (en el ejemplo, `Testing`, `Aprobado` y `Finalizado`). El
 consolidado solo incluye las tareas que están en esos estados. Vale el nombre
 o el id de Jira.
 
-**No hace falta escribirlos.** `draco qa setup` (o `d` en Configuración › QA)
-pregunta la clave del proyecto y lee de Jira sus estados y los campos. Los
-estados aparecen por nombre, con el de Testing y los finalizados ya
-marcados, y los campos también por nombre (el del estado del PR se detecta
-solo). Se guardan los ids. Si `qa_jira` ya tiene valores, se proponen esos.
-Con otro proyecto que no es el por defecto, lo agrega en `projects` con solo
-lo que cambia.
+**No hace falta escribirlos.** En Configuración › QA, mientras `qa_jira` está
+incompleto, `enter` detecta desde Jira. Lo mismo hacen `d` (en cualquier
+momento) y `draco qa setup`. Pide la clave del proyecto, lee de Jira sus
+estados y los campos, y muestra un **resumen** con lo que se guardaría, por
+nombre:
+
+- **Si `qa_jira` ya tenía valores**, propone esos y `enter` guarda.
+- **La primera vez**, sugiere el estado Testing y los finalizados, y el campo
+  del estado del PR, que se detecta solo. `enter` acepta esos estados y pide
+  solo los dos contadores (errores y devoluciones), que se eligen por nombre.
+- **`e` abre las listas** para cambiar también los estados. Por ejemplo, para
+  agregar uno de aprobación que draco no puede adivinar, porque Jira lo
+  clasifica igual que «En curso».
+
+Se guardan los ids. Con un proyecto que no es el por defecto, lo agrega en
+`projects` con solo lo que cambia.
 
 Si QA trabaja con más de un proyecto de Jira, `project` es el que se usa por
 defecto y los demás van en `projects`, con su clave (la que aparece en la
@@ -525,7 +534,7 @@ activo. Con `enter` se abre la sección.
 | **Conexión** | Email, token, URL y, sin perfiles, el space de Confluence. Al guardar, verifica la cuenta y ofrece corregir el email si no es el de la cuenta; si no hay proyectos, `enter` sigue con el primero. Un token vacío conserva el actual. Si una variable `ATLASSIAN_*` o `CONFLUENCE_SPACE_KEY` gana sobre el archivo, lo avisa |
 | **Proyectos** | La misma pantalla de Proyectos |
 | **Perfiles** (opcional) | Lista con `d`, `n`, `e` y `x`, como Proyectos. Sin perfiles, dice qué se usa: Jira → Confluence con el space de Conexión |
-| **QA** (opcional) | `enter` abre el formulario; `d` **detecta desde Jira** los estados y los campos: pide el proyecto y los muestra por nombre para elegir, sin escribir ids (como `draco qa setup`). El formulario tiene `qa_email`, los nombres del encabezado y `qa_jira`, en cinco páginas. Las listas van separadas por comas. «Otros proyectos de Jira» son las claves de `qa_jira.projects`; los estados propios de cada uno se escriben en `config.yaml` y el formulario los conserva. Si falta algo, muestra todos los problemas a la vez y no guarda |
+| **QA** (opcional) | Mientras `qa_jira` está incompleto, `enter` **detecta desde Jira** los estados y los campos (como `draco qa setup`): un resumen por nombre que se guarda con `enter`, sin escribir ids; `e` abre el formulario. Ya completo, `enter` abre el formulario y `d` vuelve a detectar. El formulario tiene `qa_email`, los nombres del encabezado y `qa_jira`, en cinco páginas. Las listas van separadas por comas. «Otros proyectos de Jira» son las claves de `qa_jira.projects`; los estados propios de cada uno se escriben en `config.yaml` y el formulario los conserva. Si falta algo, muestra todos los problemas a la vez y no guarda |
 | **Tema** (opcional) | `↑↓` prueba cada tema en toda la pantalla, `enter` guarda y `esc` vuelve al anterior |
 
 Los temas son tres:
@@ -588,9 +597,10 @@ draco qa setup                    # configura qa_jira eligiendo de listas de Jir
 draco qa setup -j PAG             # el de otro proyecto
 ```
 
-`draco qa setup` lista los estados del proyecto numerados (con `*` los
-propuestos) y los campos numéricos. Se elige por número y Enter acepta lo
-propuesto.
+`draco qa setup` muestra primero el resumen de lo que guardaría. Si está
+completo, «¿Guardar así?» con Enter lo guarda. Si faltan los contadores,
+«¿Usar estos estados?» con Enter pide solo esos campos. Con `n` lista los
+estados numerados (con `*` los propuestos) para elegirlos por número.
 
 Necesita `qa_email` y `qa_jira` en la config (ver la sección 3). Con varios
 proyectos en `qa_jira` y sin `-j`, pregunta cuál; Enter elige el por

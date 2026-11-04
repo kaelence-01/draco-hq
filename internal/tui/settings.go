@@ -46,10 +46,21 @@ func newSettings(st *state) *settings {
 func (s *settings) title() string { return "Configuración" }
 
 func (s *settings) keys() []key.Binding {
-	if s.cursor == 3 {
+	switch {
+	case s.cursor == 3 && s.qaToDetect():
+		return []key.Binding{moveKey, detectEnterKey, formKey}
+	case s.cursor == 3:
 		return []key.Binding{moveKey, enterKey, detectKey}
 	}
 	return []key.Binding{moveKey, enterKey}
+}
+
+var detectEnterKey = key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "detectar desde Jira"))
+
+// qaToDetect reports a qa_jira without what the report needs: enter on QA
+// then reads it from Jira instead of opening the form.
+func (s *settings) qaToDetect() bool {
+	return s.st.cfg != nil && s.st.cfg.QAJira.Validate() != nil
 }
 
 func (s *settings) init() tea.Cmd {
@@ -136,11 +147,16 @@ func (s *settings) update(msg tea.Msg) (screen, tea.Cmd) {
 		case 2:
 			return s, open(newProfiles(s.st))
 		case 3:
+			if s.qaToDetect() {
+				return s, open(newQASetup(s, ""))
+			}
 			return s, open(newQAConfig(s))
 		}
 		return s, open(newThemePicker(s))
 	case key.Matches(k, detectKey) && s.cursor == 3:
 		return s, open(newQASetup(s, ""))
+	case key.Matches(k, formKey) && s.cursor == 3:
+		return s, open(newQAConfig(s))
 	}
 	return s, nil
 }
@@ -250,7 +266,10 @@ func (s *settings) detailText(width int) string {
 		if !c.HasQAReport() {
 			lines = append(lines, "", warnStyle.Render("Sin qa_report: Líder Técnico, PMO y QA saldrán vacíos en el consolidado."))
 		}
-		hint = "enter abre el formulario de QA: la cuenta que publica, el proyecto de Jira y los nombres del encabezado. d detecta desde Jira los estados y los campos, sin escribir ids."
+		hint = "enter abre el formulario de QA: la cuenta que publica, el proyecto de Jira y los nombres del encabezado. d vuelve a detectar desde Jira los estados y los campos."
+		if s.qaToDetect() {
+			hint = "enter detecta desde Jira los estados y los campos: eliges por nombre, sin escribir ids. e abre el formulario para el email, los nombres del encabezado o para escribirlo a mano."
+		}
 	default:
 		for _, t := range themes {
 			mark := "  "

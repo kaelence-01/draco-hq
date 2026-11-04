@@ -64,7 +64,29 @@ func runQASetup(a *App, args []string) error {
 	c := s.Propose(file.QAJira)
 
 	a.printf("\n")
+	a.setupSummary(s, c)
+	pickStatuses := true
+	switch {
+	case c.Complete():
+		if a.confirm("¿Guardar así? (n: cambiar)", true) {
+			return a.saveSetup(file, s, c)
+		}
+	default:
+		pickStatuses = !a.confirm("¿Usar estos estados? (n: elegirlos de la lista)", true)
+	}
+
+	a.printf("\n")
 	a.step(2, 2, "Elige por número (Enter: lo marcado con *)")
+	if pickStatuses {
+		if err := a.pickStatuses(s, &c); err != nil {
+			return err
+		}
+	}
+	return a.pickFieldsAndSave(file, s, c)
+}
+
+// pickStatuses asks the testing status and the statuses that reached QA.
+func (a *App) pickStatuses(s *qa.Setup, c *qa.Choice) error {
 	a.printf("\n%s\n", a.style(bold, "Estados de "+s.Project+":"))
 	names := make([]string, len(s.Statuses))
 	for i, st := range s.Statuses {
@@ -76,6 +98,7 @@ func runQASetup(a *App, args []string) error {
 	testing := slices.IndexFunc(s.Statuses, func(st provider.Status) bool { return st.Name == c.Testing })
 	reached := indexesOf(s.Statuses, func(st provider.Status) string { return st.ID }, c.Statuses)
 	a.list(names, reached)
+	var err error
 	if testing, err = a.pickOne("Estado con el que una tarea entra a QA", len(names), testing); err != nil {
 		return err
 	}
@@ -86,7 +109,12 @@ func runQASetup(a *App, args []string) error {
 	for _, i := range reached {
 		c.Statuses = append(c.Statuses, s.Statuses[i].ID)
 	}
+	return nil
+}
 
+// pickFieldsAndSave asks the counters and, with several, the PR field; then
+// saves.
+func (a *App) pickFieldsAndSave(file *config.Config, s *qa.Setup, c qa.Choice) error {
 	numbers := s.FieldsOf(provider.FieldNumber)
 	if len(numbers) == 0 {
 		return fmt.Errorf("Jira no tiene campos numéricos personalizados: el consolidado los usa para los errores de codificación y las devoluciones")
@@ -134,7 +162,33 @@ func runQASetup(a *App, args []string) error {
 		}
 		c.DevStatus = prs[i].ID
 	}
+	return a.saveSetup(file, s, c)
+}
 
+// setupSummary prints what would be saved, by name, and where it came from.
+func (a *App) setupSummary(s *qa.Setup, c qa.Choice) {
+	chosen, others := s.StatusNames(c.Statuses)
+	origin := "Propuesto desde tu configuración."
+	if c.Suggested {
+		origin = "Sugerido por draco: el estado " + config.DefaultTestingStatus + " y los finalizados. Revisa si falta alguno de los demás."
+	}
+	a.printf("%s\n  %s\n\n", a.style(bold, "Proyecto "+s.Project), origin)
+	row := func(label, value string) {
+		if value == "" {
+			value = a.style(yellow, "(falta elegirlo)")
+		}
+		a.printf("  %-27s %s\n", label, value)
+	}
+	row("Entra a QA con", c.Testing)
+	row(fmt.Sprintf("Ya llegó a QA (%d)", len(chosen)), strings.Join(chosen, ", "))
+	row("Los demás estados", strings.Join(others, ", "))
+	row("Errores de codificación", s.FieldName(c.CodingErrors))
+	row("Devoluciones a desarrollo", s.FieldName(c.DevReturns))
+	row("Estado del PR", s.FieldName(c.DevStatus))
+	a.printf("\n")
+}
+
+func (a *App) saveSetup(file *config.Config, s *qa.Setup, c qa.Choice) error {
 	q, err := s.Apply(file.QAJira, c)
 	if err != nil {
 		return err
