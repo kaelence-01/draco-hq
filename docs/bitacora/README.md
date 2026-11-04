@@ -115,6 +115,7 @@ Sin entradas: se hizo antes de que existiera la bitácora.
 | [068](./fase-7/068-tui-qa-b.md) | QA: contadores, tabla a todo el ancho y detalle junto al consolidado | `feature/tui-qa-b` | 2026-10-28 | `qa.StatusOf` y `qa.Tally` en el flujo (una consulta fallida es «sin verificar», nunca «con fallas»); Evaluar con contadores, estado por fila, detalle de la tarea y consolidado lado a lado; sin datos inventados |
 | [069](./fase-7/069-tui-listas-b.md) | Proyectos, Hallazgos, Exportar y Configuración en columnas proporcionales | `feature/tui-listas-b` | 2026-10-28 | `panels` (lista y detalle como dos cajas hasta el pie); Configuración con el detalle real de cada sección (nunca el token); filtro visible en todas; teclas compactas; Perfiles incluido |
 | [070](./fase-7/070-cierre-fase-7.md) | Cierre de la fase 7 | `docs/cierre-fase-7` | 2026-10-28 | Fase 7 cerrada; sale como `v0.4.0` (*minor*), a cargo del autor; regla de numeración fijada: *minor* por fase y *patch* por correcciones; pruebas manuales de las fases 4 a 7 reunidas |
+| [071](./fase-7/071-qa-multiproyecto.md) | QA con varios proyectos de Jira | `feature/qa-multiproyecto` | 2026-11-04 | `qa_jira.projects` heredan los valores del por defecto; `-j/--jira-project`; la lista de proyectos solo aparece con varios; el Kanban lleva el proyecto en el título; los perfiles no guardan el proyecto de Jira |
 
 ## Formato de cada entrada
 

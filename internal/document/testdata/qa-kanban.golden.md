@@ -1,4 +1,4 @@
-# Consolidado de Pruebas QA - 07/09 al 21/09/2026
+# Consolidado de Pruebas QA - OPS - 07/09 al 21/09/2026
 
 ## Información General
 

@@ -44,6 +44,24 @@ func TestTodaysConfigOpensJiraAndConfluence(t *testing.T) {
 	}
 }
 
+func TestQAOpensTheChosenJiraProject(t *testing.T) {
+	cfg := todaysConfig()
+	cfg.QAJira.Projects = map[string]config.QAJiraProject{"PAG": {}}
+	b, err := Open(cfg, Options{QAProject: "PAG"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if qa, err := b.QA(); err != nil || qa == nil {
+		t.Errorf("un proyecto de qa_jira.projects abre el consolidado: %v", err)
+	}
+	if b, err = Open(cfg, Options{QAProject: "XYZ"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := b.QA(); err == nil || !strings.Contains(err.Error(), "'XYZ'") {
+		t.Errorf("un proyecto que no está en qa_jira se explica: %v", err)
+	}
+}
+
 func TestQAExplainsWhatIsMissing(t *testing.T) {
 	cfg := todaysConfig()
 	cfg.QAJira = nil

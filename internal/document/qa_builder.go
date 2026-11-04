@@ -71,13 +71,13 @@ func QA(t *Template, doc QADoc) (string, error) {
 	return t.render(v)
 }
 
-// QATitle renders the report title: Sprint mode when sprint > 0, else the
-// Kanban period.
-func QATitle(t *Template, module string, sprint int, period string) (string, error) {
+// QATitle renders the report title of a Jira project: Sprint mode when
+// sprint > 0, else the Kanban period.
+func QATitle(t *Template, project, module string, sprint int, period string) (string, error) {
 	return t.renderTitle(struct {
-		Module, Period string
-		Sprint         int
-	}{module, period, sprint})
+		Project, Module, Period string
+		Sprint                  int
+	}{project, module, period, sprint})
 }
 
 var meses = [...]string{"ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"}

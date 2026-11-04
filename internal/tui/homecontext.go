@@ -47,7 +47,7 @@ func configChecks(st *state) []configLine {
 	case config.QANoAccount:
 		qa = configLine{lineWarn, "QA", "falta qa_email"}
 	default:
-		qa = configLine{lineOK, "QA", "proyecto " + c.QAJira.Project}
+		qa = configLine{lineOK, "QA", qaProjects(c.QAJira)}
 		if !c.HasQAReport() {
 			qa = configLine{lineWarn, "QA", "falta qa_report"}
 		}
@@ -113,4 +113,13 @@ func kv(label, value string, width int) string {
 		value = faintStyle.Render("—")
 	}
 	return hang(faintStyle.Render(padRight(label, 9)), value, width)
+}
+
+// qaProjects names the Jira projects of the QA report.
+func qaProjects(j *config.QAJiraConfig) string {
+	keys := j.ProjectKeys()
+	if len(keys) > 1 {
+		return "proyectos " + strings.Join(keys, ", ")
+	}
+	return "proyecto " + strings.Join(keys, "")
 }
