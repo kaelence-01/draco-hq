@@ -62,18 +62,18 @@ func (q *qaConfig) build() *huh.Form {
 			input("QA", "", "", &q.report.QA),
 		),
 		huh.NewGroup(
-			input("Proyecto de Jira", "Clave del proyecto por defecto, la de la URL del tablero", "OPS", &q.project),
-			input("Estados que ya llegaron a QA", "Columnas del tablero desde QA hasta el final: nombre (o id), separados por comas", "Testing, Aprobado, Finalizado", &q.statuses),
+			input("Proyecto de Jira", "Clave del proyecto por defecto, la de la URL del tablero", "", &q.project),
+			input("Estados que ya llegaron a QA", "Los de una tarea que ya llegó a QA: id o nombre, separados por comas. Para elegirlos de una lista sin escribir: esc y d en QA", "", &q.statuses),
 			input("Estado de Testing", "Abre la ventana Kanban. Vacío: "+config.DefaultTestingStatus, "", &q.testing),
 			input("Nombre del sprint en Jira", "Con {module} y {sprint}. Vacío: "+config.DefaultSprintName, "", &q.sprint),
 		),
 		huh.NewGroup(
-			input("Otros proyectos de Jira", "Claves separadas por comas. Usan los mismos estados, Testing y nombre de sprint; los que tengan otros se escriben en qa_jira.projects de config.yaml", "PAG, FAC", &q.others),
+			input("Otros proyectos de Jira", "Claves separadas por comas. Usan los mismos estados, Testing y nombre de sprint; los que tengan otros se escriben en qa_jira.projects de config.yaml", "", &q.others),
 		),
 		huh.NewGroup(
-			input("Campo de errores de codificación", "Id con la forma customfield_12345", "customfield_10001", &q.fields.CodingErrors),
-			input("Campo de devoluciones a desarrollo", "", "customfield_10002", &q.fields.DevReturns),
-			input("Campo del estado del PR", "Panel de desarrollo", "customfield_10003", &q.fields.DevStatus),
+			input("Campo de errores de codificación", "Id con la forma customfield_12345. Para elegirlos por nombre: esc y d en QA", "", &q.fields.CodingErrors),
+			input("Campo de devoluciones a desarrollo", "", "", &q.fields.DevReturns),
+			input("Campo del estado del PR", "Panel de desarrollo", "", &q.fields.DevStatus),
 		),
 		huh.NewGroup(
 			input("Prefijos de las tareas de revisión", "Separados por comas. Vacío: "+strings.Join(config.DefaultReviewPrefixes, ", "), "", &q.reviews),

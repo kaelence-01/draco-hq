@@ -54,7 +54,7 @@ de Windows (`cmd`) se ve más limitado.
 | 6 | Configuración en formularios, aviso de versión nueva, barra de comandos con autocompletado, ayuda, temas | ✅ `v0.3.0` |
 | — | Mejoras y correcciones sobre la fase 6, con draco ya en uso | ✅ `v0.3.1`–`v0.3.3` |
 | 7 | Rediseño del modo visual: maestro-detalle elástico | ✅ `v0.4.0` |
-| — | Mejoras sobre la fase 7: consolidado QA con varios proyectos de Jira, tan simple como en gtt | 🔄 071 en `v0.4.1` |
+| — | Mejoras sobre la fase 7: consolidado QA con varios proyectos de Jira, tan simple como en gtt | 🔄 071 en `v0.4.1`, 072 en `v0.4.2` |
 | v1.0 | Instaladores, checksums, migración desde gtt (✅ adelantada), README completo | ⬜ |
 | Después de la v1.0 | Otros trackers y plataformas; modo equipo (plantillas y perfiles compartidos) | ⬜ |
 
@@ -373,7 +373,8 @@ porque no guardan el proyecto de Jira (bitácora 071).
 |---|---|---|---|
 | 071 | `feature/qa-multiproyecto` | `qa_jira.projects` (otros proyectos que heredan los valores del por defecto), `-j/--jira-project`, la lista de proyectos en el formulario solo cuando hay varios, el proyecto en el título del Kanban | ✅ |
 | 072 | `feature/qa-detectar-jira` | Configurar sin escribir ids: `draco qa setup` y `d` en Configuración › QA leen de Jira los estados del proyecto y los campos, y la QA elige por nombre, con Testing y los finalizados ya marcados. El autor eligió la lista de estados del proyecto en vez de las columnas del tablero, porque los tableros no son todos iguales | ✅ |
-| 073 | `feature/qa-listas` (opcional) | Módulo y sprint elegidos de listas (componentes y sprints del tablero) | ⬜ |
+| 073 | `fix/qa-setup-directo` | Probando la 072, el autor abrió el formulario manual y tomó los ejemplos por valores cargados. Ahora `enter` en QA detecta desde Jira mientras `qa_jira` está incompleto, el formulario no trae ejemplos que parezcan valores, y la detección muestra un resumen que se guarda con `enter` (o pide solo los campos que faltan) | ✅ |
+| 074 | `feature/qa-listas` (opcional) | Módulo y sprint elegidos de listas (componentes y sprints del tablero) | ⬜ |
 
 ### v1.0
 
