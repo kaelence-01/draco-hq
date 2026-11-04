@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"maps"
+	"slices"
 	"strings"
 
 	"charm.land/bubbles/v2/key"
@@ -19,11 +21,14 @@ type qaConfig struct {
 	report  config.QAReportConfig
 	project string
 	// Lists are typed comma-separated.
-	statuses, reviews       string
-	testing, sprint, marker string
-	fields                  config.QAJiraFields
-	form                    *huh.Form
-	err                     string
+	statuses, reviews, others string
+	testing, sprint, marker   string
+	fields                    config.QAJiraFields
+	// projects keeps what each other project sets in the file, which the form
+	// does not edit.
+	projects map[string]config.QAJiraProject
+	form     *huh.Form
+	err      string
 }
 
 func newQAConfig(parent *settings) *qaConfig {
@@ -39,6 +44,7 @@ func newQAConfig(parent *settings) *qaConfig {
 	if j := file.QAJira; j != nil {
 		q.project, q.testing, q.sprint, q.marker, q.fields = j.Project, j.TestingStatus, j.SprintName, j.ObservationMarker, j.Fields
 		q.statuses, q.reviews = strings.Join(j.Statuses, ", "), strings.Join(j.ReviewPrefixes, ", ")
+		q.projects, q.others = j.Projects, strings.Join(slices.Sorted(maps.Keys(j.Projects)), ", ")
 	}
 	q.form = q.build()
 	return q
@@ -56,10 +62,13 @@ func (q *qaConfig) build() *huh.Form {
 			input("QA", "", "", &q.report.QA),
 		),
 		huh.NewGroup(
-			input("Proyecto de Jira", "Clave del proyecto de las tareas", "OPS", &q.project),
-			input("Estados que ya llegaron a QA", "Id o nombre, separados por comas", "10001, En QA", &q.statuses),
+			input("Proyecto de Jira", "Clave del proyecto por defecto, la de la URL del tablero", "OPS", &q.project),
+			input("Estados que ya llegaron a QA", "Columnas del tablero desde QA hasta el final: nombre (o id), separados por comas", "Testing, Aprobado, Finalizado", &q.statuses),
 			input("Estado de Testing", "Abre la ventana Kanban. Vacío: "+config.DefaultTestingStatus, "", &q.testing),
 			input("Nombre del sprint en Jira", "Con {module} y {sprint}. Vacío: "+config.DefaultSprintName, "", &q.sprint),
+		),
+		huh.NewGroup(
+			input("Otros proyectos de Jira", "Claves separadas por comas. Usan los mismos estados, Testing y nombre de sprint; los que tengan otros se escriben en qa_jira.projects de config.yaml", "PAG, FAC", &q.others),
 		),
 		huh.NewGroup(
 			input("Campo de errores de codificación", "Id con la forma customfield_12345", "customfield_10001", &q.fields.CodingErrors),
@@ -128,9 +137,22 @@ func (q *qaConfig) jira() *config.QAJiraConfig {
 		Fields: config.QAJiraFields{
 			CodingErrors: strings.TrimSpace(f.CodingErrors), DevReturns: strings.TrimSpace(f.DevReturns), DevStatus: strings.TrimSpace(f.DevStatus),
 		},
+		Projects:          q.otherProjects(),
 		ReviewPrefixes:    config.SplitList(q.reviews),
 		ObservationMarker: strings.TrimSpace(q.marker),
 	}
+}
+
+func (q *qaConfig) otherProjects() map[string]config.QAJiraProject {
+	keys := config.SplitList(q.others)
+	if len(keys) == 0 {
+		return nil
+	}
+	out := make(map[string]config.QAJiraProject, len(keys))
+	for _, k := range keys {
+		out[k] = q.projects[k]
+	}
+	return out
 }
 
 func (q *qaConfig) view(width, height int) string { return formView(q.form, q.err, width) }

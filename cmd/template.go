@@ -312,7 +312,7 @@ func (l *lookup) render(kind string) (t *document.Template, title, md string, er
 		if r := l.cfg.QAReport; r != nil {
 			doc.LiderTecnico, doc.PMO, doc.QA = r.LiderTecnico, r.PMO, r.QA
 		}
-		if title, err = document.QATitle(t, doc.Module, doc.Sprint, ""); err == nil {
+		if title, err = document.QATitle(t, "OPS", doc.Module, doc.Sprint, ""); err == nil {
 			md, err = document.QA(t, doc)
 		}
 		return t, title, md, err

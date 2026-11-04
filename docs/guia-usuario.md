@@ -263,10 +263,13 @@ profiles:
 qa_email: qa@example.test                # la cuenta que publica el consolidado
 qa_report: { lider_tecnico: Ana, pmo: Luis, qa: Sofía }
 qa_jira:
-  project: OPS
-  statuses: ["10001", "En QA"]           # estados de una tarea que ya llegó a QA
+  project: OPS                           # proyecto de Jira por defecto
+  statuses: [Testing, Aprobado, Finalizado]  # columnas del tablero desde QA hasta el final
   testing_status: Testing                # abre la ventana Kanban
   sprint_name: "{module}_Sprint {sprint}"
+  projects:                              # otros proyectos de Jira (opcional)
+    PAG: {}                              # usa los valores de arriba
+    FAC: { statuses: [En pruebas, Listo], testing_status: En pruebas }
   fields:
     coding_errors: customfield_10001
     dev_returns: customfield_10002
@@ -279,6 +282,18 @@ theme: ansi                              # ansi, alto-contraste o mono
 
 Guardar desde draco reescribe el archivo, así que los comentarios escritos a
 mano se pierden.
+
+En `qa_jira`, los **estados** son las columnas del tablero en las que una
+tarea ya pasó a QA: la de QA y las que siguen (en el ejemplo, `Testing`,
+`Aprobado` y `Finalizado`). Se escriben por nombre, como se ven en el
+tablero; el id de Jira también vale. El consolidado solo incluye las tareas
+que están en esas columnas.
+
+Si QA trabaja con más de un proyecto de Jira, `project` es el que se usa por
+defecto y los demás van en `projects`, con su clave (la que aparece en la
+URL del tablero). Cada uno toma `statuses`, `testing_status` y `sprint_name`
+del nivel de arriba, salvo los que defina él mismo. Los campos (`fields`)
+son de la instancia de Jira y valen para todos.
 
 ### Variables de entorno
 
@@ -401,7 +416,9 @@ Lo que el equipo escribió a mano en «A considerar» se conserva al actualizar.
 ### Consolidado QA
 
 1. **Sprint y módulo.** Sin sprint, modo Kanban: las tareas que pasaron a
-   Testing en los últimos 10 días hábiles.
+   Testing en los últimos 10 días hábiles. Si `qa_jira` tiene varios
+   proyectos de Jira, primero se elige el proyecto de una lista; con uno
+   solo, no se pregunta.
 2. **Evaluación.** Se evalúa una tarea tras otra y su fila se completa al
    llegar. `esc` cancela entre tareas. En las columnas `ERR`, `DEV`, `DOC` y
    `PR`, `✓` es un control que pasa y `✗` uno que falla. `?` significa que la
@@ -500,7 +517,7 @@ activo. Con `enter` se abre la sección.
 | **Conexión** | Email, token, URL y, sin perfiles, el space de Confluence. Al guardar, verifica la cuenta y ofrece corregir el email si no es el de la cuenta; si no hay proyectos, `enter` sigue con el primero. Un token vacío conserva el actual. Si una variable `ATLASSIAN_*` o `CONFLUENCE_SPACE_KEY` gana sobre el archivo, lo avisa |
 | **Proyectos** | La misma pantalla de Proyectos |
 | **Perfiles** (opcional) | Lista con `d`, `n`, `e` y `x`, como Proyectos. Sin perfiles, dice qué se usa: Jira → Confluence con el space de Conexión |
-| **QA** (opcional) | `qa_email`, los nombres del encabezado y `qa_jira`, en cuatro páginas. Las listas van separadas por comas. Si falta algo, muestra todos los problemas a la vez y no guarda |
+| **QA** (opcional) | `qa_email`, los nombres del encabezado y `qa_jira`, en cinco páginas. Las listas van separadas por comas. «Otros proyectos de Jira» son las claves de `qa_jira.projects`; los estados propios de cada uno se escriben en `config.yaml` y el formulario los conserva. Si falta algo, muestra todos los problemas a la vez y no guarda |
 | **Tema** (opcional) | `↑↓` prueba cada tema en toda la pantalla, `enter` guarda y `esc` vuelve al anterior |
 
 Los temas son tres:
@@ -558,9 +575,14 @@ si no del proyecto y si no del perfil por defecto.
 draco qa                          # pregunta el sprint; Enter: Kanban (últimos 10 días hábiles)
 draco qa -s 12 -m Pagos           # Sprint 12 del módulo Pagos
 draco qa -s 12 -m Pagos --dry-run
+draco qa -j PAG -s 12 -m Pagos    # de otro proyecto de Jira de qa_jira
 ```
 
-Necesita `qa_email` y `qa_jira` en la config (ver la sección 3).
+Necesita `qa_email` y `qa_jira` en la config (ver la sección 3). Con varios
+proyectos en `qa_jira` y sin `-j`, pregunta cuál; Enter elige el por
+defecto. El título del Kanban lleva el proyecto
+(`Consolidado de Pruebas QA - OPS - 07/09 al 21/09/2026`), así que los
+Kanban de dos proyectos en el mismo período no se pisan.
 
 ### Exportar
 

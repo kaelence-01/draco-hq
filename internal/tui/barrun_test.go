@@ -27,7 +27,7 @@ var routeSpecs = []cli.Command{
 	{Names: []string{"profile"}, Summary: "Perfiles", Subcommands: []cli.Command{{Names: []string{"list", "ls"}}, {Names: []string{"add"}}}},
 	{Names: []string{"project"}, Summary: "Proyectos", Subcommands: []cli.Command{{Names: []string{"list", "ls"}}, {Names: []string{"add"}}}},
 	{Names: []string{"qa"}, Summary: "Consolidado QA", Flags: []cli.Flag{
-		{Long: "--sprint", Short: "-s", Value: true}, {Long: "--module", Short: "-m", Value: true}, {Long: "--dry-run"},
+		{Long: "--jira-project", Short: "-j", Value: true}, {Long: "--sprint", Short: "-s", Value: true}, {Long: "--module", Short: "-m", Value: true}, {Long: "--dry-run"},
 	}},
 	{Names: []string{"template"}, Summary: "Plantillas"},
 	{Names: []string{"update"}, Summary: "Actualizar"},

@@ -16,7 +16,7 @@ import (
 // only make sense in the command mode.
 var barFlags = map[string][]string{
 	"generate": {"--issue", "--commit-backend", "--commit-frontend", "--project"},
-	"qa":       {"--sprint", "--module"},
+	"qa":       {"--jira-project", "--sprint", "--module"},
 	"fetch":    {"--issue", "--space"},
 	"backlog":  {"--project", "--repo", "--path", "--since", "--modulo", "--deps"},
 }
@@ -32,6 +32,11 @@ func openFromBar(st *state, l barLine) (tea.Cmd, error) {
 	// A form's list would replace an unknown project with the first one.
 	if p := f.Get("--project"); p != "" && st.cfg != nil {
 		if _, _, err := st.cfg.GetProject(p); err != nil {
+			return nil, err
+		}
+	}
+	if p := f.Get("--jira-project"); p != "" && st.cfg != nil {
+		if _, err := st.cfg.QAJira.ForProject(p); err != nil {
 			return nil, err
 		}
 	}
@@ -94,7 +99,13 @@ func openGenerate(st *state, f *cli.Parsed) tea.Cmd {
 
 func openQA(st *state, f *cli.Parsed) tea.Cmd {
 	q := newQAForm(st)
-	q.sprint, q.module = f.Get("--sprint"), f.Get("--module")
+	q.project, q.sprint, q.module = f.Get("--jira-project"), f.Get("--sprint"), f.Get("--module")
+	if st.cfg != nil && q.project != "" {
+		// The form's list holds the key as qa_jira writes it.
+		if j, err := st.cfg.QAJira.ForProject(q.project); err == nil {
+			q.project = j.Project
+		}
+	}
 	q.form = q.build()
 	if err := validSprint(q.sprint); err != nil {
 		q.err = err.Error()
