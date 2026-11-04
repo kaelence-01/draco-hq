@@ -53,8 +53,8 @@ de Windows (`cmd`) se ve más limitado.
 | 5 | Resto de pantallas: backlog, QA, exportar | ✅ `v0.2.1` |
 | 6 | Configuración en formularios, aviso de versión nueva, barra de comandos con autocompletado, ayuda, temas | ✅ `v0.3.0` |
 | — | Mejoras y correcciones sobre la fase 6, con draco ya en uso | ✅ `v0.3.1`–`v0.3.3` |
-| 7 | Rediseño del modo visual: maestro-detalle elástico | ✅ `v0.4.0` (por publicar) |
-| — | Mejoras sobre la fase 7: consolidado QA con varios proyectos de Jira, tan simple como en gtt | 🔄 |
+| 7 | Rediseño del modo visual: maestro-detalle elástico | ✅ `v0.4.0` |
+| — | Mejoras sobre la fase 7: consolidado QA con varios proyectos de Jira, tan simple como en gtt | 🔄 071 en `v0.4.1` |
 | v1.0 | Instaladores, checksums, migración desde gtt (✅ adelantada), README completo | ⬜ |
 | Después de la v1.0 | Otros trackers y plataformas; modo equipo (plantillas y perfiles compartidos) | ⬜ |
 
@@ -372,7 +372,7 @@ porque no guardan el proyecto de Jira (bitácora 071).
 | # | Rama | Contenido | Estado |
 |---|---|---|---|
 | 071 | `feature/qa-multiproyecto` | `qa_jira.projects` (otros proyectos que heredan los valores del por defecto), `-j/--jira-project`, la lista de proyectos en el formulario solo cuando hay varios, el proyecto en el título del Kanban | ✅ |
-| 072 | `feature/qa-detectar-jira` | Configurar sin escribir ids: draco consulta Jira (proyectos, columnas del tablero, campos por nombre) y la QA solo elige; «¿en qué columna empieza QA?» reemplaza la lista de estados | ⬜ |
+| 072 | `feature/qa-detectar-jira` | Configurar sin escribir ids: `draco qa setup` y `d` en Configuración › QA leen de Jira los estados del proyecto y los campos, y la QA elige por nombre, con Testing y los finalizados ya marcados. El autor eligió la lista de estados del proyecto en vez de las columnas del tablero, porque los tableros no son todos iguales | ✅ |
 | 073 | `feature/qa-listas` (opcional) | Módulo y sprint elegidos de listas (componentes y sprints del tablero) | ⬜ |
 
 ### v1.0
@@ -470,6 +470,7 @@ cambia una, le llega sin rehacer el cambio a mano.
 | Varios proyectos de Jira en `qa_jira.projects`, que heredan los valores del por defecto; no en los perfiles | Los perfiles dicen dónde se publica, no de qué tablero; con el mismo flujo de trabajo, agregar un proyecto es escribir su clave. La forma de un solo proyecto se sigue leyendo igual (bitácora 071) |
 | El título del Kanban lleva el proyecto de Jira | Dos proyectos con Kanban en el mismo período tendrían el mismo título y el segundo actualizaría la página del primero. Costo: el Kanban del período en curso se crea como página nueva una vez (bitácora 071) |
 | `-j/--jira-project` para el proyecto de Jira | `-p` ya es el proyecto de draco en `g`, `backlog` y `template` (bitácora 071) |
+| Los ids de estados y campos no van por defecto en el código: se leen de Jira (`draco qa setup`) | Los ids son de cada instancia: en otra, el mismo id es otro estado y el consolidado saldría mal sin error. Detectarlos da la misma comodidad sin datos de una organización (bitácora 072) |
 | Licencia MIT | La misma de gtt |
 | Multiplataforma por puertos y adaptadores, adaptadores compilados en el binario | Que draco sirva a equipos sin Jira ni Confluence; un solo ejecutable |
 | Estructura del documento en plantillas `text/template` → Markdown → formato del destino | Cada equipo ajusta su documento sin recompilar; una plantilla sirve para cualquier destino |

@@ -45,7 +45,12 @@ func newSettings(st *state) *settings {
 
 func (s *settings) title() string { return "Configuración" }
 
-func (s *settings) keys() []key.Binding { return []key.Binding{moveKey, enterKey} }
+func (s *settings) keys() []key.Binding {
+	if s.cursor == 3 {
+		return []key.Binding{moveKey, enterKey, detectKey}
+	}
+	return []key.Binding{moveKey, enterKey}
+}
 
 func (s *settings) init() tea.Cmd {
 	if !s.wizard || s.started || s.st.cfg == nil {
@@ -134,6 +139,8 @@ func (s *settings) update(msg tea.Msg) (screen, tea.Cmd) {
 			return s, open(newQAConfig(s))
 		}
 		return s, open(newThemePicker(s))
+	case key.Matches(k, detectKey) && s.cursor == 3:
+		return s, open(newQASetup(s, ""))
 	}
 	return s, nil
 }
@@ -243,7 +250,7 @@ func (s *settings) detailText(width int) string {
 		if !c.HasQAReport() {
 			lines = append(lines, "", warnStyle.Render("Sin qa_report: Líder Técnico, PMO y QA saldrán vacíos en el consolidado."))
 		}
-		hint = "enter abre el formulario de QA: la cuenta que publica, el proyecto de Jira y los nombres del encabezado."
+		hint = "enter abre el formulario de QA: la cuenta que publica, el proyecto de Jira y los nombres del encabezado. d detecta desde Jira los estados y los campos, sin escribir ids."
 	default:
 		for _, t := range themes {
 			mark := "  "

@@ -13,7 +13,8 @@ import (
 )
 
 func init() {
-	register(&command{run: runQA, help: qaHelp, flags: qaFlags, summary: "Publica el consolidado de pruebas QA (Sprint o Kanban)"}, "qa")
+	register(&command{run: runQA, help: qaHelp, flags: qaFlags, summary: "Publica el consolidado de pruebas QA (Sprint o Kanban)",
+		subs: []cli.Command{{Names: []string{"setup"}, Summary: "Configura qa_jira eligiendo estados y campos de Jira", Flags: qaSetupFlags}}}, "qa")
 }
 
 var qaFlags = []cli.Flag{
@@ -30,6 +31,9 @@ var qaFlags = []cli.Flag{
 var now = time.Now
 
 func runQA(a *App, args []string) error {
+	if len(args) > 0 && args[0] == "setup" {
+		return runQASetup(a, args[1:])
+	}
 	f, err := cli.Parse(args, qaFlags)
 	if err != nil {
 		return usageError("%v", err)
@@ -208,7 +212,12 @@ func qaHelp(a *App) {
 	a.title("draco qa", "Publica el consolidado de pruebas QA")
 
 	a.section("Uso:")
-	a.printf("  draco qa [-j <PROYECTO>] [-s <SPRINT> -m <MÓDULO>] [flags]\n\n")
+	a.printf("  draco qa [-j <PROYECTO>] [-s <SPRINT> -m <MÓDULO>] [flags]\n")
+	a.printf("  draco qa setup [-j <PROYECTO>]\n\n")
+
+	a.section("Subcomandos:")
+	a.printf("  setup  Configura qa_jira desde Jira: lista los estados del proyecto y los\n")
+	a.printf("         campos, y eliges por número; nunca se escribe un id\n\n")
 
 	a.section("Flags:")
 	a.printf("  -j, --jira-project Proyecto de Jira de qa_jira  (sin él: el por defecto)\n")
@@ -229,9 +238,9 @@ func qaHelp(a *App) {
 
 	a.section("Configuración:")
 	a.printf("  qa_email     Cuenta que publica el consolidado (protección, no permisos)\n")
-	a.printf("  qa_jira      Proyecto por defecto, estados y campos de Jira; projects para\n")
-	a.printf("               otros proyectos; review_prefixes y observation_marker para las\n")
-	a.printf("               tareas de revisión y observaciones\n")
+	a.printf("  qa_jira      Proyecto por defecto, estados y campos de Jira (draco qa setup);\n")
+	a.printf("               projects para otros proyectos; review_prefixes y\n")
+	a.printf("               observation_marker para las tareas de revisión y observaciones\n")
 	a.printf("  qa_report    Nombres del encabezado; los que faltan salen como —\n")
 	a.printf("  Todo en %s.\n\n", a.style(cyan, configPathHint()))
 
@@ -240,4 +249,5 @@ func qaHelp(a *App) {
 	a.printf("  draco qa -s 12 -m Pagos        # Sprint\n")
 	a.printf("  draco qa -j PAG -s 12 -m Pagos # Sprint de otro proyecto de qa_jira\n")
 	a.printf("  draco qa -s 12 -m Pagos --dry-run\n")
+	a.printf("  draco qa setup -j OPS          # elige los estados y campos de OPS\n")
 }

@@ -3,7 +3,6 @@ package atlassian
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/kaelence-01/draco-hq/internal/config"
 	"github.com/kaelence-01/draco-hq/internal/provider"
@@ -28,6 +27,7 @@ type QATracker struct {
 
 var (
 	_ provider.Tracker   = (*Tracker)(nil)
+	_ provider.QASetup   = (*Tracker)(nil)
 	_ provider.QATracker = (*QATracker)(nil)
 	_ provider.DocStore  = (*DocStore)(nil)
 )
@@ -37,14 +37,10 @@ func NewTracker(c *Client) *Tracker { return &Tracker{c: c} }
 
 // NewQATracker returns Jira as a QA tracker; q must be valid (q.Validate).
 func NewQATracker(c *Client, q *config.QAJiraConfig) *QATracker {
-	testing := q.TestingStatus
-	if strings.TrimSpace(testing) == "" {
-		testing = config.DefaultTestingStatus
-	}
 	return &QATracker{Tracker: NewTracker(c), schema: QASchema{
 		Project:           q.Project,
 		Statuses:          q.Statuses,
-		TestingStatus:     testing,
+		TestingStatus:     q.Testing(),
 		ObservationMarker: q.Marker(),
 		FieldCodingErrors: q.Fields.CodingErrors,
 		FieldDevReturns:   q.Fields.DevReturns,
