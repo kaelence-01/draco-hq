@@ -140,7 +140,8 @@ la configuración de gtt no se modifica: puedes seguir usando los dos.
 
 - **Consolidado QA:** gtt guardaba en su código el proyecto, los estados y
   los campos de Jira; draco los lee de `qa_jira`. Si usabas el consolidado,
-  complétalo una vez en Configuración › QA.
+  complétalo una vez con `draco qa setup` (o `d` en Configuración › QA): se
+  eligen de listas, sin escribir ids.
 - **gtt y draco en sistemas distintos** (uno en Windows y otro en WSL):
   cada uno tiene su carpeta personal y draco no encuentra la de gtt. Copia
   el archivo a la carpeta de draco del otro sistema, o configura desde cero.
@@ -283,11 +284,18 @@ theme: ansi                              # ansi, alto-contraste o mono
 Guardar desde draco reescribe el archivo, así que los comentarios escritos a
 mano se pierden.
 
-En `qa_jira`, los **estados** son las columnas del tablero en las que una
-tarea ya pasó a QA: la de QA y las que siguen (en el ejemplo, `Testing`,
-`Aprobado` y `Finalizado`). Se escriben por nombre, como se ven en el
-tablero; el id de Jira también vale. El consolidado solo incluye las tareas
-que están en esas columnas.
+En `qa_jira`, los **estados** son los de una tarea que ya pasó a QA: el de
+QA y los que siguen (en el ejemplo, `Testing`, `Aprobado` y `Finalizado`). El
+consolidado solo incluye las tareas que están en esos estados. Vale el nombre
+o el id de Jira.
+
+**No hace falta escribirlos.** `draco qa setup` (o `d` en Configuración › QA)
+pregunta la clave del proyecto y lee de Jira sus estados y los campos. Los
+estados aparecen por nombre, con el de Testing y los finalizados ya
+marcados, y los campos también por nombre (el del estado del PR se detecta
+solo). Se guardan los ids. Si `qa_jira` ya tiene valores, se proponen esos.
+Con otro proyecto que no es el por defecto, lo agrega en `projects` con solo
+lo que cambia.
 
 Si QA trabaja con más de un proyecto de Jira, `project` es el que se usa por
 defecto y los demás van en `projects`, con su clave (la que aparece en la
@@ -517,7 +525,7 @@ activo. Con `enter` se abre la sección.
 | **Conexión** | Email, token, URL y, sin perfiles, el space de Confluence. Al guardar, verifica la cuenta y ofrece corregir el email si no es el de la cuenta; si no hay proyectos, `enter` sigue con el primero. Un token vacío conserva el actual. Si una variable `ATLASSIAN_*` o `CONFLUENCE_SPACE_KEY` gana sobre el archivo, lo avisa |
 | **Proyectos** | La misma pantalla de Proyectos |
 | **Perfiles** (opcional) | Lista con `d`, `n`, `e` y `x`, como Proyectos. Sin perfiles, dice qué se usa: Jira → Confluence con el space de Conexión |
-| **QA** (opcional) | `qa_email`, los nombres del encabezado y `qa_jira`, en cinco páginas. Las listas van separadas por comas. «Otros proyectos de Jira» son las claves de `qa_jira.projects`; los estados propios de cada uno se escriben en `config.yaml` y el formulario los conserva. Si falta algo, muestra todos los problemas a la vez y no guarda |
+| **QA** (opcional) | `enter` abre el formulario; `d` **detecta desde Jira** los estados y los campos: pide el proyecto y los muestra por nombre para elegir, sin escribir ids (como `draco qa setup`). El formulario tiene `qa_email`, los nombres del encabezado y `qa_jira`, en cinco páginas. Las listas van separadas por comas. «Otros proyectos de Jira» son las claves de `qa_jira.projects`; los estados propios de cada uno se escriben en `config.yaml` y el formulario los conserva. Si falta algo, muestra todos los problemas a la vez y no guarda |
 | **Tema** (opcional) | `↑↓` prueba cada tema en toda la pantalla, `enter` guarda y `esc` vuelve al anterior |
 
 Los temas son tres:
@@ -576,7 +584,13 @@ draco qa                          # pregunta el sprint; Enter: Kanban (últimos 
 draco qa -s 12 -m Pagos           # Sprint 12 del módulo Pagos
 draco qa -s 12 -m Pagos --dry-run
 draco qa -j PAG -s 12 -m Pagos    # de otro proyecto de Jira de qa_jira
+draco qa setup                    # configura qa_jira eligiendo de listas de Jira
+draco qa setup -j PAG             # el de otro proyecto
 ```
+
+`draco qa setup` lista los estados del proyecto numerados (con `*` los
+propuestos) y los campos numéricos. Se elige por número y Enter acepta lo
+propuesto.
 
 Necesita `qa_email` y `qa_jira` en la config (ver la sección 3). Con varios
 proyectos en `qa_jira` y sin `-j`, pregunta cuál; Enter elige el por
@@ -668,7 +682,7 @@ lo corrijas.
 | «Confluence space key no configurado» | Sin perfiles, pon el space en Configuración › Conexión; con perfiles, en el perfil (`docs.space`). Al generar también sirven el space del proyecto (Proyectos, `e`) o `--space`; en `draco qa`, `--space` o el del perfil |
 | «este comando está pensado para la cuenta de QA y no coincide con la tuya» | Te autenticaste con otra cuenta. Si te toca publicar, ajusta `qa_email` en Configuración › QA |
 | «no se encontraron documentos de despliegue previos» (o «ningún consolidado QA previo») | draco crea cada documento junto a uno anterior del mismo tipo en el space. La primera vez, crea uno a mano en Confluence como referencia, o usa un perfil con carpeta Markdown |
-| «configuración de QA incompleta» o «falta la sección 'qa_jira'» | Completa Configuración › QA: lista todos los campos que faltan |
+| «configuración de QA incompleta» o «falta la sección 'qa_jira'» | Corre `draco qa setup` (o `d` en Configuración › QA) para elegir estados y campos desde Jira; el formulario lista todo lo que falta |
 | «proyecto 'x' no encontrado» | Revisa el nombre con `draco project list` |
 | «flag desconocido» | Revisa `draco help <comando>`. En la barra, las sugerencias muestran los flags válidos |
 | `draco` no se encuentra tras instalar | Abre una terminal nueva: el PATH se actualiza ahí. En Linux y macOS, también `source ~/.bashrc` (o `~/.zshrc` con zsh) |

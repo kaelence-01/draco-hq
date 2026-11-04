@@ -35,7 +35,7 @@ func openFromBar(st *state, l barLine) (tea.Cmd, error) {
 			return nil, err
 		}
 	}
-	if p := f.Get("--jira-project"); p != "" && st.cfg != nil {
+	if p := f.Get("--jira-project"); p != "" && st.cfg != nil && l.sub == nil {
 		if _, err := st.cfg.QAJira.ForProject(p); err != nil {
 			return nil, err
 		}
@@ -44,6 +44,9 @@ func openFromBar(st *state, l barLine) (tea.Cmd, error) {
 	case "generate":
 		return openGenerate(st, f), nil
 	case "qa":
+		if l.sub != nil {
+			return openQASetup(st, f.Get("--jira-project")), nil
+		}
 		return openQA(st, f), nil
 	case "fetch":
 		return openExport(st, f), nil
@@ -117,6 +120,21 @@ func openQA(st *state, f *cli.Parsed) tea.Cmd {
 		return open(q)
 	}
 	return tea.Sequence(open(q), open(next))
+}
+
+// openQASetup opens Detectar desde Jira over Configuración; with a project it
+// reads it at once.
+func openQASetup(st *state, project string) tea.Cmd {
+	s := newSettings(st)
+	s.started, s.cursor = true, 3
+	if st.cfg == nil {
+		return open(s)
+	}
+	q := newQASetup(s, project)
+	if project == "" {
+		return tea.Sequence(open(s), open(q))
+	}
+	return tea.Sequence(open(s), open(q), q.read())
 }
 
 func openExport(st *state, f *cli.Parsed) tea.Cmd {

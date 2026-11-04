@@ -141,6 +141,37 @@ type QATracker interface {
 	Observations(ctx context.Context, issueKey string) (string, error)
 }
 
+// Status is a state an issue can be in.
+type Status struct {
+	ID   string
+	Name string
+	Done bool // in the tracker's "done" category
+}
+
+// FieldKind is what the QA report can read from a field.
+type FieldKind int
+
+const (
+	FieldNumber   FieldKind = iota + 1 // a counter: coding errors, returns to dev
+	FieldPRStatus                      // the state of the issue's pull requests
+)
+
+// Field is a custom field the QA report can read.
+type Field struct {
+	ID   string
+	Name string
+	Kind FieldKind
+}
+
+// QASetup is the optional tracker capability to set up the QA report: what
+// its settings are chosen from, so nobody types ids.
+type QASetup interface {
+	// ProjectStatuses returns the statuses of the project's issues, the
+	// "done" ones last.
+	ProjectStatuses(ctx context.Context, project string) ([]Status, error)
+	QAFields(ctx context.Context) ([]Field, error)
+}
+
 // Commit is one commit of a repository.
 type Commit struct {
 	Hash      string

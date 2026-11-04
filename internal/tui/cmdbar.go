@@ -78,9 +78,11 @@ func suggest(cmds []cli.Command, cfg *config.Config, line string) []suggestion {
 			}
 		}
 		return nameSuggestions(others, typing)
-	case len(c.Subcommands) > 0 && len(rest) == 0:
+	case len(c.Subcommands) > 0 && len(rest) == 0 && len(c.Flags) > 0 && !strings.HasPrefix(typing, "-"):
+		return append(nameSuggestions(c.Subcommands, typing), flagSuggestions(flags, rest, typing)...)
+	case len(c.Subcommands) > 0 && len(rest) == 0 && len(c.Flags) == 0:
 		return nameSuggestions(c.Subcommands, typing)
-	case len(c.Subcommands) > 0:
+	case len(c.Subcommands) > 0 && len(rest) > 0 && !flagsFirst(*c, rest):
 		sub := cli.Find(c.Subcommands, rest[0])
 		if sub == nil {
 			return nil
@@ -180,6 +182,12 @@ func complete(line string, s suggestion) string {
 	return strings.TrimSuffix(line, typing) + s.text + " "
 }
 
+// flagsFirst reports a command with flags of its own, like qa, run without a
+// subcommand: its words start with a flag.
+func flagsFirst(c cli.Command, words []string) bool {
+	return len(c.Flags) > 0 && strings.HasPrefix(words[0], "-")
+}
+
 // barLine is a line of the bar read as the command mode would read it.
 type barLine struct {
 	cmd, sub *cli.Command
@@ -203,7 +211,7 @@ func readLine(cmds []cli.Command, line string) (barLine, error) {
 		return l, fmt.Errorf("comando desconocido: %s (/help lista los comandos)", words[0])
 	}
 	rest, flags := words[1:], l.cmd.Flags
-	if len(l.cmd.Subcommands) > 0 && len(rest) > 0 {
+	if len(l.cmd.Subcommands) > 0 && len(rest) > 0 && !flagsFirst(*l.cmd, rest) {
 		if l.sub = cli.Find(l.cmd.Subcommands, rest[0]); l.sub == nil {
 			return l, fmt.Errorf("subcomando desconocido: %s %s", words[0], rest[0])
 		}

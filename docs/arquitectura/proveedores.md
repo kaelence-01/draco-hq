@@ -244,6 +244,14 @@ profiles:
   Markdown no exige un space.
 - **QA como capacidad:** `Bundle.QA()` devuelve el `QATracker`, el error de
   `qa_jira` si está incompleto o `ErrNoQA` si el tracker no lo soporta.
+- **`QASetup`**, la otra capacidad opcional del tracker:
+  `ProjectStatuses(project)` (estados con su categoría, los finalizados al
+  final) y `QAFields()` (campos personalizados numéricos y el de estado del
+  PR). Con eso, `qa.Setup` arma `qa_jira` sin que nadie escriba ids.
+  `Bundle.QASetup()` no necesita `qa_jira`, porque sirve para crearlo. En
+  Atlassian: `/rest/api/3/project/{key}/statuses` y `/rest/api/3/field`; el
+  campo Development se reconoce por su tipo (`devsummarycf`), no por su
+  nombre, que cambia con el idioma del sitio (bitácora 072).
 - Proyectos y perfiles se editan con funciones puras (`SetProject`,
   `RemoveProject`, `SetDefaultProject` y las de perfiles) y se guardan con
   `config.Save`: las usarán `draco init` y los formularios de la TUI.

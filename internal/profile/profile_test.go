@@ -75,6 +75,12 @@ func TestQAExplainsWhatIsMissing(t *testing.T) {
 	if _, err := (&Bundle{Tracker: plainTracker{}}).QA(); !errors.Is(err, ErrNoQA) {
 		t.Errorf("un tracker sin la capacidad es ErrNoQA: %v", err)
 	}
+	if setup, err := b.QASetup(); err != nil || setup == nil {
+		t.Errorf("detectar desde Jira no necesita qa_jira: %v", err)
+	}
+	if _, err := (&Bundle{Tracker: plainTracker{}}).QASetup(); !errors.Is(err, ErrNoQA) {
+		t.Errorf("un tracker que no lista estados ni campos es ErrNoQA: %v", err)
+	}
 }
 
 func TestConfluenceNeedsASpace(t *testing.T) {
