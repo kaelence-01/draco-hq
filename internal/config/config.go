@@ -190,9 +190,18 @@ func (q *QAJiraConfig) ForProject(key string) (*QAJiraConfig, error) {
 	if key == "" {
 		key = q.Project
 	}
+	r, ok := q.Lookup(key)
+	if !ok {
+		return nil, fmt.Errorf("el proyecto de Jira '%s' no está en qa_jira. Proyectos: %s", key, strings.Join(q.ProjectKeys(), ", "))
+	}
+	return r, nil
+}
+
+// Lookup is ForProject without validating; false when q has no such project.
+func (q *QAJiraConfig) Lookup(key string) (*QAJiraConfig, bool) {
 	i := slices.IndexFunc(q.ProjectKeys(), func(k string) bool { return strings.EqualFold(k, key) })
 	if i < 0 {
-		return nil, fmt.Errorf("el proyecto de Jira '%s' no está en qa_jira. Proyectos: %s", key, strings.Join(q.ProjectKeys(), ", "))
+		return nil, false
 	}
 	r := *q
 	r.Project, r.Projects = q.ProjectKeys()[i], nil
@@ -210,7 +219,50 @@ func (q *QAJiraConfig) ForProject(key string) (*QAJiraConfig, error) {
 			r.SprintName = p.SprintName
 		}
 	}
-	return &r, nil
+	return &r, true
+}
+
+// SetProject writes the statuses and the testing status of a Jira project:
+// the top-level values when key is the default project or there is none
+// yet, else its entry in Projects with only what differs from the default's.
+func (q *QAJiraConfig) SetProject(key string, statuses []string, testing string) {
+	if q.Project == "" || strings.EqualFold(q.Project, key) {
+		if q.Project == "" {
+			q.Project = key
+		}
+		q.Statuses, q.TestingStatus = statuses, testing
+		if testing == DefaultTestingStatus {
+			q.TestingStatus = ""
+		}
+		for k, p := range q.Projects {
+			if !strings.EqualFold(k, key) {
+				continue
+			}
+			if p.SprintName == "" {
+				delete(q.Projects, k)
+			} else {
+				q.Projects[k] = QAJiraProject{SprintName: p.SprintName}
+			}
+		}
+		return
+	}
+	p := QAJiraProject{}
+	for k, old := range q.Projects {
+		if strings.EqualFold(k, key) {
+			p.SprintName = old.SprintName
+			delete(q.Projects, k)
+		}
+	}
+	if !slices.Equal(statuses, q.Statuses) {
+		p.Statuses = statuses
+	}
+	if testing != q.Testing() {
+		p.TestingStatus = testing
+	}
+	if q.Projects == nil {
+		q.Projects = map[string]QAJiraProject{}
+	}
+	q.Projects[key] = p
 }
 
 // DefaultReviewPrefixes is the ReviewPrefixes used when the config leaves it empty.
@@ -244,6 +296,14 @@ type QAJiraFields struct {
 
 // DefaultTestingStatus is the TestingStatus used when the config leaves it empty.
 const DefaultTestingStatus = "Testing"
+
+// Testing returns TestingStatus or its default.
+func (q *QAJiraConfig) Testing() string {
+	if strings.TrimSpace(q.TestingStatus) == "" {
+		return DefaultTestingStatus
+	}
+	return q.TestingStatus
+}
 
 // DefaultSprintName is the SprintName used when the config leaves it empty.
 const DefaultSprintName = "{module}_Sprint {sprint}"

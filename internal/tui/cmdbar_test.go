@@ -25,7 +25,8 @@ var barSpecs = []cli.Command{
 		{Long: "--profile", Value: true, Desc: "Perfil"},
 		{Long: "--dry-run", Desc: "Sin publicar"},
 	}},
-	{Names: []string{"qa"}, Summary: "Consolidado QA", Flags: []cli.Flag{{Long: "--sprint", Short: "-s", Value: true, Desc: "Sprint"}}},
+	{Names: []string{"qa"}, Summary: "Consolidado QA", Flags: []cli.Flag{{Long: "--sprint", Short: "-s", Value: true, Desc: "Sprint"}},
+		Subcommands: []cli.Command{{Names: []string{"setup"}, Summary: "Configura", Flags: []cli.Flag{{Long: "--jira-project", Short: "-j", Value: true, Desc: "Proyecto"}}}}},
 	{Names: []string{"version"}, Summary: "Versión"},
 }
 
@@ -86,6 +87,10 @@ func TestSuggest(t *testing.T) {
 		{"g -i -", []string{"-b", "-p", "--profile", "--dry-run"}},
 		{"g OPS", nil},
 		{"backlog ", []string{"scan"}},
+		{"qa ", []string{"setup", "-s"}},
+		{"qa -", []string{"-s"}},
+		{"qa -s 3 ", nil},
+		{"qa setup ", []string{"-j"}},
 		{"backlog scan -r ", []string{"backend", "frontend"}},
 		{"backlog scan -o ", []string{"-r", "--deps"}},
 		{"help ", []string{"backlog", "g", "qa", "version"}},
@@ -124,6 +129,12 @@ func TestReadLine(t *testing.T) {
 	}
 	if l, err := readLine(barSpecs, "backlog scan -r backend"); err != nil || l.sub.Names[0] != "scan" || l.flags.Get("--repo") != "backend" {
 		t.Errorf("con subcomando: %+v %v", l, err)
+	}
+	if l, err := readLine(barSpecs, "qa setup -j OPS"); err != nil || l.sub.Names[0] != "setup" || l.flags.Get("--jira-project") != "OPS" {
+		t.Errorf("qa con su subcomando: %+v %v", l, err)
+	}
+	if l, err := readLine(barSpecs, "qa -s 12"); err != nil || l.sub != nil {
+		t.Errorf("qa con un flag primero no lleva subcomando: %+v %v", l, err)
 	}
 	if l, err := readLine(barSpecs, "  "); err != nil || l.cmd != nil {
 		t.Errorf("una línea vacía no es un comando: %+v %v", l, err)

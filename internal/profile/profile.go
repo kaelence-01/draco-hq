@@ -155,6 +155,15 @@ func (b *Bundle) QA() (provider.QATracker, error) {
 	return nil, ErrNoQA
 }
 
+// QASetup returns the tracker as the source of the QA settings: ErrNoQA when
+// it cannot list them. Unlike QA, it does not need qa_jira.
+func (b *Bundle) QASetup() (provider.QASetup, error) {
+	if s, ok := b.Tracker.(provider.QASetup); ok {
+		return s, nil
+	}
+	return nil, ErrNoQA
+}
+
 // SameAccount reports whether email is the authenticated account's. A token
 // for another account works, but searches by author would come back empty; an
 // account that hides its email counts as the same.

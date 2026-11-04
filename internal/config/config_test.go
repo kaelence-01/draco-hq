@@ -247,6 +247,45 @@ func TestQAJiraForProject(t *testing.T) {
 	}
 }
 
+func TestQAJiraLookupDoesNotValidate(t *testing.T) {
+	q := &QAJiraConfig{Project: "OPS", Projects: map[string]QAJiraProject{"FAC": {Statuses: []string{"7"}}}}
+	if r, ok := q.Lookup("fac"); !ok || r.Project != "FAC" || !reflect.DeepEqual(r.Statuses, []string{"7"}) {
+		t.Errorf("Lookup lee un qa_jira incompleto: %+v %v", r, ok)
+	}
+	if _, ok := q.Lookup("XYZ"); ok {
+		t.Error("un proyecto que no está no se encuentra")
+	}
+}
+
+func TestQAJiraSetProject(t *testing.T) {
+	q := &QAJiraConfig{}
+	q.SetProject("OPS", []string{"2", "3"}, "Testing")
+	if q.Project != "OPS" || !reflect.DeepEqual(q.Statuses, []string{"2", "3"}) || q.TestingStatus != "" {
+		t.Errorf("sin proyecto, el primero es el por defecto y Testing queda implícito: %+v", q)
+	}
+
+	q.Projects = map[string]QAJiraProject{"PAG": {SprintName: "PAG {sprint}"}, "ops": {Statuses: []string{"9"}}}
+	q.SetProject("ops", []string{"4"}, "En QA")
+	if q.Project != "OPS" || !reflect.DeepEqual(q.Statuses, []string{"4"}) || q.TestingStatus != "En QA" {
+		t.Errorf("el por defecto se escribe arriba: %+v", q)
+	}
+	if _, ok := q.Projects["ops"]; ok {
+		t.Errorf("lo que pisaba al por defecto se quita: %+v", q.Projects)
+	}
+
+	q.SetProject("PAG", []string{"4"}, "En QA")
+	if p := q.Projects["PAG"]; p.Statuses != nil || p.TestingStatus != "" || p.SprintName != "PAG {sprint}" {
+		t.Errorf("otro proyecto igual al por defecto queda sin valores propios y conserva su sprint: %+v", p)
+	}
+	q.SetProject("FAC", []string{"5"}, "Testing")
+	if p := q.Projects["FAC"]; !reflect.DeepEqual(p.Statuses, []string{"5"}) || p.TestingStatus != "Testing" {
+		t.Errorf("otro proyecto distinto guarda lo suyo: %+v", p)
+	}
+	if r, _ := q.Lookup("FAC"); r.Testing() != "Testing" || !reflect.DeepEqual(r.Statuses, []string{"5"}) {
+		t.Errorf("y se lee como se eligió: %+v", r)
+	}
+}
+
 func TestQAJiraProjectsFromYAML(t *testing.T) {
 	raw := `
 qa_jira:
