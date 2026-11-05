@@ -49,13 +49,6 @@ func taskInput(v *string) *huh.Input {
 	})
 }
 
-func newForm(fields ...huh.Field) *huh.Form { return newPagedForm(huh.NewGroup(fields...)) }
-
-// newPagedForm is a form of several pages, for what does not fit in 24 lines.
-func newPagedForm(pages ...*huh.Group) *huh.Form {
-	return huh.NewForm(pages...).WithShowHelp(false).WithTheme(formTheme).WithWidth(64)
-}
-
 func (g *generate) title() string       { return "Generar documento" }
 func (g *generate) keys() []key.Binding { return []key.Binding{nextFieldKey, prevFieldKey} }
 
@@ -115,11 +108,11 @@ func explainProfile(err error) error {
 
 func (g *generate) view(width, height int) string {
 	if width < panelMinWidth {
-		return formView(g.form, g.err, width)
+		return formView(g.form, g.err, width, height)
 	}
 	formWidth, nextWidth := columns(width-2, 2, 5, 4)
-	g.form.WithWidth(min(64, formWidth-4))
-	form := lipgloss.JoinVertical(lipgloss.Left, faintStyle.Render("TAREA Y PROYECTO"), "", formBody(g.form, g.err, formWidth-4))
+	g.form.WithWidth(min(formMaxWidth, formWidth-4))
+	form := lipgloss.JoinVertical(lipgloss.Left, faintStyle.Render("TAREA Y PROYECTO"), "", formBody(g.form, g.err, formWidth-4, 0))
 	body := lipgloss.JoinHorizontal(lipgloss.Top, boxStyle.Width(formWidth).Render(form), "  ", boxStyle.Width(nextWidth).Render(g.ahead(nextWidth-4)))
 	return lipgloss.NewStyle().Padding(1, 1, 0).Render(body)
 }
@@ -166,17 +159,4 @@ func repoLine(label string, r deploy.Repo, deployable bool, width int) string {
 		name = "sin nombre"
 	}
 	return kv(label, name+faintStyle.Render("  "+where), width)
-}
-
-// formView is a form with the error of its last submission above it.
-func formView(f *huh.Form, err string, width int) string {
-	return lipgloss.NewStyle().Padding(1, 2).MaxWidth(width).Render(formBody(f, err, width))
-}
-
-func formBody(f *huh.Form, err string, width int) string {
-	body := f.View()
-	if err != "" {
-		body = lipgloss.JoinVertical(lipgloss.Left, lipgloss.NewStyle().Width(max(width-4, 10)).Render(errStyle.Render("✗ "+err)), "", body)
-	}
-	return body
 }

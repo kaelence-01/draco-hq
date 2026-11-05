@@ -7,7 +7,6 @@ import (
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
-	"charm.land/lipgloss/v2"
 
 	"github.com/kaelence-01/draco-hq/internal/backlog"
 	"github.com/kaelence-01/draco-hq/internal/config"
@@ -31,6 +30,7 @@ type projectForm struct {
 	v       config.ProjectConfig // only the fields of the form
 	backlog [2]backlogPatterns   // backend, frontend
 	form    *huh.Form
+	pages   pager
 }
 
 // backlogPatterns are a repo's class globs and modules, as comma-separated text.
@@ -89,32 +89,32 @@ func (f *projectForm) build() {
 		huh.NewInput().Title("Organización o workspace del VCS").Placeholder("mi-org").Value(&f.v.VCSOrg),
 		huh.NewInput().Title("Space de Confluence del proyecto").Description("Vacío: el de Conexión o el del perfil").Value(&f.v.ConfluenceSpaceKey),
 	)
-	pages := []*huh.Group{huh.NewGroup(fields...)}
+	pages := []page{newPage("Repositorios y VCS", fields...)}
 	if names := parent.st.cfg.ProfileNames(); len(names) > 1 {
 		options := []huh.Option[string]{huh.NewOption("El perfil por defecto", "")}
 		for _, n := range names {
 			options = append(options, huh.NewOption(n, n))
 		}
-		pages = append(pages, huh.NewGroup(huh.NewSelect[string]().Title("Perfil del proyecto").
+		pages = append(pages, newPage("Perfil", huh.NewSelect[string]().Title("Perfil del proyecto").
 			Description("Destino y plantilla al generar sus documentos").Options(options...).Value(&f.v.Profile)))
 	}
 	pages = append(pages,
 		f.backlogPage("backend", &f.backlog[0], "app/**/Services/**/*.php", "app/Http/{modulo}/**", &f.v.BackendPath),
 		f.backlogPage("frontend", &f.backlog[1], "src/app/**/*.service.ts", "src/app/{modulo}/**", &f.v.FrontendPath))
-	f.form = newPagedForm(pages...)
+	f.form, f.pages = newPagedForm(pages...)
 }
 
 // backlogPage is the optional page of one repo's backlog patterns, hidden
 // while the repo has no path.
-func (f *projectForm) backlogPage(repo string, p *backlogPatterns, classes, modules string, repoPath *string) *huh.Group {
-	return huh.NewGroup(
+func (f *projectForm) backlogPage(repo string, p *backlogPatterns, classes, modules string, repoPath *string) page {
+	return newPage("Backlog del "+repo,
 		huh.NewInput().Title("Backlog técnico del "+repo+": clases que deben tener tests").
 			Description("Opcional, separadas por comas. Vacío: sin ese detector").Placeholder(classes).Value(&p.classes).
 			Validate(func(s string) error { return backlog.CheckPatterns(config.SplitList(s), nil) }),
 		huh.NewInput().Title("Backlog técnico del "+repo+": módulos").
 			Description("Opcional, separados por comas; {modulo} es la carpeta que nombra el módulo").Placeholder(modules).Value(&p.modules).
 			Validate(func(s string) error { return backlog.CheckPatterns(nil, config.SplitList(s)) }),
-	).WithHideFunc(func() bool { return strings.TrimSpace(*repoPath) == "" })
+	).hiddenWhen(func() bool { return strings.TrimSpace(*repoPath) == "" })
 }
 
 func (f *projectForm) title() string {
@@ -219,5 +219,5 @@ func (f *projectForm) typed() bool {
 }
 
 func (f *projectForm) view(width, height int) string {
-	return lipgloss.NewStyle().Padding(1, 2).MaxWidth(width).Render(f.form.View())
+	return f.pages.formView(f.form, "", width, height)
 }

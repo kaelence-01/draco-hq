@@ -28,6 +28,7 @@ type backlogForm struct {
 	modules string
 	deps    bool
 	form    *huh.Form
+	pages   pager
 	err     string
 }
 
@@ -48,11 +49,13 @@ func (f *backlogForm) build() *huh.Form {
 		).Value(&f.repo),
 		huh.NewInput().Title("Carpeta").Placeholder("en lugar del proyecto (opcional)").Value(&f.path),
 	)
-	return newPagedForm(huh.NewGroup(what...), huh.NewGroup(
+	form, pages := newPagedForm(newPage("Qué analizar", what...), newPage("Opciones",
 		huh.NewInput().Title("Período").Placeholder("30d, 12w, 3m o una fecha (vacío: el del proyecto o 90d)").Value(&f.since),
 		huh.NewInput().Title("Módulos").Placeholder("Pagos, Facturacion (requiere modules en el proyecto)").Value(&f.modules),
 		huh.NewConfirm().Title("¿Revisar dependencias con composer audit? (usa internet)").Affirmative("Sí").Negative("No").Value(&f.deps),
 	))
+	f.pages = pages
+	return form
 }
 
 func (f *backlogForm) title() string       { return "Backlog técnico" }
@@ -101,7 +104,9 @@ func (f *backlogForm) next() (screen, error) {
 	return newScanning(r), nil
 }
 
-func (f *backlogForm) view(width, height int) string { return formView(f.form, f.err, width) }
+func (f *backlogForm) view(width, height int) string {
+	return f.pages.formView(f.form, f.err, width, height)
+}
 
 // backlogRun is a scan asked for in the form, resolved to its repos.
 type backlogRun struct {

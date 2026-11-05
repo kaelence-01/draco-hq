@@ -381,7 +381,7 @@ porque no guardan el proyecto de Jira (bitácora 071).
 | # | Rama | Contenido | Estado |
 |---|---|---|---|
 | 074 | `feature/borradores-proyecto` | Un proyecto nuevo que se deja sin terminar (`esc`, `ctrl+c`, o guardado sin rutas) queda como borrador en `project_drafts`. En Proyectos aparece atenuado: se retoma con `enter` y no se puede usar hasta completarlo. `draco project list` y `rm` también lo manejan | ✅ |
-| 075 | `feature/tui-formularios` | Formularios como en el simulador QA: paginador `●○○` «Página N de M · nombre» y una línea punteada bajo cada campo de texto | ⬜ |
+| 075 | `feature/tui-formularios` | Formularios como en el simulador QA: paginador `●○○` «Página N de M · nombre» y una línea punteada bajo cada campo; los formularios altos se desplazan hasta el campo con foco | ✅ |
 
 ### v1.0
 
