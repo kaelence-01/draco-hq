@@ -81,7 +81,8 @@ internal/tui/
   home.go       pantalla principal (menú con descripciones y atajos, panel de la función elegida)
   homecontext.go  principal: cajas «Proyecto activo» y «Tu configuración»
   projects.go   Proyectos: lista con filtro, activo, por defecto, borrar
-  projectform.go  formulario de Huh para crear y editar un proyecto
+  projectform.go  formulario de Huh para crear y editar un proyecto, y retomar un borrador
+  form.go       formularios: páginas con nombre y paginador, línea bajo cada campo, alto disponible
   generate.go   Generar: tarea y proyecto (formulario); abre el perfil
   commits.go    Generar: selector de commits por lado, con hash a mano
   progress.go   Generar: pasos de deploy.Session con progreso y cancelación
@@ -244,7 +245,8 @@ aviso de versión nueva, barra de comandos, Ayuda y temas.
 - Mismas reglas que `draco project add`: el nombre se valida con
   `config.ValidName` y no puede existir; un repo vacío toma el nombre de la
   carpeta; sin rutas de backend ni de frontend no se guarda; el primer
-  proyecto queda por defecto. `esc` cierra el formulario sin guardar.
+  proyecto queda por defecto. Un proyecto nuevo que se deja sin terminar
+  (`esc`, `ctrl+c` o sin rutas) queda como borrador (bitácora 074).
 
 ### Generar documento
 
@@ -822,6 +824,16 @@ Obligatorias para toda pantalla nueva o modificada (las resume `CLAUDE.md`):
 11. **Tests sin terminal** para cada pantalla: teclas por `send`/`typeText`,
     texto de `View` sin color con un tamaño fijo, y, si guarda, que el token
     del entorno no llega al archivo. Nunca `tea.NewProgram` en un test.
+12. **Formularios** (`form.go`):
+    - Uno de una página se arma con `newForm`. Uno de varias, con
+      `newPagedForm(newPage("Nombre", campos…), …)`, y se dibuja con
+      `pager.formView`. Así muestra `●○○  Página 1 de 3 · Nombre`.
+    - Una página que depende de otro campo usa `hiddenWhen` y no cuenta en
+      el paginador.
+    - La vista le pasa a `formView` el alto que tiene: huh se desplaza hasta
+      el campo con foco y ningún campo queda bajo el pie.
+    - Entre campo y campo va la línea punteada `┄`, del ancho del
+      formulario.
 
 
 ## 11. Fase 7: maestro-detalle elástico

@@ -362,7 +362,7 @@ en la consola clásica de Windows (`cmd`) se ve más limitado.
 | `?` | Muestra todas las teclas de la pantalla, también las que el pie compacto no trae (de nuevo, las oculta) |
 | `q` | Sale, desde la principal (el pie compacto de la principal no lo muestra: está en `?`) |
 | `1`–`6` | En la principal, abre esa función directo |
-| `enter` / `tab` / `shift+tab` | En un formulario: siguiente campo / siguiente / anterior |
+| `enter` / `tab` / `shift+tab` | En un formulario: siguiente campo / siguiente / anterior. Un formulario de varias páginas dice arriba en cuál estás (`●○○  Página 1 de 3 · Jira`); si no cabe en la terminal, se desplaza hasta el campo en el que estás |
 
 ### Barra de comandos
 

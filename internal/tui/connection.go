@@ -127,12 +127,11 @@ func (c *connection) view(width, height int) string {
 	for _, v := range c.env {
 		notes = append(notes, warnStyle.Render("⚠ "+v+" está definida en el entorno: gana sobre lo que guardes aquí al usar draco."))
 	}
-	body := formView(c.form, c.err, width)
 	if len(notes) == 0 {
-		return body
+		return formView(c.form, c.err, width, height)
 	}
 	top := lipgloss.NewStyle().Padding(1, 2, 0).Width(width).Render(lipgloss.JoinVertical(lipgloss.Left, notes...))
-	return lipgloss.JoinVertical(lipgloss.Left, top, body)
+	return lipgloss.JoinVertical(lipgloss.Left, top, formView(c.form, c.err, width, height-lipgloss.Height(top)))
 }
 
 type checkedMsg struct {

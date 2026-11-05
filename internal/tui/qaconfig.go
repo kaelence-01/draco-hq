@@ -28,6 +28,7 @@ type qaConfig struct {
 	// does not edit.
 	projects map[string]config.QAJiraProject
 	form     *huh.Form
+	pages    pager
 	err      string
 }
 
@@ -54,32 +55,34 @@ func (q *qaConfig) build() *huh.Form {
 	input := func(title, desc, placeholder string, v *string) *huh.Input {
 		return huh.NewInput().Title(title).Description(desc).Placeholder(placeholder).Value(v)
 	}
-	return newPagedForm(
-		huh.NewGroup(
+	form, pages := newPagedForm(
+		newPage("Cuenta y encabezado",
 			input("Email de la cuenta de QA", "Solo ella publica el consolidado (no es un permiso)", "qa@example.test", &q.email),
 			input("Líder Técnico", "Nombres del encabezado del consolidado", "", &q.report.LiderTecnico),
 			input("PMO", "", "", &q.report.PMO),
 			input("QA", "", "", &q.report.QA),
 		),
-		huh.NewGroup(
+		newPage("Jira",
 			input("Proyecto de Jira", "Clave del proyecto por defecto, la de la URL del tablero", "", &q.project),
 			input("Estados que ya llegaron a QA", "Los de una tarea que ya llegó a QA: id o nombre, separados por comas. Para elegirlos de una lista sin escribir: esc y d en QA", "", &q.statuses),
 			input("Estado de Testing", "Abre la ventana Kanban. Vacío: "+config.DefaultTestingStatus, "", &q.testing),
 			input("Nombre del sprint en Jira", "Con {module} y {sprint}. Vacío: "+config.DefaultSprintName, "", &q.sprint),
 		),
-		huh.NewGroup(
+		newPage("Otros proyectos",
 			input("Otros proyectos de Jira", "Claves separadas por comas. Usan los mismos estados, Testing y nombre de sprint; los que tengan otros se escriben en qa_jira.projects de config.yaml", "", &q.others),
 		),
-		huh.NewGroup(
+		newPage("Campos personalizados",
 			input("Campo de errores de codificación", "Id con la forma customfield_12345. Para elegirlos por nombre: esc y d en QA", "", &q.fields.CodingErrors),
 			input("Campo de devoluciones a desarrollo", "", "", &q.fields.DevReturns),
 			input("Campo del estado del PR", "Panel de desarrollo", "", &q.fields.DevStatus),
 		),
-		huh.NewGroup(
+		newPage("Revisión y observaciones",
 			input("Prefijos de las tareas de revisión", "Separados por comas. Vacío: "+strings.Join(config.DefaultReviewPrefixes, ", "), "", &q.reviews),
 			input("Marcador de observación", "Inicio del comentario que se toma como observación. Vacío: "+config.DefaultObservationMarker, "", &q.marker),
 		),
 	)
+	q.pages = pages
+	return form
 }
 
 func (q *qaConfig) title() string       { return "QA" }
@@ -155,4 +158,6 @@ func (q *qaConfig) otherProjects() map[string]config.QAJiraProject {
 	return out
 }
 
-func (q *qaConfig) view(width, height int) string { return formView(q.form, q.err, width) }
+func (q *qaConfig) view(width, height int) string {
+	return q.pages.formView(q.form, q.err, width, height)
+}
