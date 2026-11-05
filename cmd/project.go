@@ -76,7 +76,7 @@ func runProjectList(a *App, args []string) error {
 	}
 	if len(cfg.Projects) == 0 {
 		a.printf("No hay proyectos configurados. Agrega uno con: draco project add\n")
-		return nil
+		return a.listDrafts(cfg)
 	}
 	w := tabwriter.NewWriter(a.Out, 0, 0, 3, ' ', 0)
 	fmt.Fprintf(w, "  PROYECTO\tBACKEND\tFRONTEND\tSPACE\tPERFIL\n")
@@ -93,6 +93,25 @@ func runProjectList(a *App, args []string) error {
 	}
 	if cfg.DefaultProject != "" {
 		a.printf("\n* proyecto por defecto\n")
+	}
+	return a.listDrafts(cfg)
+}
+
+// listDrafts prints the project drafts the visual mode kept: they cannot be
+// used until they are complete.
+func (a *App) listDrafts(cfg *config.Config) error {
+	names := cfg.DraftNames()
+	if len(names) == 0 {
+		return nil
+	}
+	a.printf("\n%s\n", a.style(yellow, "Borradores (sin terminar: no se pueden usar hasta completarlos en el modo visual, Proyectos)"))
+	for _, n := range names {
+		why := "falta guardarlo"
+		check := *cfg.ProjectDrafts[n]
+		if err := check.Complete(); err != nil {
+			why = err.Error()
+		}
+		a.printf("  %s  (borrador: %s)\n", n, why)
 	}
 	return nil
 }
@@ -225,6 +244,20 @@ func runProjectRemove(a *App, args []string) error {
 	if err != nil {
 		return err
 	}
+	if _, draft := cfg.ProjectDrafts[n[0]]; draft && cfg.Projects[n[0]] == nil {
+		if !a.confirm(fmt.Sprintf("¿Eliminar el borrador '%s'?", n[0]), false) {
+			a.printf("Cancelado.\n")
+			return nil
+		}
+		if err := cfg.RemoveProjectDraft(n[0]); err != nil {
+			return err
+		}
+		if err := saveConfig(cfg); err != nil {
+			return err
+		}
+		a.ok(fmt.Sprintf("Borrador '%s' eliminado", n[0]))
+		return nil
+	}
 	wasDefault := cfg.DefaultProject == n[0]
 	if err := cfg.RemoveProject(n[0]); err != nil {
 		return fmt.Errorf("%w. Ver: draco project list", err)
@@ -253,7 +286,10 @@ func projectHelp(a *App) {
 	a.printf("  list, ls            Lista los proyectos (* el de por defecto)\n")
 	a.printf("  add [nombre]        Agrega o reemplaza un proyecto, con preguntas\n")
 	a.printf("  default <nombre>    Cambia el proyecto por defecto\n")
-	a.printf("  remove, rm <nombre> Elimina un proyecto\n\n")
+	a.printf("  remove, rm <nombre> Elimina un proyecto o un borrador\n\n")
+
+	a.printf("  Un proyecto nuevo que se deja sin terminar en el modo visual queda como\n")
+	a.printf("  borrador: list lo muestra aparte y no se puede usar hasta completarlo.\n\n")
 
 	a.printf("  Un proyecto puede llevar su perfil (profile): draco g -p <proyecto> lo usa\n")
 	a.printf("  sin --profile, con su destino y su plantilla. Sin él, el perfil por defecto.\n\n")

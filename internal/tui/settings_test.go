@@ -95,6 +95,14 @@ func TestSettingsShowsEachSection(t *testing.T) {
 	}
 }
 
+func TestSettingsCountsTheProjectDrafts(t *testing.T) {
+	cfg := savedConfig()
+	cfg.ProjectDrafts = map[string]*config.ProjectConfig{"reportes": {}}
+	if out := view(newSettingsApp(t, cfg).m); !strings.Contains(out, "1 borrador sin") {
+		t.Errorf("Proyectos dice cuántos borradores quedan sin terminar:\n%s", out)
+	}
+}
+
 func TestWizardFromAnEmptyConfig(t *testing.T) {
 	e := newSettingsApp(t, &config.Config{})
 	out := view(e.m)

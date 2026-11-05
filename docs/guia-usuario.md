@@ -508,6 +508,23 @@ debajo, según el ancho.
 El pie muestra `↑↓`, `enter`, `n`, `e` y `/`; `d` y `x` aparecen al pulsar `?`.
 Perfiles funciona igual.
 
+**Borradores.** Si sales de «Nuevo proyecto» sin terminar, lo escrito se guarda
+como **borrador** y no se pierde. Pasa con `esc`, con `ctrl+c` aunque cierre
+draco, y también al guardar un proyecto sin rutas. Si no habías escrito nada,
+no se guarda nada.
+
+- **En la lista**, el borrador aparece después de los proyectos, atenuado y
+  marcado `borrador`. El detalle dice qué le falta.
+- **No se puede usar** hasta completarlo: no aparece en Generar ni en Backlog,
+  y no puede ser el proyecto por defecto.
+- **`enter` (o `e`) lo retoma** con todo lo escrito. Al guardarlo completo pasa
+  a ser un proyecto.
+- **`x` lo elimina.**
+
+Configuración › Proyectos dice cuántos borradores hay sin terminar. Solo los
+proyectos nuevos se guardan como borrador: si sales de editar uno existente,
+queda como estaba.
+
 Si tienes dos o más perfiles, el formulario pregunta el **perfil del
 proyecto** («El perfil por defecto» o uno de la lista). Termina con una
 página opcional por repo con ruta, **Backlog técnico**: las clases que deben tener tests (`class_globs`) y los módulos
@@ -564,7 +581,7 @@ nunca se ignora.
 | `draco f`, `fetch` | Exportar un documento a texto |
 | `draco backlog scan` | Deuda técnica |
 | `draco init` | Configuración inicial |
-| `draco project` | Proyectos: `list`, `add`, `default`, `remove` |
+| `draco project` | Proyectos: `list` (también los borradores del modo visual, aparte), `add`, `default`, `remove` (también un borrador) |
 | `draco profile` | Perfiles: `list`, `add`, `default`, `remove` |
 | `draco template` | Plantillas: `init`, `list`, `validate`, `preview` |
 | `draco update` | Actualizar draco |

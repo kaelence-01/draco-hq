@@ -109,6 +109,9 @@ func (m *app) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case tea.KeyPressMsg:
 		if key.Matches(msg, quitKey) {
+			for len(m.stack) > 1 {
+				m.pop()
+			}
 			return m, tea.Quit
 		}
 		if !m.captured(msg) {
