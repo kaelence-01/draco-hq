@@ -99,6 +99,9 @@ func (s *settings) sections() []section {
 	if c.DefaultProject != "" {
 		proj.status += "; por defecto: " + c.DefaultProject
 	}
+	if n := len(c.ProjectDrafts); n > 0 {
+		proj.status += "; " + plural(n, "borrador sin terminar", "borradores sin terminar")
+	}
 	prof := section{name: "Perfiles", optional: true}
 	switch p, name, err := c.Profile(""); {
 	case err != nil:

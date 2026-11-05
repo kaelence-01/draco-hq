@@ -90,7 +90,7 @@ func (f *exportForm) next() (screen, error) {
 	return newExportDocs(&exportRun{bundle: bundle, session: fetch.NewSession(bundle.Docs, target)}), nil
 }
 
-func (f *exportForm) view(width, height int) string { return formView(f.form, f.err, width) }
+func (f *exportForm) view(width, height int) string { return formView(f.form, f.err, width, height) }
 
 // exportRun is what the screens of Exportar share after the form.
 type exportRun struct {

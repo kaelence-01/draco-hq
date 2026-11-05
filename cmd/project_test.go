@@ -39,6 +39,27 @@ func TestProjectAddListDefaultRemove(t *testing.T) {
 	}
 }
 
+func TestProjectDraftsAreListedNotUsed(t *testing.T) {
+	configHome(t)
+	writeConfig(t, &config.Config{
+		Projects:      map[string]*config.ProjectConfig{"pagos": {BackendPath: "/repos/pagos-api"}},
+		ProjectDrafts: map[string]*config.ProjectConfig{"reportes": {VCSOrg: "mi-org"}},
+	})
+	_, out, _ := run("project", "list")
+	if !strings.Contains(out, "Borradores") || !strings.Contains(out, "reportes  (borrador: sin rutas de backend ni de frontend)") {
+		t.Errorf("list muestra los borradores aparte, con lo que les falta:\n%s", out)
+	}
+	if code, _, errOut := run("project", "default", "reportes"); code != exitError || !strings.Contains(errOut, "es un borrador") {
+		t.Errorf("un borrador no puede ser el proyecto por defecto: %d %s", code, errOut)
+	}
+	if code, out, _ := runWith("s\n", "project", "rm", "reportes"); code != exitOK || !strings.Contains(out, "Borrador 'reportes' eliminado") {
+		t.Errorf("rm elimina un borrador: %d %s", code, out)
+	}
+	if cfg := readConfig(t); cfg.ProjectDrafts != nil || len(cfg.Projects) != 1 {
+		t.Errorf("solo se quita el borrador: %v %v", cfg.DraftNames(), cfg.ProjectNames())
+	}
+}
+
 func TestProjectAddAsksItsProfile(t *testing.T) {
 	configHome(t)
 	writeConfig(t, &config.Config{DefaultProfile: "equipo", Profiles: map[string]*config.Profile{"equipo": {}, "servicios": {}}})

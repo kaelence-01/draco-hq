@@ -287,23 +287,104 @@ func TestFormRejectsAnExistingName(t *testing.T) {
 	}
 }
 
-func TestFormWithoutPathsIsNotSaved(t *testing.T) {
+func TestFormWithoutPathsStaysAsADraft(t *testing.T) {
 	m, f := newProjectsApp(t)
 	typeText(m, "nvacio")
 	for range 8 {
 		send(m, keyEnter)
 	}
-	if f.saves != 0 || !strings.Contains(view(m), "El proyecto no se guardó: sin rutas de backend ni de frontend") {
-		t.Errorf("sin rutas no se guarda: %d escrituras\n%s", f.saves, view(m))
+	out := view(m)
+	if _, ok := f.cfg.Projects["vacio"]; ok || f.cfg.ProjectDrafts["vacio"] == nil {
+		t.Fatalf("sin rutas no es un proyecto, queda como borrador: %v %v", f.cfg.ProjectNames(), f.cfg.DraftNames())
+	}
+	if !strings.Contains(out, "El proyecto no se guardó: sin rutas de backend ni de frontend") || !strings.Contains(out, "Quedó como borrador «vacio»") {
+		t.Errorf("dice por qué no se guardó y que quedó como borrador:\n%s", out)
 	}
 }
 
-func TestEscClosesTheFormWithoutSaving(t *testing.T) {
+func TestLeavingANewProjectKeepsADraft(t *testing.T) {
 	m, f := newProjectsApp(t)
 	typeText(m, "nreportes")
+	send(m, keyEnter)
+	typeText(m, "~/code/reportes-api")
 	send(m, keyEsc)
-	if f.saves != 0 || len(m.stack) != 2 {
-		t.Errorf("esc cierra el formulario sin guardar: %d escrituras, pila %d", f.saves, len(m.stack))
+	d := f.cfg.ProjectDrafts["reportes"]
+	if len(m.stack) != 2 || d == nil || d.BackendPath != "~/code/reportes-api" || len(f.cfg.Projects) != 2 {
+		t.Fatalf("esc cierra el formulario y guarda lo escrito como borrador, no como proyecto: pila %d, %+v", len(m.stack), f.cfg.ProjectDrafts)
+	}
+	assertNoToken(t, f)
+	out := view(m)
+	for _, want := range []string{"Quedó como borrador «reportes»", "reportes  borrador"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("falta %q: el borrador aparece en la lista, marcado:\n%s", want, out)
+		}
+	}
+}
+
+func TestNothingTypedLeavesNoDraft(t *testing.T) {
+	m, f := newProjectsApp(t)
+	typeText(m, "n")
+	send(m, keyEsc)
+	if f.saves != 0 || f.cfg.ProjectDrafts != nil {
+		t.Errorf("sin nada escrito no hay borrador: %d escrituras %v", f.saves, f.cfg.ProjectDrafts)
+	}
+}
+
+func TestCtrlCKeepsTheDraftToo(t *testing.T) {
+	m, f := newProjectsApp(t)
+	typeText(m, "ncobros")
+	if quit := send(m, keyCtrlC); !quit || f.cfg.ProjectDrafts["cobros"] == nil {
+		t.Errorf("ctrl+c sale y guarda el borrador: %v %v", quit, f.cfg.DraftNames())
+	}
+}
+
+func TestADraftIsResumedNeverUsed(t *testing.T) {
+	m, f := newProjectsApp(t, func(c *config.Config) {
+		c.ProjectDrafts = map[string]*config.ProjectConfig{"reportes": {VCSOrg: "mi-org"}}
+	})
+	for range 2 {
+		send(m, keyDown)
+	}
+	out := view(m)
+	for _, want := range []string{"▸ reportes  borrador", "no se puede usar hasta completarlo", "(sin rutas de", "enter retomar"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("falta %q: el borrador se distingue y dice qué le falta:\n%s", want, out)
+		}
+	}
+	typeText(m, "d")
+	if out := view(m); !strings.Contains(out, "Un borrador no se puede usar") || f.cfg.DefaultProject != "pagos" {
+		t.Errorf("un borrador no puede ser el proyecto por defecto:\n%s", out)
+	}
+
+	send(m, keyEnter)
+	if out := view(m); !strings.Contains(out, "Borrador reportes") || !strings.Contains(out, "reportes") {
+		t.Fatalf("enter retoma el borrador con su nombre:\n%s", out)
+	}
+	send(m, keyEnter)
+	typeText(m, "~/code/reportes-api")
+	for range 10 {
+		send(m, keyEnter)
+	}
+	p := f.cfg.Projects["reportes"]
+	if p == nil || p.BackendPath != "~/code/reportes-api" || p.VCSOrg != "mi-org" || f.cfg.ProjectDrafts != nil {
+		t.Errorf("al completarlo pasa a ser un proyecto, con lo que tenía, y deja de ser borrador: %+v %v", p, f.cfg.ProjectDrafts)
+	}
+}
+
+func TestRemoveADraft(t *testing.T) {
+	m, f := newProjectsApp(t, func(c *config.Config) {
+		c.ProjectDrafts = map[string]*config.ProjectConfig{"reportes": {VCSOrg: "mi-org"}}
+	})
+	for range 2 {
+		send(m, keyDown)
+	}
+	typeText(m, "x")
+	if out := view(m); !strings.Contains(out, "¿Eliminar el borrador «reportes»?") {
+		t.Fatalf("pide confirmar:\n%s", out)
+	}
+	typeText(m, "s")
+	if f.cfg.ProjectDrafts != nil || len(f.cfg.Projects) != 2 || !strings.Contains(view(m), "Borrador eliminado: reportes") {
+		t.Errorf("x elimina solo el borrador: %v %v", f.cfg.DraftNames(), f.cfg.ProjectNames())
 	}
 }
 

@@ -33,6 +33,7 @@ type profileForm struct {
 	report     func(note string, err error)
 	finish     tea.Cmd
 	form       *huh.Form
+	pages      pager
 }
 
 func newProfileForm(st *state, name string, mode profileMode, report func(string, error), finish tea.Cmd) *profileForm {
@@ -59,22 +60,24 @@ func (f *profileForm) build() *huh.Form {
 	}
 	first = append(first, huh.NewSelect[string]().Title("Destino de los documentos").Description("Tracker: Jira, el único disponible").
 		Options(huh.NewOption("Confluence", "confluence"), huh.NewOption("Carpeta Markdown local", "markdown")).Value(&f.docs))
-	pages := []*huh.Group{
-		huh.NewGroup(first...),
-		huh.NewGroup(huh.NewInput().Title("Space de Confluence").Placeholder("DEV").Description("Vacío: el de cada proyecto").Value(&f.space)).
-			WithHideFunc(func() bool { return f.docs != "confluence" }),
-		huh.NewGroup(huh.NewInput().Title("Carpeta de los documentos").Placeholder("./docs/despliegues").Value(&f.path).Validate(func(s string) error {
+	pages := []page{
+		newPage("Destino", first...),
+		newPage("Confluence", huh.NewInput().Title("Space de Confluence").Placeholder("DEV").Description("Vacío: el de cada proyecto").Value(&f.space)).
+			hiddenWhen(func() bool { return f.docs != "confluence" }),
+		newPage("Carpeta Markdown", huh.NewInput().Title("Carpeta de los documentos").Placeholder("./docs/despliegues").Value(&f.path).Validate(func(s string) error {
 			if strings.TrimSpace(s) == "" {
 				return errors.New("falta la carpeta")
 			}
 			return nil
-		})).WithHideFunc(func() bool { return f.docs != "markdown" }),
+		})).hiddenWhen(func() bool { return f.docs != "markdown" }),
 	}
 	last := []huh.Field{huh.NewInput().Title("Carpeta de plantillas del perfil").Description("Opcional, con deploy/ y qa/ dentro. Vacío: la plantilla incluida").Value(&f.template)}
 	if f.st.cfg.DefaultProfile != f.name || f.mode == profileNew {
 		last = append(last, huh.NewConfirm().Title("¿Usarlo como perfil por defecto?").Affirmative("Sí").Negative("No").Value(&f.setDefault))
 	}
-	return newPagedForm(append(pages, huh.NewGroup(last...))...)
+	form, all := newPagedForm(append(pages, newPage("Plantilla", last...))...)
+	f.pages = all
+	return form
 }
 
 func (f *profileForm) title() string {
@@ -136,4 +139,6 @@ func (f *profileForm) save() (string, error) {
 	return note, err
 }
 
-func (f *profileForm) view(width, height int) string { return formView(f.form, "", width) }
+func (f *profileForm) view(width, height int) string {
+	return f.pages.formView(f.form, "", width, height)
+}

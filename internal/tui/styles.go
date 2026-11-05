@@ -64,7 +64,7 @@ func applyTheme(name string) {
 		helpStyles = help.Styles{ShortKey: plain.Foreground(lipgloss.BrightWhite).Bold(true), ShortDesc: plain.Foreground(lipgloss.White),
 			ShortSeparator: plain.Foreground(lipgloss.White), Ellipsis: plain.Foreground(lipgloss.White),
 			FullKey: plain.Foreground(lipgloss.BrightWhite).Bold(true), FullDesc: plain.Foreground(lipgloss.White), FullSeparator: plain.Foreground(lipgloss.White)}
-		formTheme = huh.ThemeFunc(huh.ThemeBase16)
+		formTheme = withFieldRule(huh.ThemeBase16)
 	case "mono":
 		accentStyle = plain.Bold(true)
 		warnStyle = plain.Bold(true)
@@ -75,7 +75,7 @@ func applyTheme(name string) {
 		boxStyle = box
 		helpStyles = help.Styles{ShortKey: plain.Bold(true), ShortDesc: plain, ShortSeparator: plain.Faint(true), Ellipsis: plain.Faint(true),
 			FullKey: plain.Bold(true), FullDesc: plain, FullSeparator: plain.Faint(true)}
-		formTheme = huh.ThemeFunc(monoForm)
+		formTheme = withFieldRule(monoForm)
 	default:
 		accentStyle = plain.Foreground(lipgloss.Cyan)
 		warnStyle = plain.Foreground(lipgloss.Yellow)
@@ -85,7 +85,7 @@ func applyTheme(name string) {
 		ruleStyle = plain.Foreground(lipgloss.BrightBlack)
 		boxStyle = box.BorderForeground(lipgloss.BrightBlack)
 		helpStyles = help.New().Styles
-		formTheme = huh.ThemeFunc(huh.ThemeBase16)
+		formTheme = withFieldRule(huh.ThemeBase16)
 	}
 }
 

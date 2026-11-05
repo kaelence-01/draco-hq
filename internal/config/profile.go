@@ -85,7 +85,7 @@ func (c *Config) ProfileNames() []string { return sortedKeys(c.Profiles) }
 // ProjectNames returns the project names, sorted.
 func (c *Config) ProjectNames() []string { return sortedKeys(c.Projects) }
 
-// SetProject adds or replaces a project.
+// SetProject adds or replaces a project; a draft with its name is done.
 func (c *Config) SetProject(name string, p *ProjectConfig) error {
 	if err := ValidName("proyecto", name); err != nil {
 		return err
@@ -94,7 +94,58 @@ func (c *Config) SetProject(name string, p *ProjectConfig) error {
 		c.Projects = map[string]*ProjectConfig{}
 	}
 	c.Projects[name] = p
+	delete(c.ProjectDrafts, name)
 	return nil
+}
+
+// DraftNames returns the names of the project drafts, sorted.
+func (c *Config) DraftNames() []string { return sortedKeys(c.ProjectDrafts) }
+
+// SetProjectDraft adds or replaces a project draft.
+func (c *Config) SetProjectDraft(name string, p *ProjectConfig) error {
+	if err := ValidName("borrador", name); err != nil {
+		return err
+	}
+	if c.ProjectDrafts == nil {
+		c.ProjectDrafts = map[string]*ProjectConfig{}
+	}
+	c.ProjectDrafts[name] = p
+	return nil
+}
+
+// RemoveProjectDraft deletes a project draft.
+func (c *Config) RemoveProjectDraft(name string) error {
+	if _, ok := c.ProjectDrafts[name]; !ok {
+		return fmt.Errorf("borrador '%s' no encontrado", name)
+	}
+	delete(c.ProjectDrafts, name)
+	if len(c.ProjectDrafts) == 0 {
+		c.ProjectDrafts = nil
+	}
+	return nil
+}
+
+// DraftName is the name a draft is saved under: typed when it is a valid
+// name that no project or other draft has (current is the draft being
+// edited), else the first free "borrador", "borrador-2"…
+func (c *Config) DraftName(typed, current string) string {
+	free := func(n string) bool {
+		_, project := c.Projects[n]
+		_, draft := c.ProjectDrafts[n]
+		return ValidName("borrador", n) == nil && !project && (!draft || n == current)
+	}
+	if typed = strings.TrimSpace(typed); free(typed) {
+		return typed
+	}
+	for i := 1; ; i++ {
+		n := "borrador"
+		if i > 1 {
+			n = fmt.Sprintf("borrador-%d", i)
+		}
+		if free(n) {
+			return n
+		}
+	}
 }
 
 // RemoveProject deletes a project; when it was the default, there is no
@@ -113,6 +164,9 @@ func (c *Config) RemoveProject(name string) error {
 // SetDefaultProject makes an existing project the default.
 func (c *Config) SetDefaultProject(name string) error {
 	if _, ok := c.Projects[name]; !ok {
+		if _, draft := c.ProjectDrafts[name]; draft {
+			return fmt.Errorf("'%s' es un borrador: complétalo antes de usarlo", name)
+		}
 		return fmt.Errorf("proyecto '%s' no encontrado", name)
 	}
 	c.DefaultProject = name

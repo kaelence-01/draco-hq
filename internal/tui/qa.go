@@ -112,7 +112,7 @@ func (f *qaForm) next() (screen, error) {
 	return newQAProgress(f.st, bundle, qa.NewSession(tracker, bundle.Docs, target)), nil
 }
 
-func (f *qaForm) view(width, height int) string { return formView(f.form, f.err, width) }
+func (f *qaForm) view(width, height int) string { return formView(f.form, f.err, width, height) }
 
 type qaStep int
 

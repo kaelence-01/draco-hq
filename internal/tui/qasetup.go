@@ -46,6 +46,7 @@ type qaSetup struct {
 	summary    bool
 	fieldsOnly bool
 	form       *huh.Form
+	pages      pager
 	err        string
 	spinner    spinner.Model
 	ctx        context.Context
@@ -94,13 +95,15 @@ func (q *qaSetup) build() *huh.Form {
 		}))
 	}
 	s := q.setup
-	fields := huh.NewGroup(
+	fields := newPage("Campos",
 		fieldSelect("Campo de errores de codificación", s.FieldsOf(provider.FieldNumber), &q.choice.CodingErrors),
 		fieldSelect("Campo de devoluciones a desarrollo", s.FieldsOf(provider.FieldNumber), &q.choice.DevReturns),
 		fieldSelect("Campo del estado del PR", s.FieldsOf(provider.FieldPRStatus), &q.choice.DevStatus),
 	)
 	if q.fieldsOnly {
-		return newPagedForm(fields)
+		form, pages := newPagedForm(fields)
+		q.pages = pages
+		return form
 	}
 	var names []huh.Option[string]
 	var reached []huh.Option[string]
@@ -112,8 +115,8 @@ func (q *qaSetup) build() *huh.Form {
 		}
 		reached = append(reached, huh.NewOption(label, st.ID).Selected(slices.Contains(q.choice.Statuses, st.ID)))
 	}
-	return newPagedForm(
-		huh.NewGroup(
+	form, pages := newPagedForm(
+		newPage("Estados",
 			huh.NewSelect[string]().Title("Estado con el que una tarea entra a QA").Description("Abre la ventana del modo Kanban").
 				Options(names...).Value(&q.choice.Testing).Height(min(len(names)+2, 7)),
 			huh.NewMultiSelect[string]().Title("Estados de una tarea que ya llegó a QA").
@@ -127,6 +130,8 @@ func (q *qaSetup) build() *huh.Form {
 		),
 		fields,
 	)
+	q.pages = pages
+	return form
 }
 
 func fieldSelect(title string, fields []provider.Field, v *string) *huh.Select[string] {
@@ -267,7 +272,7 @@ func (q *qaSetup) view(width, height int) string {
 	case q.summary:
 		return pad(lipgloss.NewStyle().Width(width - 2).Render(q.summaryText(width - 2)))
 	}
-	return formView(q.form, q.err, width)
+	return q.pages.formView(q.form, q.err, width, height)
 }
 
 // summaryText is what will be saved, by name, and where it came from.
