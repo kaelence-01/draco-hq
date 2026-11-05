@@ -126,6 +126,53 @@ func TestProjectAndProfileEditing(t *testing.T) {
 	}
 }
 
+func TestProjectDrafts(t *testing.T) {
+	cfg := &Config{Projects: map[string]*ProjectConfig{"pagos": {BackendPath: "/repos/pagos-api"}}}
+	if err := cfg.SetProjectDraft("facturacion", &ProjectConfig{VCSOrg: "mi-org"}); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(cfg.DraftNames(), []string{"facturacion"}) || !reflect.DeepEqual(cfg.ProjectNames(), []string{"pagos"}) {
+		t.Errorf("un borrador no es un proyecto: %q %q", cfg.DraftNames(), cfg.ProjectNames())
+	}
+	if _, _, err := cfg.GetProject("facturacion"); err == nil {
+		t.Error("un borrador no se puede usar como proyecto")
+	}
+	if err := cfg.SetDefaultProject("facturacion"); err == nil || !strings.Contains(err.Error(), "es un borrador") {
+		t.Errorf("un borrador no puede ser el proyecto por defecto: %v", err)
+	}
+	if err := cfg.SetProject("facturacion", &ProjectConfig{BackendPath: "/repos/fac-api"}); err != nil || len(cfg.DraftNames()) != 0 {
+		t.Errorf("al guardarlo como proyecto deja de ser borrador: %q %v", cfg.DraftNames(), err)
+	}
+	_ = cfg.SetProjectDraft("cobros", &ProjectConfig{})
+	if err := cfg.RemoveProjectDraft("cobros"); err != nil || cfg.ProjectDrafts != nil {
+		t.Errorf("sin borradores la sección desaparece: %v %v", cfg.ProjectDrafts, err)
+	}
+	if err := cfg.RemoveProjectDraft("cobros"); err == nil {
+		t.Error("quitar un borrador inexistente es un error")
+	}
+}
+
+func TestDraftName(t *testing.T) {
+	cfg := &Config{
+		Projects:      map[string]*ProjectConfig{"pagos": {}},
+		ProjectDrafts: map[string]*ProjectConfig{"borrador": {}, "cobros": {}},
+	}
+	for _, c := range []struct{ typed, current, want string }{
+		{"facturacion", "", "facturacion"},
+		{" facturacion ", "", "facturacion"},
+		{"", "", "borrador-2"},
+		{"mal nombre", "", "borrador-2"},
+		{"pagos", "", "borrador-2"},
+		{"cobros", "", "borrador-2"},
+		{"cobros", "cobros", "cobros"},
+		{"", "borrador", "borrador"},
+	} {
+		if got := cfg.DraftName(c.typed, c.current); got != c.want {
+			t.Errorf("DraftName(%q, %q) = %q, esperaba %q", c.typed, c.current, got, c.want)
+		}
+	}
+}
+
 func TestFirstProfileKeepsTheImplicitOne(t *testing.T) {
 	cfg := &Config{ConfluenceSpaceKey: "DEV"}
 	kept, err := cfg.KeepImplicitProfile("externo")

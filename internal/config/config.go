@@ -402,6 +402,10 @@ type Config struct {
 	DefaultProject     string                    `yaml:"default_project,omitempty"`
 	Projects           map[string]*ProjectConfig `yaml:"projects,omitempty"`
 
+	// ProjectDrafts are new projects left before they were complete. They
+	// keep what was typed and are never used as projects.
+	ProjectDrafts map[string]*ProjectConfig `yaml:"project_drafts,omitempty"`
+
 	// Profiles pick the platforms draco talks to; a config without them reads
 	// as one Jira + Confluence profile (see Profile).
 	DefaultProfile string              `yaml:"default_profile,omitempty"`
@@ -524,6 +528,9 @@ func mergeMissing(cfg, fileCfg *Config) {
 	if cfg.Projects == nil {
 		cfg.Projects = fileCfg.Projects
 	}
+	if cfg.ProjectDrafts == nil {
+		cfg.ProjectDrafts = fileCfg.ProjectDrafts
+	}
 	if cfg.DefaultProfile == "" {
 		cfg.DefaultProfile = fileCfg.DefaultProfile
 	}
@@ -539,6 +546,9 @@ func mergeMissing(cfg, fileCfg *Config) {
 func (c *Config) GetProject(name string) (*ProjectConfig, string, error) {
 	if name != "" {
 		proj, ok := c.Projects[name]
+		if _, draft := c.ProjectDrafts[name]; !ok && draft {
+			return nil, "", fmt.Errorf("'%s' es un borrador: complétalo en Proyectos antes de usarlo", name)
+		}
 		if !ok {
 			return nil, "", fmt.Errorf("proyecto '%s' no encontrado. Usa: draco project list", name)
 		}
