@@ -588,9 +588,24 @@ consolidado QA no entra.
 | `enter` | Abrirlo en el navegador (un documento Markdown, con su programa). En WSL usa `wslview` o `explorer.exe` |
 | `u` | Actualizarlo: abre Generar con la tarea y su proyecto; eliges los commits y draco propone actualizar el documento |
 | `e` | Exportarlo a texto |
+| `x` | Borrarlo (ver abajo) |
 
-Lo mismo en modo comando: `draco history` (abajo). Borrar un documento desde
-aquí llegará en una versión siguiente.
+**Borrar un documento** (`x`, también desde Recientes): una pantalla dice
+qué va a pasar y pide **escribir la tarea** (`OPS-7`) para confirmar; `esc`
+vuelve sin borrar.
+
+- En Confluence la página va a la **papelera** del space y se puede
+  restaurar desde ahí. Un documento Markdown se borra del disco: no hay
+  papelera.
+- Se quita el **enlace desde la tarea**, para que el consolidado QA no la dé
+  por documentada. Si no se puede quitar, draco lo dice y hay que quitarlo a
+  mano en la tarea.
+- Si el documento ya no existía (lo borraron desde Confluence), se quita el
+  enlace igual y sale del historial.
+- Solo se borra lo que está en el historial: lo que publicaste con draco.
+  Si el perfil del documento ahora publica en otro destino, no se borra nada.
+
+Lo mismo en modo comando: `draco history` y `draco history rm` (abajo).
 
 ---
 
@@ -611,7 +626,7 @@ nunca se ignora.
 | `draco g`, `gen`, `generate` | Documento de despliegue |
 | `draco qa` | Consolidado QA |
 | `draco f`, `fetch` | Exportar un documento a texto |
-| `draco history`, `hist` | Los documentos de despliegue que publicaste |
+| `draco history`, `hist` | Los documentos de despliegue que publicaste; `rm` borra uno |
 | `draco backlog scan` | Deuda técnica |
 | `draco init` | Configuración inicial |
 | `draco project` | Proyectos: `list` (también los borradores del modo visual, aparte), `add`, `default`, `remove` (también un borrador) |
@@ -672,12 +687,17 @@ draco f -i OPS-7 --space DEV
 draco history             # los últimos 10
 draco history -p pagos    # solo los de un proyecto
 draco hist -n 30          # los últimos 30
+draco history rm -i OPS-7 # borra el documento de OPS-7 y su enlace
 ```
 
 Cada documento con su tarea, fecha, si se creó o se actualizó, el título y la
 dirección; `⚠` si quedó sin enlace desde la tarea. `draco g` lo agrega al
 publicar (nunca con `--dry-run`). Si no puede guardarlo, el documento queda
 publicado igual y draco lo avisa.
+
+`draco history rm` (o `remove`) borra como `x` en el modo visual: pide
+escribir la tarea para confirmar, y si la tarea tiene varios documentos en el
+historial, pregunta cuál. No tiene un flag para saltarse la confirmación.
 
 ### Backlog técnico
 

@@ -3,6 +3,7 @@ package cmd
 import (
 	"errors"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -124,5 +125,127 @@ func TestEmptyHistory(t *testing.T) {
 	fakeEnv(t, &fakeTracker{})
 	if code, out, _ := run("history"); code != exitOK || !strings.Contains(out, "Todavía no hay documentos") {
 		t.Errorf("historial vacío: código %d\n%s", code, out)
+	}
+}
+
+// published creates the document of OPS-7 and returns its entry.
+func published(t *testing.T) history.Entry {
+	t.Helper()
+	if code, out, errOut := runWith("1\n\n", "g", "-i", "OPS-7", "-b", "a1b2c3d"); code != exitOK {
+		t.Fatalf("código %d\n%s\n%s", code, out, errOut)
+	}
+	return historyEntries(t)[0]
+}
+
+func TestHistoryRemoveDeletesUnlinksAndForgets(t *testing.T) {
+	trk := &fakeTracker{}
+	dir := fakeEnv(t, trk)
+	e := published(t)
+
+	code, out, errOut := runWith("ops-7\n", "history", "rm", "-i", "ops-7")
+	if code != exitOK {
+		t.Fatalf("código %d\n%s\n%s", code, out, errOut)
+	}
+	for _, want := range []string{e.Title, "Se borra el archivo: no hay papelera.", "Se quita el enlace desde OPS-7 en jira", "Escribe OPS-7 para confirmar", "Documento borrado", "Enlace quitado desde OPS-7"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("falta %q:\n%s", want, out)
+		}
+	}
+	if files, _ := filepath.Glob(filepath.Join(dir, "*.md")); len(files) != 0 {
+		t.Errorf("el documento sigue en la carpeta: %v", files)
+	}
+	if len(trk.unlinked) != 1 || trk.unlinked[0] != "OPS-7 → "+e.DocID {
+		t.Errorf("se quita el enlace de ese documento: %v", trk.unlinked)
+	}
+	if entries := historyEntries(t); len(entries) != 0 {
+		t.Errorf("sale del historial: %+v", entries)
+	}
+}
+
+func TestHistoryRemoveNeedsTheTaskTyped(t *testing.T) {
+	trk := &fakeTracker{}
+	dir := fakeEnv(t, trk)
+	published(t)
+	for _, input := range []string{"\n", "OPS-8\n", "s\n"} {
+		code, out, _ := runWith(input, "history", "rm", "-i", "OPS-7")
+		if code != exitOK || !strings.Contains(out, "Cancelado: no se borró nada.") {
+			t.Errorf("%q no confirma: código %d\n%s", input, code, out)
+		}
+	}
+	if files, _ := filepath.Glob(filepath.Join(dir, "*.md")); len(files) != 1 || len(trk.unlinked) != 0 || len(historyEntries(t)) != 1 {
+		t.Errorf("sin confirmar no se toca nada: %v %v", files, trk.unlinked)
+	}
+}
+
+func TestHistoryRemoveOnlyWhatIsInTheHistory(t *testing.T) {
+	fakeEnv(t, &fakeTracker{})
+	code, _, errOut := run("history", "rm", "-i", "OPS-7")
+	if code != exitError || !strings.Contains(errOut, "OPS-7 no tiene documentos en el historial") {
+		t.Errorf("una tarea sin documentos en el historial: código %d\n%s", code, errOut)
+	}
+	if code, _, errOut := run("history", "rm"); code != exitUsage || !strings.Contains(errOut, "falta -i/--issue") {
+		t.Errorf("sin -i es un error de uso: código %d\n%s", code, errOut)
+	}
+}
+
+func TestHistoryRemoveChoosesAmongTheTaskDocuments(t *testing.T) {
+	dir := fakeEnv(t, &fakeTracker{})
+	first := published(t)
+	// [2] Crear nuevo, location [1], Enter to confirm.
+	if code, out, _ := runWith("2\n1\n\n", "g", "-i", "OPS-7", "-b", "a1b2c3d"); code != exitOK {
+		t.Fatalf("segundo documento:\n%s", out)
+	}
+	if entries := historyEntries(t); len(entries) != 2 {
+		t.Fatalf("se esperaban dos documentos de OPS-7: %+v", entries)
+	}
+	code, out, _ := runWith("2\nOPS-7\n", "history", "rm", "-i", "OPS-7")
+	if code != exitOK || !strings.Contains(out, "OPS-7 tiene 2 documentos en el historial") {
+		t.Fatalf("pregunta cuál: código %d\n%s", code, out)
+	}
+	entries := historyEntries(t)
+	if len(entries) != 1 || entries[0].DocID == first.DocID {
+		t.Errorf("se borra el elegido (el más antiguo, [2]): %+v", entries)
+	}
+	if files, _ := filepath.Glob(filepath.Join(dir, "*.md")); len(files) != 1 {
+		t.Errorf("queda un documento: %v", files)
+	}
+}
+
+func TestHistoryRemoveWarnsWhatItCouldNotDo(t *testing.T) {
+	trk := &fakeTracker{unlinkErr: errors.New("sin permisos (403)")}
+	dir := fakeEnv(t, trk)
+	published(t)
+	files, _ := filepath.Glob(filepath.Join(dir, "*.md"))
+	if err := os.Remove(files[0]); err != nil {
+		t.Fatal(err)
+	}
+	code, out, _ := runWith("OPS-7\n", "history", "rm", "-i", "OPS-7")
+	if code != exitOK || !strings.Contains(out, "el documento ya no existía") ||
+		!strings.Contains(out, "no se pudo quitar el enlace desde OPS-7: sin permisos (403)") || !strings.Contains(out, "consolidado QA la dará por documentada") {
+		t.Errorf("avisa que ya no existía y que el enlace quedó: código %d\n%s", code, out)
+	}
+	if len(historyEntries(t)) != 0 {
+		t.Error("un documento que ya no existe sale del historial")
+	}
+}
+
+func TestHistoryRemoveRefusesAnotherDestination(t *testing.T) {
+	trk := &fakeTracker{}
+	dir := fakeEnv(t, trk)
+	e := published(t)
+	path, _ := historyPath()
+	e.Dest = "confluence"
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	if err := history.Record(path, e); err != nil {
+		t.Fatal(err)
+	}
+	code, _, errOut := runWith("OPS-7\n", "history", "rm", "-i", "OPS-7")
+	if code != exitError || !strings.Contains(errOut, "no se borra nada") {
+		t.Errorf("si el perfil publica en otro destino, no se borra: código %d\n%s", code, errOut)
+	}
+	if files, _ := filepath.Glob(filepath.Join(dir, "*.md")); len(files) != 1 || len(trk.unlinked) != 0 {
+		t.Errorf("nada se tocó: %v %v", files, trk.unlinked)
 	}
 }

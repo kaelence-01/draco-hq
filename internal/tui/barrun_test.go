@@ -25,7 +25,7 @@ var routeSpecs = []cli.Command{
 	}},
 	{Names: []string{"history", "hist"}, Summary: "Historial", Flags: []cli.Flag{
 		{Long: "--project", Short: "-p", Value: true}, {Long: "--limit", Short: "-n", Value: true},
-	}},
+	}, Subcommands: []cli.Command{{Names: []string{"remove", "rm"}, Summary: "Borra", Flags: []cli.Flag{{Long: "--issue", Short: "-i", Value: true}}}}},
 	{Names: []string{"init"}, Summary: "Configuración inicial"},
 	{Names: []string{"profile"}, Summary: "Perfiles", Subcommands: []cli.Command{{Names: []string{"list", "ls"}}, {Names: []string{"add"}}}},
 	{Names: []string{"project"}, Summary: "Proyectos", Subcommands: []cli.Command{{Names: []string{"list", "ls"}}, {Names: []string{"add"}}}},

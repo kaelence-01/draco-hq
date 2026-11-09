@@ -22,6 +22,7 @@ func (t *tracker) LinkDocument(_ context.Context, _ string, d provider.DocRef) e
 	t.linked = append(t.linked, d)
 	return nil
 }
+func (*tracker) UnlinkDocument(context.Context, string, provider.DocRef) error { return nil }
 
 type changes struct{}
 

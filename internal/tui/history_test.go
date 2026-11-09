@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -13,6 +14,7 @@ import (
 	"github.com/kaelence-01/draco-hq/internal/config"
 	"github.com/kaelence-01/draco-hq/internal/history"
 	"github.com/kaelence-01/draco-hq/internal/profile"
+	"github.com/kaelence-01/draco-hq/internal/provider"
 )
 
 var (
@@ -26,6 +28,32 @@ type historyEnv struct {
 	path    string
 	opened  []string
 	openErr error
+
+	// bundle is what opening a profile gives; nil fails as without network.
+	bundle  *profile.Bundle
+	docs    *fakeDocs
+	tracker *fakeTracker
+}
+
+// fakeDocs is a destination that only deletes.
+type fakeDocs struct {
+	provider.DocStore
+	deleted []string
+	err     error
+}
+
+func (d *fakeDocs) Delete(_ context.Context, r provider.DocRef) error {
+	d.deleted = append(d.deleted, r.ID)
+	return d.err
+}
+
+// withProfile makes opening a profile give a Confluence destination and a
+// tracker that record what is deleted and unlinked.
+func (e *historyEnv) withProfile() *historyEnv {
+	e.docs, e.tracker = &fakeDocs{}, &fakeTracker{}
+	e.bundle = &profile.Bundle{Name: "equipo", Profile: config.Profile{Tracker: config.ProviderConfig{Provider: "jira"}, Docs: config.ProviderConfig{Provider: "confluence"}},
+		Tracker: e.tracker, Docs: e.docs}
+	return e
 }
 
 // recorded is a history with a document of each kind, the newest first:
@@ -62,8 +90,14 @@ func newHistoryApp(t *testing.T, entries []history.Entry, width, height int) *hi
 			e.opened = append(e.opened, u)
 			return e.openErr
 		},
-		OpenProfile: func(*config.Config, profile.Options) (*profile.Bundle, error) {
-			return nil, errors.New("sin red en el test")
+		OpenProfile: func(_ *config.Config, o profile.Options) (*profile.Bundle, error) {
+			if e.bundle == nil {
+				return nil, errors.New("sin red en el test")
+			}
+			if o.Name != "equipo" || !o.AnyScope {
+				t.Errorf("se abre el perfil del documento, sin exigir el space: %+v", o)
+			}
+			return e.bundle, nil
 		},
 	})
 	e.m.Update(tea.WindowSizeMsg{Width: width, Height: height})

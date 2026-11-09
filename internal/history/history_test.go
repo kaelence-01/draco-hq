@@ -130,3 +130,31 @@ func TestDeployEntry(t *testing.T) {
 		t.Errorf("entrada\n%+v\nse esperaba\n%+v", got, want)
 	}
 }
+
+func TestRemoveTakesOutOnlyThatDocument(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "history.json")
+	for _, e := range []Entry{entry("OPS-7", "1", "pagos"), entry("OPS-12", "2", "pagos")} {
+		if err := Record(path, e); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := Remove(path, entry("OPS-7", "1", "pagos")); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := Load(path); !reflect.DeepEqual(issues(got), []string{"OPS-12"}) {
+		t.Errorf("queda solo OPS-12: %v", issues(got))
+	}
+}
+
+func TestRefAndCheckDest(t *testing.T) {
+	e := entry("OPS-7", "1", "pagos")
+	if r := e.Ref(); r.ID != "1" || r.URL != e.URL || r.Title != e.Title {
+		t.Errorf("Ref: %+v", r)
+	}
+	if err := e.CheckDest("confluence"); err != nil {
+		t.Errorf("mismo destino: %v", err)
+	}
+	if err := e.CheckDest("markdown"); err == nil || !strings.Contains(err.Error(), "no se borra nada") {
+		t.Errorf("otro destino no se toca: %v", err)
+	}
+}

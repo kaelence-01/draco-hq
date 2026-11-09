@@ -80,7 +80,8 @@ internal/tui/
   logo.go       DRACO en letras grandes
   home.go       pantalla principal (menú con descripciones y atajos, panel de la función elegida)
   homecontext.go  principal: cajas «Proyecto activo» y «Tu configuración»
-  history.go    Historial y la caja «Recientes» de la principal: lista con una pestaña por proyecto, detalle, abrir, actualizar y exportar
+  history.go    Historial y la caja «Recientes» de la principal: lista con una pestaña por proyecto, detalle, abrir, actualizar, exportar y borrar
+  historyremove.go  Historial: confirmar escribiendo la tarea, borrar el documento y su enlace, y el resultado
   projects.go   Proyectos: lista con filtro, activo, por defecto, borrar
   projectform.go  formulario de Huh para crear y editar un proyecto, y retomar un borrador
   form.go       formularios: páginas con nombre y paginador, línea bajo cada campo, alto disponible
@@ -590,10 +591,30 @@ formularios.
   navegador o, en Markdown, el programa del archivo); `u` abre Generar con
   la tarea y el proyecto, que encuentra el documento y propone actualizarlo
   (y lo vuelve a enlazar); `e` abre Exportar con la tarea. Un proyecto que
-  ya no está en la config se avisa en el formulario de Generar.
+  ya no está en la config se avisa en el formulario de Generar. `x` (en la
+  ayuda completa y en el detalle) abre Borrar.
+- **Borrar** (`historyremove.go`), una pantalla de la pila:
+  - Dice qué va a pasar: el título y la dirección; que en Confluence va a la
+    papelera y en Markdown no hay papelera; que se quita el enlace desde la
+    tarea.
+  - Un campo pide **escribir la tarea** (sin importar mayúsculas). Otra cosa
+    no confirma, y `esc` vuelve sin borrar.
+  - En un `tea.Cmd`: abre el perfil del documento con `AnyScope` (para
+    borrar por id no hace falta el space), comprueba que ese perfil siga
+    publicando en el destino del documento (`Entry.CheckDest`), corre
+    `deploy.Remove` y saca la entrada del historial (`state.forget`).
+  - Mientras borra, `esc` no sale, como al publicar.
+  - El resultado separa lo que pasó: documento borrado o que ya no existía,
+    enlace quitado o que hay que quitarlo a mano, y si siguió en el
+    historial. Queda una línea sobre el pie; `enter` vuelve, y la lista se
+    lee de nuevo.
+  - Si el borrado falla, el error queda sobre el campo y no se toca ni el
+    enlace ni el historial.
 - **Pantalla:** lista y detalle con `panels` desde 96 columnas; debajo, la
   lista y el detalle bajo ella. La barra `/history -p pagos` la abre en esa
-  pestaña; `-n` es del modo comando.
+  pestaña; `/history rm -i OPS-7` abre Historial en ese documento y su
+  confirmación (con varios documentos de la tarea, solo Historial para
+  elegir); `-n` es del modo comando.
 - **Se lee de nuevo** al volver a la principal o a Historial (`init`), así
   que lo recién publicado aparece al volver al inicio. El marco vuelve a
   pedir las teclas después de dibujar el cuerpo, porque las de la principal

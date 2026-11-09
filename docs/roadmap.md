@@ -395,7 +395,7 @@ o el consolidado QA la daría por documentada.
 | # | Rama | Contenido | Estado |
 |---|---|---|---|
 | 076 | `feature/historial-recientes` | Historial local (`history.json` junto a la config, sin red): `draco history [-p] [-n]`, la caja «Recientes» bajo el menú con pestañas por proyecto (`tab`, `←→`) y la pantalla Historial (7) con detalle; abrir en el navegador, actualizar (Generar con la tarea) y exportar | ✅ |
-| 077 | `feature/historial-borrar` | Borrar un documento desde el historial: `DocStore.Delete` (Confluence a la papelera, Markdown el archivo), `Tracker.UnlinkDocument` (un fallo viaja como `LinkErr`), confirmación escribiendo la tarea y su comando | ⬜ |
+| 077 | `feature/historial-borrar` | Borrar un documento desde el historial: `DocStore.Delete` (Confluence a la papelera, Markdown el archivo), `Tracker.UnlinkDocument` (un fallo viaja como `LinkErr`), `deploy.Remove`; `x` en Recientes e Historial con confirmación escribiendo la tarea, y `draco history rm -i`. Solo lo que está en el historial y sin `--yes`, por decisión del autor | ✅ |
 
 ### v1.0
 
