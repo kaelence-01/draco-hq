@@ -58,8 +58,10 @@ func fakeEnvWith(t *testing.T, cfg *config.Config, trk provider.Tracker) string 
 	if err != nil {
 		t.Fatal(err)
 	}
-	prevLoad, prevOpen, prevDialog := loadConfig, openProfile, saveDialog
-	t.Cleanup(func() { loadConfig, openProfile, saveDialog = prevLoad, prevOpen, prevDialog })
+	prevLoad, prevOpen, prevDialog, prevHistory := loadConfig, openProfile, saveDialog, historyPath
+	t.Cleanup(func() { loadConfig, openProfile, saveDialog, historyPath = prevLoad, prevOpen, prevDialog, prevHistory })
+	historyFile := filepath.Join(t.TempDir(), "history.json")
+	historyPath = func() (string, error) { return historyFile, nil }
 	loadConfig = func() (*config.Config, error) { return cfg, nil }
 	openProfile = func(*config.Config, profile.Options) (*profile.Bundle, error) {
 		return &profile.Bundle{

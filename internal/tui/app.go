@@ -149,6 +149,9 @@ func (m *app) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		for len(m.stack) > 1 {
 			m.pop()
 		}
+		if i, ok := m.top().(initer); ok {
+			return m, i.init()
+		}
 		return m, nil
 	}
 	top, cmd := m.top().update(msg)
@@ -185,6 +188,10 @@ func (m *app) render() string {
 	header, footer := m.header(), m.footer()
 	h := max(m.height-lipgloss.Height(header)-lipgloss.Height(footer), 0)
 	body := lipgloss.NewStyle().Width(m.width).Height(h).MaxHeight(h).Render(m.top().view(m.width, h))
+	// A screen's keys can depend on what its view had room for.
+	if again := m.footer(); lipgloss.Height(again) == lipgloss.Height(footer) {
+		footer = again
+	}
 	return lipgloss.JoinVertical(lipgloss.Left, header, body, footer)
 }
 

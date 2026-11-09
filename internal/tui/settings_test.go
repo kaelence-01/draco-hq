@@ -57,8 +57,7 @@ func newSettingsApp(t *testing.T, file *config.Config, opts ...func(*Deps)) *set
 	}
 	e.m = newApp(d)
 	e.m.Update(tea.WindowSizeMsg{Width: 110, Height: 34})
-	send(e.m, keyUp)
-	send(e.m, keyEnter)
+	send(e.m, press('6', "6"))
 	return e
 }
 

@@ -12,6 +12,6 @@ import (
 // terminal.
 var runTUI = func(a *App) error {
 	d := tui.Deps{LoadConfig: loadConfig, Version: build.Version, LoadFile: config.LoadFile, SaveConfig: saveConfig, LoadGtt: config.GttConfig, OpenProfile: openProfile, Scan: scanRepo, Now: now, CheckUpdate: latestVersion,
-		Commands: commandSpecs(), Help: helpText}
+		Commands: commandSpecs(), Help: helpText, HistoryPath: historyPath, OpenURL: openURL}
 	return tui.Run(context.Background(), d, a.rawIn, a.Out)
 }

@@ -23,6 +23,9 @@ var routeSpecs = []cli.Command{
 		{Long: "--project", Short: "-p", Value: true}, {Long: "--profile", Value: true}, {Long: "--space", Short: "-s", Value: true},
 		{Long: "--template", Value: true}, {Long: "--dry-run"},
 	}},
+	{Names: []string{"history", "hist"}, Summary: "Historial", Flags: []cli.Flag{
+		{Long: "--project", Short: "-p", Value: true}, {Long: "--limit", Short: "-n", Value: true},
+	}},
 	{Names: []string{"init"}, Summary: "Configuración inicial"},
 	{Names: []string{"profile"}, Summary: "Perfiles", Subcommands: []cli.Command{{Names: []string{"list", "ls"}}, {Names: []string{"add"}}}},
 	{Names: []string{"project"}, Summary: "Proyectos", Subcommands: []cli.Command{{Names: []string{"list", "ls"}}, {Names: []string{"add"}}}},
