@@ -120,6 +120,7 @@ Sin entradas: se hizo antes de que existiera la bitácora.
 | [073](./fase-7/073-qa-setup-directo.md) | Detectar desde Jira sin buscarlo | `fix/qa-setup-directo` | 2026-11-04 | `enter` en QA detecta desde Jira mientras `qa_jira` está incompleto; el formulario sin ejemplos que parezcan valores; resumen por nombre que se guarda con `enter` o pide solo los campos que faltan |
 | [074](./fase-7/074-borradores-proyecto.md) | Proyectos en borrador | `feature/borradores-proyecto` | 2026-11-05 | Un proyecto nuevo que se deja sin terminar (`esc`, `ctrl+c`, sin rutas) queda en `project_drafts`; en Proyectos aparece atenuado, se retoma con `enter` y no se puede usar; `ctrl+c` cierra las pantallas antes de salir |
 | [075](./fase-7/075-tui-formularios.md) | Formularios con paginador y línea bajo cada campo | `feature/tui-formularios` | 2026-11-05 | `●○○  Página N de M · nombre` en los formularios de varias páginas; línea `┄` entre campos del ancho del formulario; el formulario recibe su alto y huh se desplaza al campo con foco (a 80×24 el último campo ya no queda bajo el pie) |
+| [076](./fase-7/076-historial-recientes.md) | Historial de documentos y Recientes en la principal | `feature/historial-recientes` | 2026-11-09 | `history.json` local (una entrada por documento, sin red); `draco history [-p] [-n]`; caja Recientes bajo el menú con pestañas por proyecto (`tab`, `←→`) y pantalla Historial (7): abrir, actualizar, exportar; borrar queda para la 077 |
 
 ## Formato de cada entrada
 

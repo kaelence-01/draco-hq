@@ -332,8 +332,13 @@ en la consola clásica de Windows (`cmd`) se ve más limitado.
 ### La pantalla principal
 
 - A la izquierda, el **menú**, con el logo arriba. Cada opción lleva un
-  número: `1` a `6` abren la función directo, sin mover el cursor. Desde 96
+  número: `1` a `7` abren la función directo, sin mover el cursor. Desde 96
   columnas, cada opción trae una línea con lo que hace.
+- Bajo el menú (desde 96 columnas, si hay alto), **Recientes**: los últimos
+  10 documentos de despliegue que publicaste, con una pestaña por proyecto.
+  `tab` pasa a esa lista: con `↑↓` eliges un documento, el panel de la
+  derecha muestra su detalle y `enter`, `u` y `e` lo abren, lo actualizan o
+  lo exportan, como en [Historial](#historial). `tab` vuelve al menú.
 - A la derecha (desde 96 columnas), un **panel** con qué hace la función
   elegida, las pantallas por las que pasa y el mismo trabajo en modo comando.
   Si la terminal es más angosta, ese texto y el comando van debajo del menú.
@@ -361,7 +366,8 @@ en la consola clásica de Windows (`cmd`) se ve más limitado.
 | `esc` | Vuelve a la pantalla anterior |
 | `?` | Muestra todas las teclas de la pantalla, también las que el pie compacto no trae (de nuevo, las oculta) |
 | `q` | Sale, desde la principal (el pie compacto de la principal no lo muestra: está en `?`) |
-| `1`–`6` | En la principal, abre esa función directo |
+| `1`–`7` | En la principal, abre esa función directo |
+| `tab` | En la principal, pasa del menú a Recientes y vuelve |
 | `enter` / `tab` / `shift+tab` | En un formulario: siguiente campo / siguiente / anterior. Un formulario de varias páginas dice arriba en cuál estás (`●○○  Página 1 de 3 · Jira`); si no cabe en la terminal, se desplaza hasta el campo en el que estás |
 
 ### Barra de comandos
@@ -560,6 +566,32 @@ Los temas son tres:
 - `alto-contraste`: colores brillantes y negrita en lo importante;
 - `mono`: sin colores.
 
+### Historial
+
+Los documentos de despliegue que publicaste con draco (desde Generar o con
+`draco g`), del más reciente al más antiguo. Se guardan en tu equipo, en
+`history.json` junto a `config.yaml`, y se ven sin red. Un documento
+actualizado varias veces aparece una sola vez, con la última fecha. El
+consolidado QA no entra.
+
+- A la izquierda la lista: tarea, cuándo (`hoy 11:00`, `ayer 15:30`,
+  `04/11`), si se creó o se actualizó y el proyecto. Arriba, una pestaña por
+  proyecto (`[Todos]  facturacion  pagos`): `←→` filtra sin salir de la
+  pantalla. A la derecha, el detalle del elegido.
+- `⚠ sin enlace`: la tarea no enlaza el documento, así que el consolidado QA
+  la marcará sin documentación. `u` lo actualiza y lo vuelve a enlazar.
+
+| Tecla | Acción |
+|---|---|
+| `↑↓` | Elegir un documento |
+| `←→` | Cambiar de proyecto (con dos proyectos o más) |
+| `enter` | Abrirlo en el navegador (un documento Markdown, con su programa). En WSL usa `wslview` o `explorer.exe` |
+| `u` | Actualizarlo: abre Generar con la tarea y su proyecto; eliges los commits y draco propone actualizar el documento |
+| `e` | Exportarlo a texto |
+
+Lo mismo en modo comando: `draco history` (abajo). Borrar un documento desde
+aquí llegará en una versión siguiente.
+
 ---
 
 ## 5. Modo comando
@@ -579,6 +611,7 @@ nunca se ignora.
 | `draco g`, `gen`, `generate` | Documento de despliegue |
 | `draco qa` | Consolidado QA |
 | `draco f`, `fetch` | Exportar un documento a texto |
+| `draco history`, `hist` | Los documentos de despliegue que publicaste |
 | `draco backlog scan` | Deuda técnica |
 | `draco init` | Configuración inicial |
 | `draco project` | Proyectos: `list` (también los borradores del modo visual, aparte), `add`, `default`, `remove` (también un borrador) |
@@ -632,6 +665,19 @@ draco f -i OPS-7                  # abre el diálogo de guardar del sistema
 draco f -i OPS-7 -o despliegue.txt
 draco f -i OPS-7 --space DEV
 ```
+
+### Historial
+
+```bash
+draco history             # los últimos 10
+draco history -p pagos    # solo los de un proyecto
+draco hist -n 30          # los últimos 30
+```
+
+Cada documento con su tarea, fecha, si se creó o se actualizó, el título y la
+dirección; `⚠` si quedó sin enlace desde la tarea. `draco g` lo agrega al
+publicar (nunca con `--dry-run`). Si no puede guardarlo, el documento queda
+publicado igual y draco lo avisa.
 
 ### Backlog técnico
 
@@ -732,4 +778,5 @@ pegues tu token** ni datos de tu empresa.
    - Windows: Configuración › Variables de entorno de tu usuario;
    - Linux y macOS: la línea bajo `# draco` en `~/.bashrc` o `~/.zshrc`.
 3. Si no la vas a usar más, borra `~/.config/draco/`, que tiene tu
-   configuración, tu token y las plantillas propias.
+   configuración, tu token, las plantillas propias y el historial de
+   documentos.
