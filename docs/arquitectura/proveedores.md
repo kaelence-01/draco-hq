@@ -50,6 +50,7 @@ type Tracker interface {
     Issue(ctx context.Context, key string) (*Issue, error)
     Me(ctx context.Context) (*User, error)
     LinkDocument(ctx context.Context, issueKey string, doc DocRef) error
+    UnlinkDocument(ctx context.Context, issueKey string, doc DocRef) error
 }
 
 type DocStore interface {
@@ -59,6 +60,7 @@ type DocStore interface {
     Locations(ctx context.Context, q LocationQuery) (*Locations, error)
     Create(ctx context.Context, near DocRef, doc Document) (*DocRef, error)
     Update(ctx context.Context, ref DocRef, doc Document) (*DocRef, error)
+    Delete(ctx context.Context, ref DocRef) error
     Search(ctx context.Context, text string) ([]DocRef, error)
     SearchTitle(ctx context.Context, text string) ([]DocRef, error)
     Export(ctx context.Context, ref DocRef) (*Exported, error)
@@ -97,6 +99,15 @@ type ChangeSource interface {
   `git.Local` es el clon local. `CurrentBranch` es la rama que lee
   `RecentCommits` («HEAD» si está separada): el selector de commits de la TUI
   la muestra.
+- **`DocStore.Delete` y `Tracker.UnlinkDocument`** (bitácora 077), para
+  borrar desde el historial con `deploy.Remove`: primero el documento y
+  después el enlace; si el documento no se pudo borrar, el enlace queda.
+  Confluence manda la página a la papelera (sin `purge`); Markdown borra el
+  archivo, solo un `.md` dentro de la carpeta. Jira quita el enlace por el
+  mismo `globalId` que lo creó, así que los enlaces de otros quedan, y un
+  enlace que no existe no es un error. Un documento que ya no existe es
+  `provider.ErrNotFound` (los 404 de Atlassian lo envuelven): el flujo lo
+  marca como `Removal.Missing` y quita el enlace igual.
 - **`DocStore.SearchTitle`** busca por título en todo el destino (CQL en
   Confluence). Lo usa el consolidado QA para sus ubicaciones: `Locations` solo
   revisa las páginas más nuevas, y un consolidado se crea una vez por sprint.

@@ -108,6 +108,19 @@ func (st *state) record(e history.Entry) error {
 	return history.Record(path, e)
 }
 
+// forget takes a deleted document out of the history; like record, it only
+// reads deps.
+func (st *state) forget(e history.Entry) error {
+	if !st.hasHistory() {
+		return nil
+	}
+	path, err := st.deps.HistoryPath()
+	if err != nil {
+		return err
+	}
+	return history.Remove(path, e)
+}
+
 func (st *state) now() time.Time {
 	if st.deps.Now == nil {
 		return time.Now()

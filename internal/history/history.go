@@ -10,10 +10,12 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/kaelence-01/draco-hq/internal/config"
 	"github.com/kaelence-01/draco-hq/internal/deploy"
+	"github.com/kaelence-01/draco-hq/internal/provider"
 )
 
 // Limit is how many documents the history keeps.
@@ -43,6 +45,20 @@ type Entry struct {
 func Deploy(t *deploy.Target, d *deploy.Draft, res *deploy.Result, profile, dest string, at time.Time) Entry {
 	return Entry{Issue: t.Issue, Title: d.Title, URL: res.Page.URL, DocID: res.Page.ID, Dest: dest, Project: t.ProjectName,
 		Profile: profile, Updated: res.Updated, At: at, LinkFailed: res.LinkErr != nil, NotPreserved: d.NotPreserved}
+}
+
+// Ref is the published document of the entry.
+func (e Entry) Ref() provider.DocRef {
+	return provider.DocRef{ID: e.DocID, Title: e.Title, URL: e.URL}
+}
+
+// CheckDest fails when the entry's profile now publishes somewhere else: its
+// id would name another document, or none, there.
+func (e Entry) CheckDest(dest string) error {
+	if dest != e.Dest {
+		return fmt.Errorf("el documento de %s está en %s y su perfil ahora publica en %s: no se borra nada", e.Issue, e.Dest, dest)
+	}
+	return nil
 }
 
 // Path is history.json, next to config.yaml.
@@ -77,7 +93,20 @@ func Record(path string, e Entry) error {
 	if err != nil {
 		return err
 	}
-	data, err := json.MarshalIndent(Add(entries, e), "", "  ")
+	return save(path, Add(entries, e))
+}
+
+// Remove takes the document of e out of the history in path.
+func Remove(path string, e Entry) error {
+	entries, err := Load(path)
+	if err != nil {
+		return err
+	}
+	return save(path, slices.DeleteFunc(entries, e.sameDocument))
+}
+
+func save(path string, entries []Entry) error {
+	data, err := json.MarshalIndent(entries, "", "  ")
 	if err != nil {
 		return err
 	}
@@ -133,6 +162,17 @@ func Of(entries []Entry, project string) []Entry {
 	var out []Entry
 	for _, e := range entries {
 		if e.Project == project {
+			out = append(out, e)
+		}
+	}
+	return out
+}
+
+// OfIssue returns the documents of a task; ops-7 is OPS-7.
+func OfIssue(entries []Entry, issue string) []Entry {
+	var out []Entry
+	for _, e := range entries {
+		if strings.EqualFold(e.Issue, strings.TrimSpace(issue)) {
 			out = append(out, e)
 		}
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"strings"
 )
 
@@ -61,11 +62,14 @@ func (c *Client) VerifyCredentialsMatch(ctx context.Context, configuredEmail str
 	return u, nil
 }
 
+// linkGlobalID identifies draco's link to a page among the issue's remote links.
+func linkGlobalID(pageID string) string { return "confluence-page:" + pageID }
+
 // CreateJiraRemoteLink links the issue to a Confluence page. The globalId makes
 // it idempotent: a rerun updates the link instead of duplicating it.
 func (c *Client) CreateJiraRemoteLink(ctx context.Context, issueKey, pageID, pageURL, pageTitle string) error {
 	payload := map[string]any{
-		"globalId":     "confluence-page:" + pageID,
+		"globalId":     linkGlobalID(pageID),
 		"relationship": "mentioned in",
 		"object": map[string]any{
 			"url":   pageURL,
@@ -74,6 +78,16 @@ func (c *Client) CreateJiraRemoteLink(ctx context.Context, issueKey, pageID, pag
 	}
 	_, err := c.Post(ctx, fmt.Sprintf("/rest/api/3/issue/%s/remotelink", issueKey), payload)
 	return err
+}
+
+// DeleteJiraRemoteLink removes the link CreateJiraRemoteLink made to the page;
+// other remote links of the issue stay.
+func (c *Client) DeleteJiraRemoteLink(ctx context.Context, issueKey, pageID string) error {
+	path := fmt.Sprintf("/rest/api/3/issue/%s/remotelink?globalId=%s", url.PathEscape(issueKey), url.QueryEscape(linkGlobalID(pageID)))
+	if err := c.Delete(ctx, path); err != nil {
+		return fmt.Errorf("error quitando el enlace desde %s: %w", issueKey, err)
+	}
+	return nil
 }
 
 // GetIssue returns a Jira issue by key.

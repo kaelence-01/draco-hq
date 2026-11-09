@@ -76,7 +76,7 @@ func (r *recentList) moreKeys() []key.Binding {
 	if len(r.entries()) == 0 {
 		return nil
 	}
-	return []key.Binding{upKey, downKey, exportKey}
+	return []key.Binding{upKey, downKey, exportKey, removeKey}
 }
 
 // handle moves the list or acts on the selected document; false when k is
@@ -97,6 +97,10 @@ func (r *recentList) handle(k tea.KeyPressMsg) (tea.Cmd, bool) {
 		return r.redo(), true
 	case key.Matches(k, exportKey):
 		return r.export(), true
+	case key.Matches(k, removeKey):
+		if e, ok := r.selected(); ok {
+			return open(newRemoveDoc(r.st, e)), true
+		}
 	default:
 		return nil, false
 	}
@@ -253,7 +257,7 @@ func (r *recentList) detail(width int) string {
 	if len(e.NotPreserved) > 0 {
 		lines = append(lines, "", wrap.Render(warnStyle.Render("⚠ Se publicó sin conservar "+quoted(e.NotPreserved)+": salió como la trae la plantilla.")))
 	}
-	lines = append(lines, "", faintStyle.Render("enter lo abre · u lo actualiza · e lo exporta"))
+	lines = append(lines, "", wrap.Render(faintStyle.Render("enter lo abre · u lo actualiza · e lo exporta · x lo borra")))
 	return strings.Join(lines, "\n")
 }
 

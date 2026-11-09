@@ -20,10 +20,12 @@ import (
 // fakeTracker knows OPS-7; OPS-9 waits until its step is canceled. With
 // linkWait, linking waits until it is closed.
 type fakeTracker struct {
-	canceled chan struct{}
-	linked   []string
-	linkErr  error
-	linkWait chan struct{}
+	canceled  chan struct{}
+	linked    []string
+	linkErr   error
+	linkWait  chan struct{}
+	unlinked  []string
+	unlinkErr error
 }
 
 func (t *fakeTracker) Issue(ctx context.Context, key string) (*provider.Issue, error) {
@@ -44,6 +46,10 @@ func (t *fakeTracker) LinkDocument(_ context.Context, key string, d provider.Doc
 	}
 	t.linked = append(t.linked, key+" → "+d.Title)
 	return t.linkErr
+}
+func (t *fakeTracker) UnlinkDocument(_ context.Context, key string, d provider.DocRef) error {
+	t.unlinked = append(t.unlinked, key+" → "+d.ID)
+	return t.unlinkErr
 }
 
 // fakeGit has a backend and a frontend clone; the hash "malo" does not exist.

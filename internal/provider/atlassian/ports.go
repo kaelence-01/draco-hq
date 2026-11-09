@@ -2,6 +2,7 @@ package atlassian
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/kaelence-01/draco-hq/internal/config"
@@ -69,6 +70,14 @@ func (t *Tracker) Me(ctx context.Context) (*provider.User, error) {
 
 func (t *Tracker) LinkDocument(ctx context.Context, issueKey string, doc provider.DocRef) error {
 	return t.c.CreateJiraRemoteLink(ctx, issueKey, doc.ID, doc.URL, doc.Title)
+}
+
+// UnlinkDocument treats a missing link as removed: Jira answers 404 for it.
+func (t *Tracker) UnlinkDocument(ctx context.Context, issueKey string, doc provider.DocRef) error {
+	if err := t.c.DeleteJiraRemoteLink(ctx, issueKey, doc.ID); err != nil && !errors.Is(err, provider.ErrNotFound) {
+		return err
+	}
+	return nil
 }
 
 func (t *QATracker) ReviewTasks(ctx context.Context, sc provider.QAScope) ([]provider.QAIssue, error) {
@@ -149,6 +158,10 @@ func (d *DocStore) Update(ctx context.Context, r provider.DocRef, doc provider.D
 		}
 	}
 	return ref(d.c.UpdatePage(ctx, current.ID, doc.Title, current.Version, body))
+}
+
+func (d *DocStore) Delete(ctx context.Context, r provider.DocRef) error {
+	return d.c.DeletePage(ctx, r.ID)
 }
 
 func (d *DocStore) Search(ctx context.Context, text string) ([]provider.DocRef, error) {

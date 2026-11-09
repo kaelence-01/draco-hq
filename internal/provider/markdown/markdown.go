@@ -280,6 +280,24 @@ func (s *Store) Update(_ context.Context, r provider.DocRef, d provider.Document
 	return &provider.DocRef{ID: r.ID, Title: d.Title, URL: filepath.Join(s.root, filepath.FromSlash(r.ID))}, nil
 }
 
+// Delete removes the file for good; only a document, never a folder.
+func (s *Store) Delete(_ context.Context, r provider.DocRef) error {
+	if !strings.HasSuffix(r.ID, ".md") {
+		return fmt.Errorf("%q no es un documento Markdown", r.ID)
+	}
+	p, err := s.path(r.ID)
+	if err != nil {
+		return err
+	}
+	if err := os.Remove(p); err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return fmt.Errorf("%w: %s", provider.ErrNotFound, p)
+		}
+		return fmt.Errorf("no se pudo borrar %s: %w", p, err)
+	}
+	return nil
+}
+
 func (s *Store) Search(_ context.Context, text string) ([]provider.DocRef, error) {
 	t := strings.ToLower(text)
 	ds, err := s.find(func(d doc) bool { return strings.Contains(strings.ToLower(d.title+"\n"+d.body), t) })

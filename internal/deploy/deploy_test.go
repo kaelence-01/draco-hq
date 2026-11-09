@@ -36,6 +36,21 @@ type fakeAPI struct {
 		doc provider.Document
 	}
 	linked provider.DocRef
+
+	deleteErr error
+	deleted   []string
+	unlinkErr error
+	unlinked  []string
+}
+
+func (f *fakeAPI) Delete(_ context.Context, r provider.DocRef) error {
+	f.deleted = append(f.deleted, r.ID)
+	return f.deleteErr
+}
+
+func (f *fakeAPI) UnlinkDocument(_ context.Context, key string, r provider.DocRef) error {
+	f.unlinked = append(f.unlinked, key+" → "+r.ID)
+	return f.unlinkErr
 }
 
 func (f *fakeAPI) Issue(context.Context, string) (*provider.Issue, error) { return f.issue, nil }
@@ -471,5 +486,40 @@ func TestResolveFindsTheRepoTemplateAndTheFlagWins(t *testing.T) {
 	req.Template = explicit
 	if tg, _ = Resolve(cfg, req); tg.Template.Source != explicit {
 		t.Errorf("la carpeta explícita debe ganar: %q", tg.Template.Source)
+	}
+}
+
+func TestRemoveDeletesThenUnlinks(t *testing.T) {
+	doc := provider.DocRef{ID: "42", Title: "Documento de Despliegue - OPS-7"}
+	api := &fakeAPI{}
+	res, err := Remove(context.Background(), api, api, "OPS-7", doc)
+	if err != nil || res.Missing || res.LinkErr != nil {
+		t.Fatalf("borrar: %+v %v", res, err)
+	}
+	if !reflect.DeepEqual(api.deleted, []string{"42"}) || !reflect.DeepEqual(api.unlinked, []string{"OPS-7 → 42"}) {
+		t.Errorf("borra el documento y quita su enlace: %v %v", api.deleted, api.unlinked)
+	}
+}
+
+func TestRemoveADocumentAlreadyGoneStillUnlinks(t *testing.T) {
+	api := &fakeAPI{deleteErr: provider.ErrNotFound}
+	res, err := Remove(context.Background(), api, api, "OPS-7", provider.DocRef{ID: "42"})
+	if err != nil || !res.Missing || len(api.unlinked) != 1 {
+		t.Errorf("si ya no existía se dice y el enlace se quita igual: %+v %v %v", res, err, api.unlinked)
+	}
+}
+
+func TestRemoveKeepsTheLinkWhenTheDocumentStays(t *testing.T) {
+	api := &fakeAPI{deleteErr: errors.New("sin permisos (403)")}
+	if _, err := Remove(context.Background(), api, api, "OPS-7", provider.DocRef{ID: "42"}); err == nil || len(api.unlinked) != 0 {
+		t.Errorf("si no se pudo borrar, el enlace se queda: %v %v", err, api.unlinked)
+	}
+}
+
+func TestRemoveReportsALinkThatStays(t *testing.T) {
+	api := &fakeAPI{unlinkErr: errors.New("sin permisos (403)")}
+	res, err := Remove(context.Background(), api, api, "OPS-7", provider.DocRef{ID: "42"})
+	if err != nil || res.LinkErr == nil {
+		t.Errorf("el documento se borró y el enlace que quedó viaja en LinkErr: %+v %v", res, err)
 	}
 }

@@ -15,8 +15,10 @@ import (
 )
 
 type fakeTracker struct {
-	linkErr error
-	linked  []string
+	linkErr   error
+	linked    []string
+	unlinkErr error
+	unlinked  []string
 }
 
 func (*fakeTracker) Issue(_ context.Context, key string) (*provider.Issue, error) {
@@ -29,6 +31,10 @@ func (*fakeTracker) Me(context.Context) (*provider.User, error) { return &provid
 func (t *fakeTracker) LinkDocument(_ context.Context, key string, d provider.DocRef) error {
 	t.linked = append(t.linked, key+" → "+d.Title)
 	return t.linkErr
+}
+func (t *fakeTracker) UnlinkDocument(_ context.Context, key string, d provider.DocRef) error {
+	t.unlinked = append(t.unlinked, key+" → "+d.ID)
+	return t.unlinkErr
 }
 
 type fakeChanges struct{}

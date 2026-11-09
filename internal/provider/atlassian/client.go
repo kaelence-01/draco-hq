@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/kaelence-01/draco-hq/internal/provider"
 )
 
 // Client is the base HTTP client for Atlassian APIs.
@@ -53,6 +55,31 @@ func (c *Client) Get(ctx context.Context, path string) ([]byte, error) {
 	}
 
 	return body, nil
+}
+
+// Delete performs a DELETE request.
+func (c *Client) Delete(ctx context.Context, path string) error {
+	req, err := http.NewRequestWithContext(ctx, "DELETE", c.BaseURL+path, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", c.AuthHeader)
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.HTTP.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode >= 400 {
+		return apiError(resp.StatusCode, body)
+	}
+	return nil
 }
 
 // Post performs a POST request with a JSON body.
@@ -106,7 +133,7 @@ func apiError(statusCode int, body []byte) error {
 	case 403:
 		return fmt.Errorf("sin permisos (403). Tu token no tiene acceso a este recurso")
 	case 404:
-		return fmt.Errorf("recurso no encontrado (404). Verifica que el issue o página existan")
+		return fmt.Errorf("%w (404). Verifica que el issue o página existan", provider.ErrNotFound)
 	case 409:
 		return fmt.Errorf("conflicto (409): versión desactualizada o recurso duplicado")
 	default:

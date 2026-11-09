@@ -410,6 +410,29 @@ func (s *Session) Publish(ctx context.Context, d *Draft, sibling *provider.DocRe
 	return res, nil
 }
 
+// Removal is a deleted document.
+type Removal struct {
+	// Missing means the document was already gone; the link is removed
+	// anyway.
+	Missing bool
+	// LinkErr is a link from the issue that could not be removed: the QA
+	// report would still count the task as documented.
+	LinkErr error
+}
+
+// Remove deletes a published document and then the issue's link to it. When
+// the document cannot be deleted, the link stays.
+func Remove(ctx context.Context, tracker provider.Tracker, docs provider.DocStore, issue string, doc provider.DocRef) (*Removal, error) {
+	res := &Removal{}
+	if err := docs.Delete(ctx, doc); errors.Is(err, provider.ErrNotFound) {
+		res.Missing = true
+	} else if err != nil {
+		return nil, err
+	}
+	res.LinkErr = tracker.UnlinkDocument(ctx, issue, doc)
+	return res, nil
+}
+
 // SplitHashes splits a comma-separated list of commit hashes, dropping blanks.
 func SplitHashes(raw string) []string {
 	var out []string
