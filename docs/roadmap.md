@@ -374,7 +374,7 @@ porque no guardan el proyecto de Jira (bitácora 071).
 | 071 | `feature/qa-multiproyecto` | `qa_jira.projects` (otros proyectos que heredan los valores del por defecto), `-j/--jira-project`, la lista de proyectos en el formulario solo cuando hay varios, el proyecto en el título del Kanban | ✅ |
 | 072 | `feature/qa-detectar-jira` | Configurar sin escribir ids: `draco qa setup` y `d` en Configuración › QA leen de Jira los estados del proyecto y los campos, y la QA elige por nombre, con Testing y los finalizados ya marcados. El autor eligió la lista de estados del proyecto en vez de las columnas del tablero, porque los tableros no son todos iguales | ✅ |
 | 073 | `fix/qa-setup-directo` | Probando la 072, el autor abrió el formulario manual y tomó los ejemplos por valores cargados. Ahora `enter` en QA detecta desde Jira mientras `qa_jira` está incompleto, el formulario no trae ejemplos que parezcan valores, y la detección muestra un resumen que se guarda con `enter` (o pide solo los campos que faltan) | ✅ |
-| 076 | `feature/qa-listas` (opcional) | Módulo y sprint elegidos de listas (componentes y sprints del tablero) | ⬜ |
+| 078 | `feature/qa-listas` (opcional) | Módulo y sprint elegidos de listas (componentes y sprints del tablero) | ⬜ |
 
 ### Mejoras sobre la fase 7 — proyectos y formularios
 
@@ -382,6 +382,20 @@ porque no guardan el proyecto de Jira (bitácora 071).
 |---|---|---|---|
 | 074 | `feature/borradores-proyecto` | Un proyecto nuevo que se deja sin terminar (`esc`, `ctrl+c`, o guardado sin rutas) queda como borrador en `project_drafts`. En Proyectos aparece atenuado: se retoma con `enter` y no se puede usar hasta completarlo. `draco project list` y `rm` también lo manejan | ✅ |
 | 075 | `feature/tui-formularios` | Formularios como en el simulador QA: paginador `●○○` «Página N de M · nombre» y una línea punteada bajo cada campo; los formularios altos se desplazan hasta el campo con foco | ✅ |
+
+### Mejoras sobre la fase 7 — historial de documentos
+
+Para corregir o actualizar un documento ya publicado había que recordar la
+tarea y volver a buscarla. El autor pidió ver en la principal los últimos
+documentos, con un filtro por proyecto ahí mismo, e ir directo a
+actualizarlos o borrarlos (bitácora 076). Borrar va en una actividad aparte
+por decisión del autor: también tiene que quitar el enlace desde la tarea,
+o el consolidado QA la daría por documentada.
+
+| # | Rama | Contenido | Estado |
+|---|---|---|---|
+| 076 | `feature/historial-recientes` | Historial local (`history.json` junto a la config, sin red): `draco history [-p] [-n]`, la caja «Recientes» bajo el menú con pestañas por proyecto (`tab`, `←→`) y la pantalla Historial (7) con detalle; abrir en el navegador, actualizar (Generar con la tarea) y exportar | ✅ |
+| 077 | `feature/historial-borrar` | Borrar un documento desde el historial: `DocStore.Delete` (Confluence a la papelera, Markdown el archivo), `Tracker.UnlinkDocument` (un fallo viaja como `LinkErr`), `deploy.Remove`; `x` en Recientes e Historial con confirmación escribiendo la tarea, y `draco history rm -i`. Solo lo que está en el historial y sin `--yes`, por decisión del autor | ✅ |
 
 ### v1.0
 

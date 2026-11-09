@@ -12,6 +12,7 @@ import (
 	"github.com/kaelence-01/draco-hq/internal/backlog"
 	"github.com/kaelence-01/draco-hq/internal/cli"
 	"github.com/kaelence-01/draco-hq/internal/config"
+	"github.com/kaelence-01/draco-hq/internal/history"
 	"github.com/kaelence-01/draco-hq/internal/profile"
 )
 
@@ -39,6 +40,11 @@ type Deps struct {
 	// bar; Help is the text of draco help <name>.
 	Commands []cli.Command
 	Help     func(name string) (string, error)
+	// HistoryPath is where the published documents are recorded
+	// (history.Path); nil keeps no history and hides it.
+	HistoryPath func() (string, error)
+	// OpenURL opens a document in the browser or, for Markdown, its program.
+	OpenURL func(string) error
 }
 
 // Run shows the visual mode on a terminal until the user quits.
@@ -59,12 +65,67 @@ type state struct {
 	newVersion    string // a newer published version, once CheckUpdate answers
 	result        string // what the last action did, above the footer until draco closes
 	resultWarn    bool   // result is a warning, not a success
+
+	recent    []history.Entry // the published documents, newest first
+	recentErr string          // the history could not be read
 }
 
 func loadState(d Deps) *state {
 	st := &state{deps: d}
 	st.load()
+	st.loadRecent()
 	return st
+}
+
+// hasHistory reports whether this session keeps a history.
+func (st *state) hasHistory() bool { return st.deps.HistoryPath != nil }
+
+// loadRecent reads the history again.
+func (st *state) loadRecent() {
+	st.recent, st.recentErr = nil, ""
+	if !st.hasHistory() {
+		return
+	}
+	path, err := st.deps.HistoryPath()
+	if err == nil {
+		st.recent, err = history.Load(path)
+	}
+	if err != nil {
+		st.recentErr = err.Error()
+	}
+}
+
+// record adds a published document to the history. It runs in a step's
+// goroutine, so it only reads deps; the screens read the file again.
+func (st *state) record(e history.Entry) error {
+	if !st.hasHistory() {
+		return nil
+	}
+	path, err := st.deps.HistoryPath()
+	if err != nil {
+		return err
+	}
+	return history.Record(path, e)
+}
+
+// forget takes a deleted document out of the history; like record, it only
+// reads deps.
+func (st *state) forget(e history.Entry) error {
+	if !st.hasHistory() {
+		return nil
+	}
+	path, err := st.deps.HistoryPath()
+	if err != nil {
+		return err
+	}
+	return history.Remove(path, e)
+}
+
+func (st *state) now() time.Time {
+	if st.deps.Now == nil {
+		return time.Now()
+	}
+	return st.deps.Now()
 }
 
 // load reads the config again; the active project stays while it exists.

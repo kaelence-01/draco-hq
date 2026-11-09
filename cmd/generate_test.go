@@ -15,8 +15,10 @@ import (
 )
 
 type fakeTracker struct {
-	linkErr error
-	linked  []string
+	linkErr   error
+	linked    []string
+	unlinkErr error
+	unlinked  []string
 }
 
 func (*fakeTracker) Issue(_ context.Context, key string) (*provider.Issue, error) {
@@ -29,6 +31,10 @@ func (*fakeTracker) Me(context.Context) (*provider.User, error) { return &provid
 func (t *fakeTracker) LinkDocument(_ context.Context, key string, d provider.DocRef) error {
 	t.linked = append(t.linked, key+" → "+d.Title)
 	return t.linkErr
+}
+func (t *fakeTracker) UnlinkDocument(_ context.Context, key string, d provider.DocRef) error {
+	t.unlinked = append(t.unlinked, key+" → "+d.ID)
+	return t.unlinkErr
 }
 
 type fakeChanges struct{}
@@ -58,8 +64,10 @@ func fakeEnvWith(t *testing.T, cfg *config.Config, trk provider.Tracker) string 
 	if err != nil {
 		t.Fatal(err)
 	}
-	prevLoad, prevOpen, prevDialog := loadConfig, openProfile, saveDialog
-	t.Cleanup(func() { loadConfig, openProfile, saveDialog = prevLoad, prevOpen, prevDialog })
+	prevLoad, prevOpen, prevDialog, prevHistory := loadConfig, openProfile, saveDialog, historyPath
+	t.Cleanup(func() { loadConfig, openProfile, saveDialog, historyPath = prevLoad, prevOpen, prevDialog, prevHistory })
+	historyFile := filepath.Join(t.TempDir(), "history.json")
+	historyPath = func() (string, error) { return historyFile, nil }
 	loadConfig = func() (*config.Config, error) { return cfg, nil }
 	openProfile = func(*config.Config, profile.Options) (*profile.Bundle, error) {
 		return &profile.Bundle{

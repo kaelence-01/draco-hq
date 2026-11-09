@@ -9,6 +9,7 @@ import (
 	"github.com/kaelence-01/draco-hq/internal/cli"
 	"github.com/kaelence-01/draco-hq/internal/config"
 	"github.com/kaelence-01/draco-hq/internal/deploy"
+	"github.com/kaelence-01/draco-hq/internal/history"
 	"github.com/kaelence-01/draco-hq/internal/profile"
 )
 
@@ -220,6 +221,7 @@ func runGenerate(a *App, args []string) error {
 		a.ok(a.style(green+bold, "Documento creado"))
 	}
 	a.printf("\n  %s\n\n", a.style(cyan, res.Page.URL))
+	a.record(history.Deploy(target, draft, res, bundle.Name, bundle.Profile.Docs.Provider, now()))
 	return nil
 }
 

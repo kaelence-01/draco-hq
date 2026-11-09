@@ -186,3 +186,6 @@ func (plainTracker) Me(context.Context) (*provider.User, error)             { re
 func (plainTracker) LinkDocument(context.Context, string, provider.DocRef) error {
 	return nil
 }
+func (plainTracker) UnlinkDocument(context.Context, string, provider.DocRef) error {
+	return nil
+}

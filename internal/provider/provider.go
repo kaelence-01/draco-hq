@@ -5,6 +5,7 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"time"
 )
@@ -74,7 +75,13 @@ type Tracker interface {
 	// LinkDocument links the document from the issue; linking again updates
 	// the link instead of duplicating it.
 	LinkDocument(ctx context.Context, issueKey string, doc DocRef) error
+	// UnlinkDocument removes the link LinkDocument made; without one it does
+	// nothing.
+	UnlinkDocument(ctx context.Context, issueKey string, doc DocRef) error
 }
+
+// ErrNotFound is a document or issue that does not exist (any longer).
+var ErrNotFound = errors.New("recurso no encontrado")
 
 // DocStore is where the documents are published. A nil *DocRef with a nil
 // error means "not found".
@@ -91,6 +98,9 @@ type DocStore interface {
 	// Update replaces the document, keeping doc.Preserve. It fails without
 	// writing anything when the current document cannot be read.
 	Update(ctx context.Context, ref DocRef, doc Document) (*DocRef, error)
+	// Delete removes the document (Confluence keeps it in its trash);
+	// ErrNotFound when it is already gone.
+	Delete(ctx context.Context, ref DocRef) error
 	Search(ctx context.Context, text string) ([]DocRef, error)
 	// SearchTitle finds documents whose title matches text, newest first,
 	// across the whole destination; it may lag behind recent changes.

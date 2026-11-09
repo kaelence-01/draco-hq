@@ -74,7 +74,7 @@ func TestHomeFitsTheSmallestTerminal(t *testing.T) {
 	lines := strings.Split(view(m), "\n")
 	assertFits(t, lines, 80, 24)
 	out := strings.Join(lines, "\n")
-	for _, want := range []string{"1 ▸ Generar documento de despliegue", "2   Proyectos", "6   Configuración", "Lee la tarea", "$ draco g -i OPS-7 -b a1b2c3d", "1-6 abrir directo", "? más"} {
+	for _, want := range []string{"1 ▸ Generar documento de despliegue", "2   Proyectos", "6   Configuración", "Lee la tarea", "$ draco g -i OPS-7 -b a1b2c3d", "1-7 abrir directo", "? más"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("falta %q:\n%s", want, out)
 		}
@@ -143,14 +143,14 @@ func TestHomeNumberKeysOpenTheFunction(t *testing.T) {
 		LoadFile:   func() (*config.Config, error) { return testConfig(), nil },
 	})
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
-	for key, title := range map[string]string{"1": "Generar documento", "2": "Proyectos", "3": "Consolidado QA", "4": "Exportar página", "5": "Backlog técnico", "6": "Configuración"} {
+	for key, title := range map[string]string{"1": "Generar documento", "2": "Proyectos", "3": "Consolidado QA", "4": "Exportar página", "5": "Backlog técnico", "6": "Configuración", "7": "Historial"} {
 		send(m, press(rune(key[0]), key))
 		if len(m.stack) != 2 || m.top().title() != title {
 			t.Errorf("%s abre %q, hay %d pantallas y arriba %q", key, title, len(m.stack), m.top().title())
 		}
 		send(m, keyEsc)
 	}
-	for _, k := range []string{"7", "9", "0"} {
+	for _, k := range []string{"8", "9", "0"} {
 		send(m, press(rune(k[0]), k))
 		if len(m.stack) != 1 {
 			t.Errorf("%s no es una opción y no abre nada", k)
@@ -158,10 +158,10 @@ func TestHomeNumberKeysOpenTheFunction(t *testing.T) {
 	}
 
 	withFutureItem(m)
-	send(m, press('7', "7"))
+	send(m, press('8', "8"))
 	out := view(m)
 	if len(m.stack) != 1 || !strings.Contains(out, "«Función futura» todavía no está en el modo visual: usa draco futura") || !strings.Contains(out, "▸ Función futura") {
-		t.Errorf("7 elige la función sin pantalla y dice dónde está:\n%s", out)
+		t.Errorf("8 elige la función sin pantalla y dice dónde está:\n%s", out)
 	}
 }
 

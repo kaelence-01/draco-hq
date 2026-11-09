@@ -10,6 +10,7 @@ import (
 
 	"github.com/kaelence-01/draco-hq/internal/cli"
 	"github.com/kaelence-01/draco-hq/internal/deploy"
+	"github.com/kaelence-01/draco-hq/internal/history"
 )
 
 // barFlags are the flags each screen takes from the command bar; the others
@@ -19,6 +20,7 @@ var barFlags = map[string][]string{
 	"qa":       {"--jira-project", "--sprint", "--module"},
 	"fetch":    {"--issue", "--space"},
 	"backlog":  {"--project", "--repo", "--path", "--since", "--modulo", "--deps"},
+	"history":  {"--project", "--issue"},
 }
 
 // openFromBar opens the screen of a command with the values of its line, at
@@ -29,8 +31,9 @@ func openFromBar(st *state, l barLine) (tea.Cmd, error) {
 		return nil, err
 	}
 	name, f := l.cmd.Names[0], l.flags
-	// A form's list would replace an unknown project with the first one.
-	if p := f.Get("--project"); p != "" && st.cfg != nil {
+	// A form's list would replace an unknown project with the first one. The
+	// history keeps the projects that were removed from the config.
+	if p := f.Get("--project"); p != "" && st.cfg != nil && name != "history" {
 		if _, _, err := st.cfg.GetProject(p); err != nil {
 			return nil, err
 		}
@@ -52,6 +55,13 @@ func openFromBar(st *state, l barLine) (tea.Cmd, error) {
 		return openExport(st, f), nil
 	case "backlog":
 		return openBacklog(st, f, l.sub != nil), nil
+	case "history":
+		h := newHistory(st)
+		h.list.scope = f.Get("--project")
+		if l.sub == nil {
+			return open(h), nil
+		}
+		return openRemove(st, h, f.Get("--issue"))
 	case "project":
 		ps := newProjects(st)
 		if l.sub != nil && l.sub.Names[0] == "add" {
@@ -98,6 +108,25 @@ func openGenerate(st *state, f *cli.Parsed) tea.Cmd {
 	}
 	next.(*commits).preset(deploy.SplitHashes(f.Get("--commit-backend")), deploy.SplitHashes(f.Get("--commit-frontend")))
 	return tea.Sequence(open(g), open(next))
+}
+
+// openRemove opens Historial on the document of the task and its
+// confirmation; with several, Historial on the first, to choose.
+func openRemove(st *state, h *historyScreen, issue string) (tea.Cmd, error) {
+	st.loadRecent()
+	docs := history.OfIssue(st.recent, issue)
+	if len(docs) == 0 {
+		return nil, fmt.Errorf("%s no tiene documentos en el historial", strings.TrimSpace(issue))
+	}
+	for i, e := range h.list.entries() {
+		if e.Dest == docs[0].Dest && e.DocID == docs[0].DocID {
+			h.list.cursor = i
+		}
+	}
+	if len(docs) > 1 {
+		return open(h), nil
+	}
+	return tea.Sequence(open(h), open(newRemoveDoc(st, docs[0]))), nil
 }
 
 func openQA(st *state, f *cli.Parsed) tea.Cmd {

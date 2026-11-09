@@ -182,6 +182,14 @@ func (c *Client) GetPageADF(ctx context.Context, pageID string) (*PageADF, error
 	return out, nil
 }
 
+// DeletePage moves the page to the space's trash, where it can be restored.
+func (c *Client) DeletePage(ctx context.Context, pageID string) error {
+	if err := c.Delete(ctx, "/wiki/api/v2/pages/"+url.PathEscape(pageID)); err != nil {
+		return fmt.Errorf("error borrando la página %s: %w", pageID, err)
+	}
+	return nil
+}
+
 // GetPage returns a page by ID, including its parent and space.
 func (c *Client) GetPage(ctx context.Context, pageID string) (*Page, error) {
 	path := fmt.Sprintf("/wiki/api/v2/pages/%s", pageID)

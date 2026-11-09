@@ -80,6 +80,8 @@ internal/tui/
   logo.go       DRACO en letras grandes
   home.go       pantalla principal (menú con descripciones y atajos, panel de la función elegida)
   homecontext.go  principal: cajas «Proyecto activo» y «Tu configuración»
+  history.go    Historial y la caja «Recientes» de la principal: lista con una pestaña por proyecto, detalle, abrir, actualizar, exportar y borrar
+  historyremove.go  Historial: confirmar escribiendo la tarea, borrar el documento y su enlace, y el resultado
   projects.go   Proyectos: lista con filtro, activo, por defecto, borrar
   projectform.go  formulario de Huh para crear y editar un proyecto, y retomar un borrador
   form.go       formularios: páginas con nombre y paginador, línea bajo cada campo, alto disponible
@@ -123,6 +125,8 @@ type Deps struct {
     CheckUpdate func(context.Context) string                                   // aviso de versión nueva
     Commands    []cli.Command                                                  // barra de comandos (commandSpecs)
     Help        func(name string) (string, error)                              // Ayuda (helpText)
+    HistoryPath func() (string, error)                                         // Historial (history.Path); nil: sin historial
+    OpenURL     func(string) error                                             // Historial: abrir en el navegador (openURL)
 }
 ```
 
@@ -199,10 +203,19 @@ aviso de versión nueva, barra de comandos, Ayuda y temas.
   muestra el logo como imagen), arriba a la izquierda. Si el ancho no alcanza,
   solo `draco`.
 - Menú: Generar documento, Proyectos, Consolidado QA, Exportar página,
-  Backlog técnico, Configuración. Todas tienen pantalla desde la fase 6. Cada
-  opción lleva su número (`1`–`6`, hasta `9`) y `1-6` la abre directo; no son
-  letras porque `q` sale. Desde 96 columnas, una línea tenue de descripción
+  Backlog técnico, Configuración e Historial. Todas tienen pantalla. Cada
+  opción lleva su número (`1`–`7`, hasta `9`) y `1-7` la abre directo; no son
+  letras porque `q` sale. Historial va en el 7 para no mover los números que
+  ya se usaban. Desde 96 columnas, una línea tenue de descripción
   bajo cada opción.
+- **Recientes**, una caja bajo el menú desde 96 columnas: los últimos 10
+  documentos publicados (§6, «Historial»), con las pestañas de proyecto.
+  `tab` le da las teclas a la caja y la devuelve al menú; con el foco en
+  ella, el panel de la derecha muestra el documento elegido en vez de la
+  función. Cede antes que las descripciones del menú: se prueba cada forma
+  del menú con la caja (mínimo tres filas) y, si ninguna cabe, la principal
+  queda como sin historial. Sin la caja, `tab` no hace nada y el pie no lo
+  ofrece.
 - **Panel de la función elegida**, a la derecha del menú: qué hace, las
   pantallas por las que pasa, y el mismo trabajo en modo comando con un
   ejemplo (`$ draco g -i OPS-7 -b a1b2c3d`); si aún no tiene pantalla, lo
@@ -553,6 +566,59 @@ formularios.
 - La entrada del menú deja de estar atenuada; su ejemplo sigue siendo
   `draco init`. El aviso de la principal dice «abre Configuración (o corre
   draco init)».
+
+### Historial
+
+- **Qué guarda:** `internal/history` registra cada documento de despliegue
+  publicado, en `history.json` junto a `config.yaml` (una entrada por
+  documento, el más reciente primero, hasta 200). El modo comando lo escribe
+  después de `Publish` en `draco g` (nunca con `--dry-run`); la TUI, en
+  `genRun.publish`. El consolidado QA no entra.
+- **Un fallo al guardar no deshace nada:** el documento ya está publicado.
+  `draco g` lo avisa con `⚠`; la TUI, en el resultado de Publicar
+  (`docResult.historyErr`). Un historial dañado no se sobrescribe: se avisa
+  en la caja y en Historial.
+- **Lista:** tarea, cuándo (`hoy 11:00`, `ayer 15:30`, `04/11`,
+  `01/12/2025`), creado o actualizado y el proyecto; filtrada por un
+  proyecto, el título. Un documento sin enlace desde la tarea lleva
+  `⚠ sin enlace`.
+- **Pestañas:** `Todos` y un proyecto por cada uno que aparece en el
+  historial (no en la config: un proyecto borrado sigue filtrable). `←→`
+  cambia de pestaña. Con un solo proyecto no hay pestañas.
+- **Detalle:** título, dirección, proyecto, perfil y destino; el enlace
+  fallido y las secciones no conservadas, con qué hacer.
+- **Teclas:** `enter` abre el documento fuera de la TUI (`Deps.OpenURL`: el
+  navegador o, en Markdown, el programa del archivo); `u` abre Generar con
+  la tarea y el proyecto, que encuentra el documento y propone actualizarlo
+  (y lo vuelve a enlazar); `e` abre Exportar con la tarea. Un proyecto que
+  ya no está en la config se avisa en el formulario de Generar. `x` (en la
+  ayuda completa y en el detalle) abre Borrar.
+- **Borrar** (`historyremove.go`), una pantalla de la pila:
+  - Dice qué va a pasar: el título y la dirección; que en Confluence va a la
+    papelera y en Markdown no hay papelera; que se quita el enlace desde la
+    tarea.
+  - Un campo pide **escribir la tarea** (sin importar mayúsculas). Otra cosa
+    no confirma, y `esc` vuelve sin borrar.
+  - En un `tea.Cmd`: abre el perfil del documento con `AnyScope` (para
+    borrar por id no hace falta el space), comprueba que ese perfil siga
+    publicando en el destino del documento (`Entry.CheckDest`), corre
+    `deploy.Remove` y saca la entrada del historial (`state.forget`).
+  - Mientras borra, `esc` no sale, como al publicar.
+  - El resultado separa lo que pasó: documento borrado o que ya no existía,
+    enlace quitado o que hay que quitarlo a mano, y si siguió en el
+    historial. Queda una línea sobre el pie; `enter` vuelve, y la lista se
+    lee de nuevo.
+  - Si el borrado falla, el error queda sobre el campo y no se toca ni el
+    enlace ni el historial.
+- **Pantalla:** lista y detalle con `panels` desde 96 columnas; debajo, la
+  lista y el detalle bajo ella. La barra `/history -p pagos` la abre en esa
+  pestaña; `/history rm -i OPS-7` abre Historial en ese documento y su
+  confirmación (con varios documentos de la tarea, solo Historial para
+  elegir); `-n` es del modo comando.
+- **Se lee de nuevo** al volver a la principal o a Historial (`init`), así
+  que lo recién publicado aparece al volver al inicio. El marco vuelve a
+  pedir las teclas después de dibujar el cuerpo, porque las de la principal
+  dependen de si la caja cupo.
 
 ### Aviso de versión nueva
 

@@ -162,5 +162,8 @@ func (p *publish) result() []string {
 			warnStyle.Render("⚠ No se pudo enlazar el documento desde "+a.issue+": "+p.res.linkErr.Error()),
 			warnStyle.Render("  Agrégalo a mano en la tarea; si no, el consolidado QA la marcará sin documentación."))
 	}
+	if p.res.historyErr != nil {
+		out = append(out, "", warnStyle.Render("⚠ No se guardó en el historial: "+p.res.historyErr.Error()))
+	}
 	return out
 }

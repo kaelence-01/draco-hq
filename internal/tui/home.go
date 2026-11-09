@@ -44,10 +44,14 @@ type home struct {
 	cursor int
 	note   string
 	bar    *cmdBar // nil while closed
+
+	recent   *recentList
+	focus    bool // the keys go to the recent documents, not the menu
+	boxShown bool // the last view had room for them
 }
 
 func newHome(st *state) *home {
-	return &home{st: st, items: []menuItem{
+	return &home{st: st, recent: &recentList{st: st}, items: []menuItem{
 		{label: "Generar documento de despliegue", example: "draco g -i OPS-7 -b a1b2c3d", open: func(st *state) screen { return newGenerate(st) },
 			summary: "Desde la tarea y tus commits, conservando lo escrito",
 			steps:   []string{"Tarea", "Commits", "Vista previa", "Ubicación", "Publicar"},
@@ -70,16 +74,31 @@ func newHome(st *state) *home {
 		{label: "Configuración", example: "draco init", open: func(st *state) screen { return newSettings(st) },
 			summary: "Conexión, proyectos, perfiles, QA y tema",
 			desc:    "Conexión con Atlassian y proyectos, lo que necesita el documento. Opcionales: perfiles, QA y tema."},
+		{label: "Historial", example: "draco history -p pagos", open: func(st *state) screen { return newHistory(st) },
+			summary: "Tus documentos publicados: abrir, actualizar o exportar",
+			desc:    "Los documentos de despliegue que publicaste con draco, del más reciente al más antiguo y por proyecto. Se guardan en tu equipo y se ven sin red."},
 	}}
 }
 
 func (h *home) title() string { return "Inicio" }
 
+// init reads the history again when the home shows, as after publishing.
+func (h *home) init() tea.Cmd {
+	h.st.loadRecent()
+	return nil
+}
+
 func (h *home) keys() []key.Binding {
 	if h.bar != nil {
 		return h.bar.keys()
 	}
+	if h.focus {
+		return append(h.recent.keys(), menuTabKey)
+	}
 	keys := []key.Binding{moveKey, enterKey, h.numberKey()}
+	if h.boxShown {
+		keys = append(keys, recentKey)
+	}
 	if len(h.st.deps.Commands) > 0 {
 		keys = append(keys, barKey)
 	}
@@ -89,6 +108,9 @@ func (h *home) keys() []key.Binding {
 func (h *home) moreKeys() []key.Binding {
 	if h.bar != nil {
 		return nil
+	}
+	if h.focus {
+		return append(h.recent.moreKeys(), exitKey)
 	}
 	return []key.Binding{upKey, downKey, exitKey}
 }
@@ -123,6 +145,11 @@ func (h *home) update(msg tea.Msg) (screen, tea.Cmd) {
 		h.bar, h.note = &cmdBar{st: h.st}, ""
 	case key.Matches(k, exitKey):
 		return h, tea.Quit
+	case key.Matches(k, recentKey) && h.boxShown:
+		h.focus, h.note = !h.focus, ""
+	case h.focus:
+		cmd, _ := h.recent.handle(k)
+		return h, cmd
 	case key.Matches(k, upKey):
 		h.cursor = (h.cursor + len(h.items) - 1) % len(h.items)
 		h.note = ""
@@ -176,10 +203,14 @@ func (h *home) view(width, height int) string {
 	}
 	room := height - blocksHeight(above) - blocksHeight(below)
 	var main string
+	h.boxShown = false
 	if width >= panelMinWidth {
 		main = h.wide(width, room)
 	} else {
 		main = h.narrow(width, room)
+	}
+	if !h.boxShown {
+		h.focus = false
 	}
 	out := lipgloss.JoinVertical(lipgloss.Left, slices.Concat(above, []string{main}, below)...)
 	return lipgloss.NewStyle().PaddingLeft(1).Render(out)
@@ -217,18 +248,34 @@ const (
 
 // wide is the menu on the left and, on the right, the panel of the selected
 // function and, when there is room, the active project and the config. The
-// menu gives up its descriptions before it runs out of lines.
+// menu gives up its descriptions before it runs out of lines, and before
+// that, the recent documents under it.
 func (h *home) wide(width, room int) string {
 	head := []string{logo(width), faintStyle.Render(tagline), ""}
+	modes := []menuMode{menuSpaced, menuDescribed, menuPlain}
 	var left string
-	for _, mode := range []menuMode{menuSpaced, menuDescribed, menuPlain} {
-		left = lipgloss.JoinVertical(lipgloss.Left, append(slices.Clone(head), h.menu(mode))...)
-		if lipgloss.Height(left) <= room {
-			break
+	if h.st.hasHistory() {
+		for _, mode := range modes {
+			menu := lipgloss.JoinVertical(lipgloss.Left, append(slices.Clone(head), h.menu(mode))...)
+			if box := h.recentBox(room - lipgloss.Height(menu) - 1); box != "" {
+				left, h.boxShown = lipgloss.JoinVertical(lipgloss.Left, menu, "", box), true
+				break
+			}
+		}
+	}
+	if !h.boxShown {
+		for _, mode := range modes {
+			left = lipgloss.JoinVertical(lipgloss.Left, append(slices.Clone(head), h.menu(mode))...)
+			if lipgloss.Height(left) <= room {
+				break
+			}
 		}
 	}
 	rightWidth := width - menuWidth - 5
 	right := h.panel(rightWidth)
+	if h.focus {
+		right = h.recentPanel(rightWidth)
+	}
 	if h.st.cfg != nil && width >= contextMinWidth {
 		if ctx := h.context(rightWidth); lipgloss.Height(right)+1+lipgloss.Height(ctx) <= room {
 			right = lipgloss.JoinVertical(lipgloss.Left, right, "", ctx)
@@ -286,6 +333,41 @@ func (h *home) panel(width int) string {
 		lines = append(lines, warnStyle.Render("Todavía no está en el modo visual."), "")
 	}
 	lines = append(lines, faintStyle.Render("En modo comando, para scripts y CI:"), "$ "+it.example)
+	return boxStyle.Width(width).Render(strings.Join(lines, "\n"))
+}
+
+// recentBox is the recent documents in at most lines lines, as wide as the
+// menu; empty when not even three of them fit.
+func (h *home) recentBox(lines int) string {
+	inner := menuWidth - 4
+	title := faintStyle.Render("RECIENTES")
+	if h.focus {
+		title = accentStyle.Bold(true).Render("RECIENTES")
+	}
+	head := []string{title}
+	if t := h.recent.tabs(inner); t != "" {
+		head = append(head, t)
+	}
+	n := min(max(len(h.recent.entries()), 1), recentRows)
+	rows := min(n, lines-2-len(head))
+	if rows < min(n, 3) {
+		return ""
+	}
+	box := boxStyle.Width(menuWidth).Render(strings.Join(append(head, h.recent.rows(inner, rows, h.focus)...), "\n"))
+	if lipgloss.Height(box) > lines {
+		return ""
+	}
+	return box
+}
+
+// recentPanel takes the place of the function's panel while the recent
+// documents have the keys.
+func (h *home) recentPanel(width int) string {
+	detail := h.recent.detail(width - 4)
+	if detail == "" {
+		detail = lipgloss.NewStyle().Width(width - 4).Render(faintStyle.Render(emptyHistory))
+	}
+	lines := []string{detail, "", faintStyle.Render("En modo comando, para scripts y CI:"), "$ " + h.recent.command()}
 	return boxStyle.Width(width).Render(strings.Join(lines, "\n"))
 }
 

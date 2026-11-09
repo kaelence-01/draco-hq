@@ -109,7 +109,7 @@ func TestHomeShowsLogoMenuAndFrame(t *testing.T) {
 	for _, want := range []string{
 		"██████", "draco v9.9.9", "perfil: equipo (jira → confluence)", "proyecto: pagos",
 		"▸ Generar documento de despliegue", "Proyectos", "Consolidado QA", "Backlog técnico",
-		"Lee la tarea", "$ draco g -i OPS-7 -b a1b2c3d", "1-6 abrir directo", "? más",
+		"Lee la tarea", "$ draco g -i OPS-7 -b a1b2c3d", "1-7 abrir directo", "? más",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("falta %q en la pantalla:\n%s", want, out)
@@ -133,7 +133,7 @@ func TestPanelFollowsTheMenu(t *testing.T) {
 			t.Errorf("falta %q en el panel:\n%s", want, out)
 		}
 	}
-	for range 3 {
+	for range 4 {
 		send(m, keyUp)
 	}
 	out = view(m)
@@ -141,6 +141,7 @@ func TestPanelFollowsTheMenu(t *testing.T) {
 		t.Errorf("Configuración tiene pantalla y muestra su comando:\n%s", out)
 	}
 	withFutureItem(m)
+	send(m, keyDown)
 	send(m, keyDown)
 	out = view(m)
 	for _, want := range []string{"▸ Función futura", "Todavía no está en el modo", "$ draco futura -x 1"} {
@@ -165,7 +166,7 @@ func TestWithoutRoomForThePanelTheTextGoesUnderTheMenu(t *testing.T) {
 	}
 	send(m, keyUp)
 	out = view(m)
-	for _, want := range []string{"7 ▸ Función futura", "Llega después.", "Todavía no está en el modo visual.", "$ draco futura -x 1"} {
+	for _, want := range []string{"8 ▸ Función futura", "Llega después.", "Todavía no está en el modo visual.", "$ draco futura -x 1"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("una función sin pantalla lo dice bajo el menú, con su comando: falta %q\n%s", want, out)
 		}

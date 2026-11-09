@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/kaelence-01/draco-hq/internal/deploy"
+	"github.com/kaelence-01/draco-hq/internal/history"
 	"github.com/kaelence-01/draco-hq/internal/profile"
 	"github.com/kaelence-01/draco-hq/internal/provider"
 	"github.com/kaelence-01/draco-hq/internal/qa"
@@ -54,13 +55,15 @@ type docLocations struct {
 }
 
 type docResult struct {
-	page    *provider.DocRef
-	updated bool
-	linkErr error
+	page       *provider.DocRef
+	updated    bool
+	linkErr    error
+	historyErr error // published, but not recorded in the history
 }
 
 // genRun is the deploy document after the progress.
 type genRun struct {
+	st      *state
 	bundle  *profile.Bundle
 	session *deploy.Session
 	replace bool   // update the existing document
@@ -102,7 +105,8 @@ func (r *genRun) publish(ctx context.Context, sibling *provider.DocRef) (*docRes
 	if err != nil {
 		return nil, err
 	}
-	return &docResult{page: res.Page, updated: res.Updated, linkErr: res.LinkErr}, nil
+	entry := history.Deploy(r.session.Target, r.d, res, r.bundle.Name, r.bundle.Profile.Docs.Provider, r.st.now())
+	return &docResult{page: res.Page, updated: res.Updated, linkErr: res.LinkErr, historyErr: r.st.record(entry)}, nil
 }
 
 // qaRun is the QA report after its evaluation. A report with the same title
