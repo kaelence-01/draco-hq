@@ -148,3 +148,6 @@ Contra una instancia propia (lo corre el autor):
 - En Markdown, si la carpeta del perfil cambió desde que se publicó, el
   archivo no se encuentra y se toma como «ya no existía».
 - **078 (opcional):** módulo y sprint de QA elegidos de listas.
+
+**Nota (2026-11-17):** la 078 pasó a ser el logo nuevo (`078-logo.md`); módulo
+y sprint de QA elegidos de listas es ahora la 079.

@@ -101,7 +101,7 @@ func newQAAppWith(t *testing.T, tracker provider.Tracker, projects map[string]co
 			return &profile.Bundle{Name: "local", Profile: *c.Profiles["local"], Tracker: e.tracker, Docs: e.store}, nil
 		},
 	})
-	e.m.Update(tea.WindowSizeMsg{Width: 110, Height: 34})
+	e.m.Update(tea.WindowSizeMsg{Width: 110, Height: 39})
 	send(e.m, keyDown)
 	send(e.m, keyDown)
 	send(e.m, keyEnter)

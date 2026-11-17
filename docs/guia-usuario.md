@@ -347,6 +347,10 @@ en la consola clásica de Windows (`cmd`) se ve más limitado.
   orden, `⚠` lo que falta (conexión, proyectos, perfil, `qa_jira` y
   `qa_report`) y `·` lo opcional sin configurar. Es un resumen: el detalle y
   los cambios están en Configuración.
+- Si la terminal tiene 29 líneas o más y al menos 63 columnas, el **logo**
+  ocupa la cabecera en todas las pantallas y la versión, el camino, el perfil
+  y el proyecto van a su lado. Con menos espacio no se muestra en el marco
+  (la pantalla principal conserva el suyo).
 - Arriba, una línea de cabecera: la versión y el camino por donde llegaste
   (`Inicio › Proyectos`), y a la derecha el proyecto activo y su perfil (el
   que usa Generar; QA y Exportar usan el por defecto). Si la terminal es
