@@ -185,6 +185,7 @@ func (m *app) render() string {
 	if m.width == 0 {
 		return ""
 	}
+	m.st.banner = m.hasRoomForBanner()
 	header, footer := m.header(), m.footer()
 	h := max(m.height-lipgloss.Height(header)-lipgloss.Height(footer), 0)
 	body := lipgloss.NewStyle().Width(m.width).Height(h).MaxHeight(h).Render(m.top().view(m.width, h))
@@ -195,28 +196,74 @@ func (m *app) render() string {
 	return lipgloss.JoinVertical(lipgloss.Left, header, body, footer)
 }
 
-// header is one line: version and path on the left, profile and project on
-// the right while they fit.
-func (m *app) header() string {
-	left := boldStyle.Render("draco") + " " + faintStyle.Render(m.st.deps.Version)
+const (
+	minBody         = 20 // body lines every screen is designed for, at 80x24
+	footerLines     = 2
+	bannerInfoWidth = 34 // room beside the logo for the version, path and profile
+)
+
+// hasRoomForBanner reports whether the logo fits without taking lines the
+// screens need: the body keeps its minBody lines even with the help closed.
+func (m *app) hasRoomForBanner() bool {
+	return m.height >= len(logoLines)+1+footerLines+minBody && m.width >= logoWidth+bannerInfoWidth
+}
+
+func (m *app) version() string {
+	s := boldStyle.Render("draco") + " " + faintStyle.Render(m.st.deps.Version)
 	if v := m.st.newVersion; v != "" {
-		left += faintStyle.Render(" · ") + warnStyle.Render(v+" disponible")
+		s += faintStyle.Render(" · ") + warnStyle.Render(v+" disponible")
 	}
-	left += faintStyle.Render(" │ ")
+	return s
+}
+
+func (m *app) titles() []string {
 	titles := make([]string, len(m.stack))
 	for i, s := range m.stack {
 		titles[i] = s.title()
 	}
-	width := m.width - 2 // a space on each side
-	left += trail(titles, width-lipgloss.Width(left))
+	return titles
+}
 
-	var prof, project string
-	if m.st.project != "" {
-		project = "proyecto: " + accentStyle.Render(m.st.project)
+func (m *app) profileText() string {
+	if m.st.profile == "" {
+		return ""
 	}
-	if m.st.profile != "" {
-		prof = "perfil: " + accentStyle.Render(m.st.profile) + faintStyle.Render(" ("+m.st.tracker+" → "+m.st.docs+")")
+	return "perfil: " + accentStyle.Render(m.st.profile) + faintStyle.Render(" ("+m.st.tracker+" → "+m.st.docs+")")
+}
+
+func (m *app) projectText() string {
+	if m.st.project == "" {
+		return ""
 	}
+	return "proyecto: " + accentStyle.Render(m.st.project)
+}
+
+// bannerHeader is the logo with the version, path, profile and project beside it.
+func (m *app) bannerHeader() string {
+	width := m.width - logoWidth - 4
+	info := []string{m.version(), trail(m.titles(), width)}
+	for _, s := range []string{m.profileText(), m.projectText()} {
+		if s != "" {
+			info = append(info, s)
+		}
+	}
+	side := lipgloss.NewStyle().MaxWidth(width).Render(strings.Join(info, "\n"))
+	block := lipgloss.JoinHorizontal(lipgloss.Center, logo(m.width), "   ", side)
+	return lipgloss.NewStyle().PaddingLeft(1).MaxWidth(m.width).Render(block) + "\n" + m.rule()
+}
+
+// header is the logo with the screen's data beside it when there is room;
+// otherwise one line: version and path on the left, profile and project on
+// the right while they fit.
+func (m *app) header() string {
+	if m.st.banner {
+		return m.bannerHeader()
+	}
+	left := m.version() + faintStyle.Render(" │ ")
+	width := m.width - 2 // a space on each side
+	left += trail(m.titles(), width-lipgloss.Width(left))
+
+	prof, project := m.profileText(), m.projectText()
 	rights := []string{strings.TrimSpace(prof + "  " + project), project}
 	line := " " + edges(width, left, slices.DeleteFunc(rights, func(s string) bool { return s == "" })...) + " "
 	return lipgloss.NewStyle().MaxWidth(m.width).Render(line) + "\n" + m.rule()

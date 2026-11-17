@@ -374,7 +374,7 @@ porque no guardan el proyecto de Jira (bitácora 071).
 | 071 | `feature/qa-multiproyecto` | `qa_jira.projects` (otros proyectos que heredan los valores del por defecto), `-j/--jira-project`, la lista de proyectos en el formulario solo cuando hay varios, el proyecto en el título del Kanban | ✅ |
 | 072 | `feature/qa-detectar-jira` | Configurar sin escribir ids: `draco qa setup` y `d` en Configuración › QA leen de Jira los estados del proyecto y los campos, y la QA elige por nombre, con Testing y los finalizados ya marcados. El autor eligió la lista de estados del proyecto en vez de las columnas del tablero, porque los tableros no son todos iguales | ✅ |
 | 073 | `fix/qa-setup-directo` | Probando la 072, el autor abrió el formulario manual y tomó los ejemplos por valores cargados. Ahora `enter` en QA detecta desde Jira mientras `qa_jira` está incompleto, el formulario no trae ejemplos que parezcan valores, y la detección muestra un resumen que se guarda con `enter` (o pide solo los campos que faltan) | ✅ |
-| 078 | `feature/qa-listas` (opcional) | Módulo y sprint elegidos de listas (componentes y sprints del tablero) | ⬜ |
+| 079 | `feature/qa-listas` (opcional) | Módulo y sprint elegidos de listas (componentes y sprints del tablero) | ⬜ |
 
 ### Mejoras sobre la fase 7 — proyectos y formularios
 
@@ -396,6 +396,12 @@ o el consolidado QA la daría por documentada.
 |---|---|---|---|
 | 076 | `feature/historial-recientes` | Historial local (`history.json` junto a la config, sin red): `draco history [-p] [-n]`, la caja «Recientes» bajo el menú con pestañas por proyecto (`tab`, `←→`) y la pantalla Historial (7) con detalle; abrir en el navegador, actualizar (Generar con la tarea) y exportar | ✅ |
 | 077 | `feature/historial-borrar` | Borrar un documento desde el historial: `DocStore.Delete` (Confluence a la papelera, Markdown el archivo), `Tracker.UnlinkDocument` (un fallo viaja como `LinkErr`), `deploy.Remove`; `x` en Recientes e Historial con confirmación escribiendo la tarea, y `draco history rm -i`. Solo lo que está en el historial y sin `--yes`, por decisión del autor | ✅ |
+
+### Mejoras sobre la fase 7 — identidad visual
+
+| # | Rama | Contenido | Estado |
+|---|---|---|---|
+| 078 | `feature/logo` | La cabeza del dragón de la marca en braille, con el nombre, en lugar de «DRACO» en letras de bloque; el marco la muestra en la cabecera de todas las pantallas cuando el cuerpo conserva sus 20 líneas (desde 29 líneas y 63 columnas) | ✅ |
 
 ### v1.0
 

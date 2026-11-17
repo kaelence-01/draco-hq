@@ -191,7 +191,10 @@ func (h *home) view(width, height int) string {
 	if h.bar != nil {
 		// The menu is not used while typing; without it, the bar fits in 24 lines.
 		bar := h.bar.view(width)
-		top := lipgloss.JoinVertical(lipgloss.Center, logo(width), faintStyle.Render(tagline))
+		top := faintStyle.Render(tagline)
+		if !h.st.banner {
+			top = lipgloss.JoinVertical(lipgloss.Center, logo(width), top)
+		}
 		return lipgloss.JoinVertical(lipgloss.Left, lipgloss.Place(width, max(height-lipgloss.Height(bar), 0), lipgloss.Center, lipgloss.Center, top), bar)
 	}
 	var above, below []string
@@ -251,7 +254,10 @@ const (
 // menu gives up its descriptions before it runs out of lines, and before
 // that, the recent documents under it.
 func (h *home) wide(width, room int) string {
-	head := []string{logo(width), faintStyle.Render(tagline), ""}
+	head := []string{faintStyle.Render(tagline), ""}
+	if !h.st.banner {
+		head = slices.Insert(head, 0, logo(width))
+	}
 	modes := []menuMode{menuSpaced, menuDescribed, menuPlain}
 	var left string
 	if h.st.hasHistory() {
@@ -379,6 +385,9 @@ func (h *home) narrow(width, room int) string {
 		{logo(width), faintStyle.Render(tagline), ""},
 		{logo(width), ""},
 		{logoStyle.Render("draco"), ""},
+	}
+	if h.st.banner {
+		heads = [][]string{{faintStyle.Render(tagline), ""}, {""}}
 	}
 	var out string
 	for _, head := range heads {
