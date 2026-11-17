@@ -65,6 +65,7 @@ type state struct {
 	newVersion    string // a newer published version, once CheckUpdate answers
 	result        string // what the last action did, above the footer until draco closes
 	resultWarn    bool   // result is a warning, not a success
+	banner        bool   // the frame draws the logo, so the home leaves its own out
 
 	recent    []history.Entry // the published documents, newest first
 	recentErr string          // the history could not be read

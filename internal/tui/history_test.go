@@ -117,9 +117,9 @@ func lineIndex(t *testing.T, lines []string, want string) int {
 }
 
 func TestHomeShowsTheRecentDocumentsUnderTheMenu(t *testing.T) {
-	e := newHistoryApp(t, recorded(), 160, 40)
+	e := newHistoryApp(t, recorded(), 160, 41)
 	lines := strings.Split(view(e.m), "\n")
-	assertFits(t, lines, 160, 40)
+	assertFits(t, lines, 160, 41)
 	if lineIndex(t, lines, "RECIENTES") < lineIndex(t, lines, "Historial") {
 		t.Error("los recientes van bajo el menú")
 	}

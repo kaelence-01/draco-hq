@@ -107,7 +107,7 @@ func TestHomeShowsLogoMenuAndFrame(t *testing.T) {
 	m := newTestApp(t, testConfig(), nil, 100, 30)
 	out := view(m)
 	for _, want := range []string{
-		"██████", "draco v9.9.9", "perfil: equipo (jira → confluence)", "proyecto: pagos",
+		"⣿⣦⣽", "d r a c o", "draco v9.9.9", "perfil: equipo (jira → confluence)", "proyecto: pagos",
 		"▸ Generar documento de despliegue", "Proyectos", "Consolidado QA", "Backlog técnico",
 		"Lee la tarea", "$ draco g -i OPS-7 -b a1b2c3d", "1-7 abrir directo", "? más",
 	} {
@@ -205,10 +205,10 @@ func TestNewVersionNotice(t *testing.T) {
 }
 
 func TestNarrowTerminalShowsPlainName(t *testing.T) {
-	m := newTestApp(t, testConfig(), nil, 40, 24)
+	m := newTestApp(t, testConfig(), nil, logoWidth+3, 24)
 	out := view(m)
-	if strings.Contains(out, "█") || !strings.Contains(out, "draco") {
-		t.Errorf("en una terminal angosta va el nombre sin letras grandes:\n%s", out)
+	if strings.Contains(out, "⣿") || !strings.Contains(out, "draco") {
+		t.Errorf("en una terminal angosta va el nombre sin el dragón:\n%s", out)
 	}
 }
 
@@ -332,11 +332,18 @@ func TestFrameUsesTheWholeTerminal(t *testing.T) {
 		if len(lines) != size[1] {
 			t.Errorf("%dx%d: la pantalla ocupa %d líneas", size[0], size[1], len(lines))
 		}
-		if !strings.Contains(lines[0], "draco v9.9.9 │ Inicio › Pantalla de prueba › Pantalla de prueba") || !strings.HasPrefix(lines[1], "──") {
-			t.Errorf("%dx%d: la cabecera es una línea con la ruta, y la raya sigue:\n%s\n%s", size[0], size[1], lines[0], lines[1])
+		rule, body := 1, 2
+		if m.hasRoomForBanner() {
+			rule, body = len(logoLines), len(logoLines)+1
+			header := strings.Join(lines[:rule], "\n")
+			if !strings.Contains(header, "draco v9.9.9") || !strings.Contains(header, "Inicio › Pantalla de prueba › Pantalla de prueba") {
+				t.Errorf("%dx%d: con el logo, la versión y la ruta van a su lado:\n%s", size[0], size[1], header)
+			}
+		} else if !strings.Contains(lines[0], "draco v9.9.9 │ Inicio › Pantalla de prueba › Pantalla de prueba") {
+			t.Errorf("%dx%d: la cabecera es una línea con la ruta:\n%s", size[0], size[1], lines[0])
 		}
-		if !strings.Contains(lines[2], "pantalla de prueba") {
-			t.Errorf("%dx%d: el cuerpo empieza bajo la raya:\n%s", size[0], size[1], lines[2])
+		if !strings.HasPrefix(lines[rule], "──") || !strings.Contains(lines[body], "pantalla de prueba") {
+			t.Errorf("%dx%d: la raya cierra la cabecera y el cuerpo empieza bajo ella:\n%s\n%s", size[0], size[1], lines[rule], lines[body])
 		}
 		last := lines[len(lines)-1]
 		if !strings.Contains(last, "esc volver") || !strings.Contains(last, "? más") || strings.Contains(last, "ctrl+c") {

@@ -77,7 +77,7 @@ internal/tui/
   app.go        modelo raíz: pila de pantallas, tamaño, cabecera, pie, teclas globales
   layout.go     ayudas de layout: extremos de una línea, ruta que cede, columnas proporcionales, caja que se estira (con contenido ajustado), lista y detalle (`panels`), línea de pasos
   styles.go     estilos de Lip Gloss en un solo lugar y los temas (applyTheme)
-  logo.go       DRACO en letras grandes
+  logo.go       cabeza de dragón en braille y el nombre
   home.go       pantalla principal (menú con descripciones y atajos, panel de la función elegida)
   homecontext.go  principal: cajas «Proyecto activo» y «Tu configuración»
   history.go    Historial y la caja «Recientes» de la principal: lista con una pestaña por proyecto, detalle, abrir, actualizar, exportar y borrar
@@ -167,6 +167,12 @@ habla con los flujos; nunca con un adaptador.
   `?` muestra la ayuda completa de teclas de la pantalla (`bubbles/help`);
   `esc` vuelve. Las tres últimas ceden ante `captures`, y el pie no ofrece
   una tecla que la pantalla captura en ese momento.
+- **Logo en el marco:** con 29 líneas o más y al menos 63 columnas, la
+  cabecera es el logo con la versión, la ruta, el perfil y el proyecto a su
+  lado (7 líneas con la raya). El umbral es el alto que deja a cada pantalla
+  sus 20 líneas de cuerpo de 80×24 (`minBody`), así que ninguna se entera.
+  Con menos espacio vuelve la cabecera de una línea. El marco avisa con
+  `state.banner` y la principal no dibuja entonces su propio logo.
 - **Marco común:** cabecera de una línea con la versión y la **ruta** de los
   títulos de la pila (`draco v0.3.3 │ Inicio › Proyectos › Nuevo proyecto`) a
   la izquierda y, a la derecha, el perfil y el proyecto activos; pie con las
@@ -199,9 +205,9 @@ aviso de versión nueva, barra de comandos, Ayuda y temas.
 
 ### Principal
 
-- DRACO en letras grandes con caracteres de bloque (ninguna terminal común
-  muestra el logo como imagen), arriba a la izquierda. Si el ancho no alcanza,
-  solo `draco`.
+- La cabeza del dragón con el nombre, dibujados con caracteres braille
+  (ninguna terminal común muestra el logo como imagen), arriba a la izquierda.
+  Mide 6 líneas por 29 columnas. Si el ancho no alcanza, solo `draco`.
 - Menú: Generar documento, Proyectos, Consolidado QA, Exportar página,
   Backlog técnico, Configuración e Historial. Todas tienen pantalla. Cada
   opción lleva su número (`1`–`7`, hasta `9`) y `1-7` la abre directo; no son
@@ -229,7 +235,7 @@ aviso de versión nueva, barra de comandos, Ayuda y temas.
   contexto no se dibujan cortadas.
 - **Debajo de 96 columnas** no hay panel ni descripciones: bajo el menú van
   el texto de la opción elegida y su comando. Con pocas líneas (avisos
-  encima) se retiran el eslogan y después las letras grandes, antes que el
+  encima) se retiran el eslogan y después el dragón, antes que el
   texto o el comando.
 - Sin configuración: la principal lo dice y propone abrir Configuración (o
   `draco init`), que arranca como asistente (§6, «Configuración»). Los
