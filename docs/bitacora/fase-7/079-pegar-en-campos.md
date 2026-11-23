@@ -87,3 +87,6 @@ Probar también pegar en un filtro `/` y en la barra de la principal.
   hacen. Los tests simulan el mensaje, no la terminal.
 - **080:** el buscador de Commits, «solo los míos», cargar más, la búsqueda en
   todo el repo y los commits sugeridos por la clave de la tarea.
+
+> **Nota (2026-11-23):** la 080 retiró la tecla `h`; un hash se pega en la
+> búsqueda `/` y se agrega con `enter`. `paste` devuelve ahora un `tea.Cmd`.

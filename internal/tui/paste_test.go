@@ -32,9 +32,9 @@ func TestPasteAHashByHand(t *testing.T) {
 	if out := view(e.m); strings.Contains(out, "f1e2d3c") {
 		t.Fatalf("sin escribir un hash, pegar no agrega nada:\n%s", out)
 	}
-	typeText(e.m, "h")
+	typeText(e.m, "/")
 	send(e.m, paste("f1e2d3c Arregla el total de pagos\n"))
-	if out := view(e.m); !strings.Contains(out, "Hash (backend): f1e2d3c█") {
+	if out := view(e.m); !strings.Contains(out, "/ f1e2d3c█") {
 		t.Fatalf("se pega el hash de una línea de git log --oneline:\n%s", out)
 	}
 	send(e.m, keyEnter)

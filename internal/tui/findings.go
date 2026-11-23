@@ -48,7 +48,7 @@ func (f *findings) keys() []key.Binding {
 
 func (f *findings) captures(k tea.KeyPressMsg) bool { return f.filter.captures(k) }
 
-func (f *findings) paste(s string) { f.filter.paste(s) }
+func (f *findings) paste(s string) tea.Cmd { f.filter.paste(s); return nil }
 
 func (f *findings) current() scanResult { return f.results[f.tab] }
 

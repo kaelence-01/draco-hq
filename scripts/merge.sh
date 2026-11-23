@@ -24,7 +24,7 @@ target=$(gh pr view "$pr" --json baseRefName --jq .baseRefName)
 title=$(gh pr view "$pr" --json title --jq .title)
 
 if [ "${MERGE_YES:-}" != 1 ]; then
-	read -r -p "¿Fusionar el PR #$pr «$title» en $base con merge commit? [s/N]: " answer
+	read -r -p "¿Fusionar el PR #$pr «$title» en $base con merge commit? [y/N]: " answer
 	[[ "$answer" =~ ^[sSyY] ]] || fail "sin fusionar: el PR #$pr queda abierto"
 fi
 

@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -52,35 +53,56 @@ func (t *fakeTracker) UnlinkDocument(_ context.Context, key string, d provider.D
 	return t.unlinkErr
 }
 
-// fakeGit has a backend and a frontend clone; the hash "malo" does not exist.
+// fakeGit has a backend and a frontend clone; the hash "badc0de" does not exist.
 // read is the last list of hashes asked for each clone, and calls how many
 // times files were asked for: the commits screen reads one hash at a time.
+// email is the identity of both clones; others are backend commits of other
+// branches, and older how many older commits the backend branch has.
 type fakeGit struct {
-	read  map[string][]string
-	calls map[string]int
+	read   map[string][]string
+	calls  map[string]int
+	email  string
+	others []provider.Commit
+	older  int
 }
 
 func (fakeGit) CurrentBranch(_ context.Context, dir string) (string, error) {
 	return map[string]string{"/code/pagos-api": "develop", "/code/pagos-web": "filtro-fechas"}[dir], nil
 }
 
-func (fakeGit) RecentCommits(_ context.Context, dir string, _ int) ([]provider.Commit, error) {
-	day := time.Date(2026, 10, 19, 10, 0, 0, 0, time.UTC)
-	if dir == "/code/pagos-web" {
-		return []provider.Commit{{ShortHash: "e4f5a6b", Subject: "Filtro de fechas en la lista", Author: "Sofía", Date: day}}, nil
+var fakeDay = time.Date(2026, 10, 19, 10, 0, 0, 0, time.UTC)
+
+func (g fakeGit) Commits(_ context.Context, dir string, q provider.CommitQuery) ([]provider.Commit, error) {
+	list := []provider.Commit{{ShortHash: "e4f5a6b", Subject: "Filtro de fechas en la lista", Author: "Sofía", Email: "sofia@example.test", Date: fakeDay}}
+	if dir == "/code/pagos-api" {
+		list = []provider.Commit{
+			{ShortHash: "a1b2c3d", Subject: "Agrega filtro por rango de fechas", Author: "Ana", Email: "ana@example.test", Date: fakeDay},
+			{ShortHash: "9f8e7d6", Subject: "Valida rango máximo", Author: "Ana", Email: "ana@example.test", Date: fakeDay},
+			{ShortHash: "5c4b3a2", Subject: "Índices para la tabla de pagos", Author: "Luis", Email: "luis@example.test", Date: fakeDay},
+		}
+		for i := range g.older {
+			list = append(list, provider.Commit{ShortHash: fmt.Sprintf("0%06d", i+1), Subject: fmt.Sprintf("Commit viejo %d", i+1), Author: "Luis", Email: "luis@example.test", Date: fakeDay.AddDate(0, 0, -1-i)})
+		}
+		if q.AllBranches {
+			list = append(slices.Clone(g.others), list...)
+		}
 	}
-	return []provider.Commit{
-		{ShortHash: "a1b2c3d", Subject: "Agrega filtro por rango de fechas", Author: "Ana", Date: day},
-		{ShortHash: "9f8e7d6", Subject: "Valida rango máximo", Author: "Ana", Date: day},
-		{ShortHash: "5c4b3a2", Subject: "Índices para la tabla de pagos", Author: "Luis", Date: day},
-	}, nil
+	if q.Grep != "" {
+		list = slices.DeleteFunc(slices.Clone(list), func(c provider.Commit) bool {
+			return !strings.Contains(strings.ToLower(c.Subject), strings.ToLower(q.Grep))
+		})
+	}
+	list = list[min(q.Skip, len(list)):]
+	return list[:min(q.Limit, len(list))], nil
 }
+
+func (g fakeGit) Identity(context.Context, string) (string, error) { return g.email, nil }
 
 func (g fakeGit) ChangedFiles(_ context.Context, dir string, hashes []string) ([]string, error) {
 	g.read[dir] = hashes
 	g.calls[dir]++
-	if slices.Contains(hashes, "malo") {
-		return nil, errors.New("el commit malo no existe en el repo local")
+	if slices.Contains(hashes, "badc0de") {
+		return nil, errors.New("el commit badc0de no existe en el repo local")
 	}
 	if dir == "/code/pagos-web" {
 		return []string{"src/app/pagos/filtro.component.ts"}, nil
@@ -221,7 +243,7 @@ func TestGenerateReadsTheMarkedCommitsInListOrder(t *testing.T) {
 	send(e.m, keySpace)
 	send(e.m, keyUp)
 	send(e.m, keySpace)
-	typeText(e.m, "hf1e2d3c")
+	typeText(e.m, "/f1e2d3c")
 	send(e.m, keyEnter)
 	send(e.m, tea.KeyPressMsg{Code: tea.KeyTab})
 	send(e.m, keySpace)
@@ -250,11 +272,11 @@ func TestGenerateKeepsGoingWhenOneSideFails(t *testing.T) {
 	e.toCommits(t, "OPS-7")
 	send(e.m, keySpace)
 	send(e.m, tea.KeyPressMsg{Code: tea.KeyTab})
-	typeText(e.m, "hmalo")
+	typeText(e.m, "/badc0de")
 	send(e.m, keyEnter)
 	send(e.m, keyEnter)
 	out := view(e.m)
-	if !strings.Contains(out, "✗ Frontend [malo]") || !strings.Contains(out, "Uno de los lados falló") || !strings.Contains(out, "Backend · pagos-api") {
+	if !strings.Contains(out, "✗ Frontend [badc0de]") || !strings.Contains(out, "Uno de los lados falló") || !strings.Contains(out, "Backend · pagos-api") {
 		t.Errorf("un lado que falla se avisa y se sigue con el otro:\n%s", out)
 	}
 }

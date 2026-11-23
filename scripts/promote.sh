@@ -33,7 +33,7 @@ else
 fi
 url=$(gh pr view "$pr" --json url --jq .url)
 
-read -r -p "¿Fusionar el PR #$pr con merge commit? [s/N]: " answer
+read -r -p "¿Fusionar el PR #$pr con merge commit? [y/N]: " answer
 [[ "$answer" =~ ^[sSyY] ]] || { echo "Sin fusionar: el PR #$pr queda abierto en $url"; exit 0; }
 
 # No --delete-branch: the head is develop.

@@ -76,8 +76,9 @@ type QATracker interface {
 
 type ChangeSource interface {
     ChangedFiles(ctx context.Context, workDir string, hashes []string) ([]string, error)
-    RecentCommits(ctx context.Context, workDir string, n int) ([]Commit, error)
+    Commits(ctx context.Context, workDir string, q CommitQuery) ([]Commit, error)
     CurrentBranch(ctx context.Context, workDir string) (string, error)
+    Identity(ctx context.Context, workDir string) (string, error)
 }
 ```
 
@@ -95,10 +96,17 @@ type ChangeSource interface {
   (`atlassian.NewQATracker(c, qa_jira)`). Hoy el llamador construye el
   adaptador directamente; detectar la capacidad con una aserción de tipo sobre
   un `Tracker` cualquiera llega con los perfiles (actividad 7).
-- **`ChangeSource`** (`ChangedFiles`, `RecentCommits`, `CurrentBranch`);
-  `git.Local` es el clon local. `CurrentBranch` es la rama que lee
-  `RecentCommits` («HEAD» si está separada): el selector de commits de la TUI
-  la muestra.
+- **`ChangeSource`** (`ChangedFiles`, `Commits`, `CurrentBranch`,
+  `Identity`); `git.Local` es el clon local. `Commits` lista del más reciente
+  al más antiguo según `CommitQuery`: `Limit` y `Skip` para leer por páginas,
+  `AllBranches` (en git, `--branches --remotes`: sin los stash que traería
+  `--all`) y `Grep`, texto literal en el mensaje sin distinguir mayúsculas
+  (en git, `--fixed-strings` dentro de su propio argumento `--grep=`, así que
+  nunca se lee como opción ni como expresión regular). `CurrentBranch` es la
+  rama que lee `Commits` sin `AllBranches` («HEAD» si está separada) y
+  `Identity` el correo con el que el clon hace commits (`user.email`; vacío si
+  no tiene): el selector de commits de la TUI muestra la rama y usa el correo
+  para «solo los míos» (bitácora 080).
 - **`DocStore.Delete` y `Tracker.UnlinkDocument`** (bitácora 077), para
   borrar desde el historial con `deploy.Remove`: primero el documento y
   después el enlace; si el documento no se pudo borrar, el enlace queda.
