@@ -53,7 +53,7 @@ func (p *profiles) captures(k tea.KeyPressMsg) bool {
 	return p.removing != "" || p.filter.captures(k)
 }
 
-func (p *profiles) paste(s string) { p.filter.paste(s) }
+func (p *profiles) paste(s string) tea.Cmd { p.filter.paste(s); return nil }
 
 func (p *profiles) names() []string {
 	var out []string

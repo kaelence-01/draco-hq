@@ -35,7 +35,7 @@ type (
 	moreKeyer interface{ moreKeys() []key.Binding }
 	// paster takes pasted text into the field being typed, if any; a screen
 	// without it gets the paste in update (a Huh form).
-	paster interface{ paste(text string) }
+	paster interface{ paste(text string) tea.Cmd }
 )
 
 type openMsg struct{ s screen }
@@ -128,8 +128,7 @@ func (m *app) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case tea.PasteMsg:
 		if p, ok := m.top().(paster); ok {
-			p.paste(msg.Content)
-			return m, nil
+			return m, p.paste(msg.Content)
 		}
 	case openMsg:
 		m.stack = append(m.stack, msg.s)

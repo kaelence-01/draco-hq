@@ -413,7 +413,7 @@ agregarlo a mano tampoco servía porque el campo no aceptaba pegar (bitácora
 | # | Rama | Contenido | Estado |
 |---|---|---|---|
 | 079 | `fix/pegar-en-campos` | Pegar en todo campo de la TUI: el hash a mano (se queda con el hash de una línea de `git log --oneline`), los filtros `/`, la barra de comandos y la ruta de Exportar | ✅ |
-| 080 | `feature/buscar-commits` | Un buscador `/` en Commits por hash, mensaje, autor y fecha, que también agrega un hash que no está en la lista; `m` para ver solo los commits propios; cargar más y buscar en todo el repo (todas las ramas); los commits que mencionan la tarea, sugeridos arriba | ⬜ |
+| 080 | `feature/buscar-commits` | Un buscador `/` en Commits por hash, mensaje, autor y fecha, que también agrega un hash que no está en la lista; `m` para ver solo los commits propios; cargar más y buscar en todo el repo (todas las ramas); los commits que mencionan la tarea, sugeridos arriba (los propios, ya marcados); `h` se retira | ✅ |
 
 ### v1.0
 

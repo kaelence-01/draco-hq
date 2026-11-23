@@ -45,10 +45,11 @@ func (fakeChanges) ChangedFiles(_ context.Context, _ string, hashes []string) ([
 	}
 	return []string{"app/Http/Pagos/FiltroController.php", "routes/api.php"}, nil
 }
-func (fakeChanges) RecentCommits(context.Context, string, int) ([]provider.Commit, error) {
+func (fakeChanges) Commits(context.Context, string, provider.CommitQuery) ([]provider.Commit, error) {
 	return nil, nil
 }
 func (fakeChanges) CurrentBranch(context.Context, string) (string, error) { return "develop", nil }
+func (fakeChanges) Identity(context.Context, string) (string, error)      { return "", nil }
 
 // fakeEnv makes every command use an empty config, the fake tracker and a
 // Markdown folder; it returns the folder.

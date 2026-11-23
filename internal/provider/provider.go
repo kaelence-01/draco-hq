@@ -188,7 +188,18 @@ type Commit struct {
 	ShortHash string
 	Subject   string
 	Author    string
+	Email     string
 	Date      time.Time
+}
+
+// CommitQuery is which commits Commits lists, newest first.
+type CommitQuery struct {
+	Limit int
+	Skip  int
+	// AllBranches reads every local and remote branch, not only the current one.
+	AllBranches bool
+	// Grep keeps the commits whose message contains it, ignoring case.
+	Grep string
 }
 
 // ChangeSource is where the changes of a deploy come from. workDir is the
@@ -197,9 +208,11 @@ type ChangeSource interface {
 	// ChangedFiles returns the deduplicated files of the commits, in order of
 	// first appearance.
 	ChangedFiles(ctx context.Context, workDir string, hashes []string) ([]string, error)
-	RecentCommits(ctx context.Context, workDir string, n int) ([]Commit, error)
-	// CurrentBranch is the branch RecentCommits reads; "HEAD" when detached.
+	Commits(ctx context.Context, workDir string, q CommitQuery) ([]Commit, error)
+	// CurrentBranch is the branch Commits reads; "HEAD" when detached.
 	CurrentBranch(ctx context.Context, workDir string) (string, error)
+	// Identity is the email the clone commits with; empty when it has none.
+	Identity(ctx context.Context, workDir string) (string, error)
 }
 
 // NormalizeHeading is how every destination compares section titles: case,

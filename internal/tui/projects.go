@@ -66,7 +66,7 @@ func (p *projects) captures(k tea.KeyPressMsg) bool {
 	return p.removing != nil || p.filter.captures(k)
 }
 
-func (p *projects) paste(s string) { p.filter.paste(s) }
+func (p *projects) paste(s string) tea.Cmd { p.filter.paste(s); return nil }
 
 // entries are the projects that match the filter, then the drafts, sorted.
 func (p *projects) entries() []entry {

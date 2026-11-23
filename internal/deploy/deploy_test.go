@@ -98,11 +98,15 @@ func (f changesFunc) ChangedFiles(_ context.Context, workDir string, hashes []st
 	return f(hashes, workDir)
 }
 
-func (changesFunc) RecentCommits(context.Context, string, int) ([]provider.Commit, error) {
+func (changesFunc) Commits(context.Context, string, provider.CommitQuery) ([]provider.Commit, error) {
 	panic("no usado por el flujo")
 }
 
 func (changesFunc) CurrentBranch(context.Context, string) (string, error) {
+	panic("no usado por el flujo")
+}
+
+func (changesFunc) Identity(context.Context, string) (string, error) {
 	panic("no usado por el flujo")
 }
 

@@ -168,7 +168,7 @@ func (d *exportDocs) keys() []key.Binding {
 
 func (d *exportDocs) captures(k tea.KeyPressMsg) bool { return d.filter.captures(k) }
 
-func (d *exportDocs) paste(s string) { d.filter.paste(s) }
+func (d *exportDocs) paste(s string) tea.Cmd { d.filter.paste(s); return nil }
 
 func (d *exportDocs) init() tea.Cmd {
 	if d.started {
