@@ -205,6 +205,14 @@ func (c *commits) moreKeys() []key.Binding { return []key.Binding{hashKey, upKey
 
 func (c *commits) captures(tea.KeyPressMsg) bool { return c.typing }
 
+// paste keeps the first word of the text while a hash is typed: a line copied
+// from git log --oneline gives its hash.
+func (c *commits) paste(s string) {
+	if f := strings.Fields(s); c.typing && len(f) > 0 {
+		c.hash += f[0]
+	}
+}
+
 func (c *commits) close() { c.cancel() }
 
 func (c *commits) init() tea.Cmd {

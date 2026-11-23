@@ -48,6 +48,8 @@ func (f *findings) keys() []key.Binding {
 
 func (f *findings) captures(k tea.KeyPressMsg) bool { return f.filter.captures(k) }
 
+func (f *findings) paste(s string) { f.filter.paste(s) }
+
 func (f *findings) current() scanResult { return f.results[f.tab] }
 
 // rows are the findings of the current repo that match the filter.

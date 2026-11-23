@@ -374,6 +374,11 @@ en la consola clásica de Windows (`cmd`) se ve más limitado.
 | `tab` | En la principal, pasa del menú a Recientes y vuelve |
 | `enter` / `tab` / `shift+tab` | En un formulario: siguiente campo / siguiente / anterior. Un formulario de varias páginas dice arriba en cuál estás (`●○○  Página 1 de 3 · Jira`); si no cabe en la terminal, se desplaza hasta el campo en el que estás |
 
+**Pegar** (`ctrl+shift+v`, clic derecho o el atajo de tu terminal) funciona en
+todo lugar donde escribes: formularios, la barra de comandos, los filtros `/`,
+el hash a mano de Commits y la ruta de Exportar. Si lo pegado trae varias
+líneas, se une en una.
+
 ### Barra de comandos
 
 En la principal, `/` abre una línea para escribir un comando como en la
@@ -411,7 +416,8 @@ terminal, con `draco` o sin él: `/g -i OPS-7 -b a1b2c3d`.
    cuando no caben.
    - `espacio` marca un commit;
    - `tab` cambia entre backend y frontend;
-   - `h` agrega un hash a mano (por ejemplo, de otra rama): está en `?`;
+   - `h` agrega un hash a mano (por ejemplo, de otra rama): está en `?`. Se
+     puede pegar; de una línea de `git log --oneline` se queda con el hash;
    - `enter` continúa.
 3. **Preparar documento.** Lee la tarea, busca si ya hay un documento y lee
    los archivos de los commits. Si el documento existe, pregunta si

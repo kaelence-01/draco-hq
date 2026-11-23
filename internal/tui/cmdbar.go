@@ -269,6 +269,11 @@ func (b *cmdBar) handle(k tea.KeyPressMsg) (cmd tea.Cmd, closed bool) {
 	return nil, false
 }
 
+func (b *cmdBar) paste(s string) {
+	b.text += oneLine(s)
+	b.cursor, b.note = 0, ""
+}
+
 func (b *cmdBar) run() (tea.Cmd, bool) {
 	l, err := readLine(barCommands(b.st.deps), b.text)
 	switch {

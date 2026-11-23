@@ -128,6 +128,12 @@ func (h *home) numberKey() key.Binding {
 // captures gives every key to the command bar while it is open.
 func (h *home) captures(tea.KeyPressMsg) bool { return h.bar != nil }
 
+func (h *home) paste(s string) {
+	if h.bar != nil {
+		h.bar.paste(s)
+	}
+}
+
 func (h *home) update(msg tea.Msg) (screen, tea.Cmd) {
 	k, ok := msg.(tea.KeyPressMsg)
 	if !ok {

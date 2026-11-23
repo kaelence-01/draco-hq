@@ -158,6 +158,7 @@ habla con los flujos; nunca con un adaptador.
   | `captures(k tea.KeyPressMsg) bool` | Quitarle una tecla global (`?`, `esc`) al marco mientras la pantalla la necesita: un campo de texto, un filtro, una confirmación. `ctrl+c` nunca se captura |
   | `init() tea.Cmd` | Arrancar al mostrarse: al abrirse y al volver a quedar arriba. El formulario de Huh enfoca su primer campo (y, si ya se envió, se rehace con los mismos valores); una pantalla con pasos los lanza una sola vez |
   | `close()` | Soltar lo que la pantalla lanzó al cerrarse: cancela el `context` de un paso en curso |
+  | `paste(text string)` | Recibir lo pegado (`tea.PasteMsg`, que no llega como teclas) en el campo que se está escribiendo; fuera de un campo no hace nada. Sin ella, el mensaje llega a `update`: así lo reciben un formulario de Huh o un `textinput` de Bubbles |
 
   `open(s)` apila; `esc` (o el mensaje `back`) cierra la de arriba, llama a
   su `close()` y vuelve a la anterior. `backTo(s)` cierra las que están
@@ -835,6 +836,7 @@ Terminal y una terminal de Linux o WSL.
 | Ruta con los títulos de la pila | Con pantallas apiladas (Proyectos › formulario) se pierde de vista dónde se está |
 | Teclas globales que la pantalla puede capturar (`captures`) | Un campo de texto o un filtro necesita `?` y `esc`; sin esto, escribir `?` abre la ayuda |
 | `close()` al cerrar una pantalla | Es lo que cancela un paso en curso al pulsar `esc` |
+| Lo pegado por `paste`, en una línea | Bubble Tea v2 entrega lo pegado como `tea.PasteMsg`, no como teclas: los campos propios lo perdían. Los saltos de línea se vuelven un espacio porque todo campo es de una línea |
 | Lista de Proyectos propia, no `bubbles/list` | Pocas filas; `bubbles/list` trae paginación, barra de estado y colores fijos, y su filtro complica los tests |
 | Exportar con ruta editable, sin el diálogo nativo | Una ventana del sistema abierta desde la TUI la deja esperando sin señal visible, y en un test abriría una ventana real (en WSL, de Windows) |
 | Resolución de repos y opciones del backlog de `cmd` a `internal/backlog` | La TUI no importa `cmd`; copiar esas reglas daría dos backlogs que analizan distinto |
@@ -870,7 +872,9 @@ Obligatorias para toda pantalla nueva o modificada (las resume `CLAUDE.md`):
    una pantalla por paso, y `esc` vuelve al anterior sin lógica extra.
 4. **Teclas:** `ctrl+c` es del marco y nunca se captura. Si la pantalla tiene
    un campo de texto, un filtro o una confirmación, implementa `captures` y
-   reclama `?` y `esc` mientras los necesita. Cada tecla propia va en
+   reclama `?` y `esc` mientras los necesita, y acepta lo pegado: `paste`
+   en un campo propio o, en un `textinput`, `tea.PasteMsg` en `update`.
+   Cada tecla propia va en
    `keys()` (principal) o en `moreKeys()` (secundaria) con su ayuda en
    español; ninguna tecla oculta.
 5. **Red, git y disco lento en un `tea.Cmd`**, nunca en `update`: la pantalla
