@@ -119,3 +119,6 @@ Con una terminal real (lo corre el autor): `go run .`.
 - Los archivos de marca (SVG o PNG) no están en el repo, ni el logo en el
   README o en `draco version`.
 - **079 (opcional):** módulo y sprint de QA elegidos de listas.
+
+> **Nota (2026-11-23):** la 079 es ahora `fix/pegar-en-campos` y la 080 el
+> buscador de Commits; las listas de QA pasan a la 081.

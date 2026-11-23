@@ -55,6 +55,8 @@ func (l *locations) keys() []key.Binding {
 
 func (l *locations) captures(k tea.KeyPressMsg) bool { return l.filter.captures(k) }
 
+func (l *locations) paste(s string) { l.filter.paste(s) }
+
 func (l *locations) init() tea.Cmd {
 	if l.started {
 		return nil

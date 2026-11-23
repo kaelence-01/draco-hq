@@ -51,6 +51,24 @@ func (f *filter) typeKey(k tea.KeyPressMsg) {
 	}
 }
 
+// paste adds pasted text while the filter is typed.
+func (f *filter) paste(s string) {
+	if f.typing {
+		f.text += oneLine(s)
+	}
+}
+
+// oneLine is pasted text as one line: its lines, trimmed, joined by a space.
+func oneLine(s string) string {
+	var lines []string
+	for _, l := range strings.Split(s, "\n") {
+		if l = strings.TrimSpace(l); l != "" {
+			lines = append(lines, l)
+		}
+	}
+	return strings.Join(lines, " ")
+}
+
 func (f *filter) matches(s string) bool {
 	return strings.Contains(strings.ToLower(s), strings.ToLower(f.text))
 }

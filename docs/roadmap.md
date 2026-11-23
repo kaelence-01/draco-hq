@@ -54,7 +54,7 @@ de Windows (`cmd`) se ve más limitado.
 | 6 | Configuración en formularios, aviso de versión nueva, barra de comandos con autocompletado, ayuda, temas | ✅ `v0.3.0` |
 | — | Mejoras y correcciones sobre la fase 6, con draco ya en uso | ✅ `v0.3.1`–`v0.3.3` |
 | 7 | Rediseño del modo visual: maestro-detalle elástico | ✅ `v0.4.0` |
-| — | Mejoras sobre la fase 7: consolidado QA con varios proyectos de Jira y tan simple como en gtt; borradores de proyecto; formularios | 🔄 071 a 073 en `v0.4.1` a `v0.4.3` |
+| — | Mejoras sobre la fase 7: consolidado QA con varios proyectos de Jira y tan simple como en gtt; borradores de proyecto; formularios; encontrar el commit | 🔄 071 a 073 en `v0.4.1` a `v0.4.3` |
 | v1.0 | Instaladores, checksums, migración desde gtt (✅ adelantada), README completo | ⬜ |
 | Después de la v1.0 | Otros trackers y plataformas; modo equipo (plantillas y perfiles compartidos) | ⬜ |
 
@@ -374,7 +374,7 @@ porque no guardan el proyecto de Jira (bitácora 071).
 | 071 | `feature/qa-multiproyecto` | `qa_jira.projects` (otros proyectos que heredan los valores del por defecto), `-j/--jira-project`, la lista de proyectos en el formulario solo cuando hay varios, el proyecto en el título del Kanban | ✅ |
 | 072 | `feature/qa-detectar-jira` | Configurar sin escribir ids: `draco qa setup` y `d` en Configuración › QA leen de Jira los estados del proyecto y los campos, y la QA elige por nombre, con Testing y los finalizados ya marcados. El autor eligió la lista de estados del proyecto en vez de las columnas del tablero, porque los tableros no son todos iguales | ✅ |
 | 073 | `fix/qa-setup-directo` | Probando la 072, el autor abrió el formulario manual y tomó los ejemplos por valores cargados. Ahora `enter` en QA detecta desde Jira mientras `qa_jira` está incompleto, el formulario no trae ejemplos que parezcan valores, y la detección muestra un resumen que se guarda con `enter` (o pide solo los campos que faltan) | ✅ |
-| 079 | `feature/qa-listas` (opcional) | Módulo y sprint elegidos de listas (componentes y sprints del tablero) | ⬜ |
+| 081 | `feature/qa-listas` (opcional) | Módulo y sprint elegidos de listas (componentes y sprints del tablero) | ⬜ |
 
 ### Mejoras sobre la fase 7 — proyectos y formularios
 
@@ -402,6 +402,18 @@ o el consolidado QA la daría por documentada.
 | # | Rama | Contenido | Estado |
 |---|---|---|---|
 | 078 | `feature/logo` | La cabeza del dragón de la marca en braille, con el nombre, en lugar de «DRACO» en letras de bloque; el marco la muestra en la cabecera de todas las pantallas cuando el cuerpo conserva sus 20 líneas (desde 29 líneas y 63 columnas) | ✅ |
+
+### Mejoras sobre la fase 7 — encontrar el commit
+
+En Commits solo se listan los 30 últimos de la rama del clon. En un repo con
+varias personas, el commit de una tarea sale de esa ventana en pocos días, y
+agregarlo a mano tampoco servía porque el campo no aceptaba pegar (bitácora
+079). El autor pidió las dos mejoras por partes.
+
+| # | Rama | Contenido | Estado |
+|---|---|---|---|
+| 079 | `fix/pegar-en-campos` | Pegar en todo campo de la TUI: el hash a mano (se queda con el hash de una línea de `git log --oneline`), los filtros `/`, la barra de comandos y la ruta de Exportar | ✅ |
+| 080 | `feature/buscar-commits` | Un buscador `/` en Commits por hash, mensaje, autor y fecha, que también agrega un hash que no está en la lista; `m` para ver solo los commits propios; cargar más y buscar en todo el repo (todas las ramas); los commits que mencionan la tarea, sugeridos arriba | ⬜ |
 
 ### v1.0
 

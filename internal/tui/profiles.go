@@ -53,6 +53,8 @@ func (p *profiles) captures(k tea.KeyPressMsg) bool {
 	return p.removing != "" || p.filter.captures(k)
 }
 
+func (p *profiles) paste(s string) { p.filter.paste(s) }
+
 func (p *profiles) names() []string {
 	var out []string
 	for _, n := range p.st.cfg.ProfileNames() {
