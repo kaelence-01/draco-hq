@@ -39,7 +39,7 @@ ok "versión $last → $ver"
 make --no-print-directory lint test
 make --no-print-directory release-build ver="$ver"
 
-read -r -p "¿Publicar $ver en GitHub? [s/N]: " answer
+read -r -p "¿Publicar $ver en GitHub? [y/N]: " answer
 [[ "$answer" =~ ^[sSyY] ]] || { echo "Cancelado: no se creó el tag."; exit 0; }
 
 git tag -a "$ver" -m "draco $ver"

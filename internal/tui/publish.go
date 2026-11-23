@@ -14,6 +14,7 @@ import (
 var (
 	publishKey = key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "publicar"))
 	homeKey    = key.NewBinding(key.WithKeys("enter", "esc"), key.WithHelp("enter", "volver al inicio"))
+	againKey   = key.NewBinding(key.WithKeys("n"), key.WithHelp("n", "otro documento"))
 )
 
 type publishedMsg struct {
@@ -47,6 +48,8 @@ func (p *publish) close()        { p.cancel() }
 
 func (p *publish) keys() []key.Binding {
 	switch {
+	case p.res != nil && p.run.about().again != nil:
+		return []key.Binding{againKey, homeKey}
 	case p.res != nil:
 		return []key.Binding{homeKey}
 	case p.publishing:
@@ -55,8 +58,10 @@ func (p *publish) keys() []key.Binding {
 	return []key.Binding{publishKey}
 }
 
+// captures keeps esc while publishing or after it, and q while publishing:
+// quitting then could leave a document without its link.
 func (p *publish) captures(k tea.KeyPressMsg) bool {
-	return (p.publishing || p.res != nil) && key.Matches(k, backKey)
+	return (p.publishing || p.res != nil) && key.Matches(k, backKey) || p.publishing && key.Matches(k, exitKey)
 }
 
 func (p *publish) update(msg tea.Msg) (screen, tea.Cmd) {
@@ -79,6 +84,8 @@ func (p *publish) update(msg tea.Msg) (screen, tea.Cmd) {
 		return p, cmd
 	case tea.KeyPressMsg:
 		switch {
+		case p.res != nil && key.Matches(msg, againKey) && p.run.about().again != nil:
+			return p, tea.Sequence(toHome, open(p.run.about().again()))
 		case p.res != nil && key.Matches(msg, homeKey):
 			return p, toHome
 		case p.res == nil && !p.publishing && key.Matches(msg, publishKey):
@@ -114,6 +121,9 @@ func (p *publish) view(width, height int) string {
 		lines = append(lines, errStyle.Render("✗ "+p.err.Error()), faintStyle.Render("enter lo intenta de nuevo · esc vuelve"))
 	case p.res != nil:
 		lines = append(lines, p.result()...)
+		if a.again != nil {
+			lines = append(lines, "", faintStyle.Render("n genera otro documento · enter vuelve al inicio"))
+		}
 	default:
 		lines = append(lines, warnStyle.Render("¿Publicar? enter confirma · esc vuelve sin publicar"))
 	}

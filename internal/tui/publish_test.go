@@ -116,6 +116,36 @@ func TestPublishingCannotBeLeft(t *testing.T) {
 	if out := view(e.m); !strings.Contains(out, "Publicando…") || len(e.m.stack) != 7 || strings.Contains(out, "esc volver") {
 		t.Errorf("mientras publica, esc no sale:\n%s", out)
 	}
+	if send(e.m, keyQ) || len(e.m.stack) != 7 {
+		t.Error("mientras publica, q tampoco sale")
+	}
+}
+
+func TestPublishedOffersAnotherDocument(t *testing.T) {
+	e := newGenerateApp(t, nil)
+	e.toPreview(t, "")
+	send(e.m, keyEnter)
+	send(e.m, keyEnter)
+	send(e.m, keyEnter)
+	out := view(e.m)
+	if !strings.Contains(out, "✓ Documento creado") || !strings.Contains(out, "n genera otro documento · enter vuelve al inicio") || !strings.Contains(out, "n otro documento") {
+		t.Fatalf("el resultado ofrece otro documento:\n%s", out)
+	}
+	e.m.st.project = "facturacion"
+	send(e.m, press('n', "n"))
+	out = view(e.m)
+	if !strings.Contains(out, "Inicio › Generar documento") || len(e.m.stack) != 2 || !strings.Contains(out, "Tarea") || !strings.Contains(out, "OPS-7 publicado") {
+		t.Fatalf("n abre Generar sobre la principal, y el último resultado sigue a la vista:\n%s", out)
+	}
+	if g := e.m.top().(*generate); g.project != "pagos" || g.issue != "" {
+		t.Errorf("Generar llega vacío y con el proyecto recién usado: %q %q", g.issue, g.project)
+	}
+	typeText(e.m, "OPS-8")
+	send(e.m, keyEnter)
+	send(e.m, keyEnter)
+	if out := view(e.m); !strings.Contains(out, "Commits de OPS-8") {
+		t.Errorf("de ahí se sigue a los commits de la tarea nueva:\n%s", out)
+	}
 }
 
 func TestLinkErrorIsReported(t *testing.T) {

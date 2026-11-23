@@ -250,6 +250,29 @@ func TestQuitKeys(t *testing.T) {
 	}
 }
 
+func TestQuitFromAnyScreenUnlessItTakesQ(t *testing.T) {
+	m := newTestApp(t, testConfig(), nil, 100, 30)
+	f := &fakeScreen{}
+	send(m, openMsg{f})
+	send(m, keyHelp)
+	if full := squash(view(m)); !strings.Contains(full, "q salir") || !strings.Contains(full, "ctrl+c salir") {
+		t.Errorf("la ayuda completa ofrece q y ctrl+c:\n%s", full)
+	}
+
+	f.capture = true
+	if full := squash(view(m)); strings.Contains(full, "q salir") || !strings.Contains(full, "ctrl+c salir") {
+		t.Errorf("si la pantalla se queda con q, la ayuda solo ofrece ctrl+c:\n%s", full)
+	}
+	if send(m, keyQ) || f.closed || len(f.got) != 1 {
+		t.Errorf("q va a la pantalla que la captura, sin salir: %v", f.got)
+	}
+
+	f.capture = false
+	if !send(m, keyQ) || !f.closed {
+		t.Error("q sale desde cualquier pantalla y la cierra antes, como ctrl+c")
+	}
+}
+
 func TestHelpToggle(t *testing.T) {
 	m := newTestApp(t, testConfig(), nil, 100, 30)
 	short := view(m)
@@ -280,9 +303,7 @@ func TestStackOpensAndGoesBack(t *testing.T) {
 	if !strings.Contains(out, "pantalla de prueba") || !strings.Contains(out, "esc volver") || !strings.Contains(out, "Inicio › Pantalla de prueba") {
 		t.Fatalf("la pantalla abierta se dibuja dentro del marco, con su ruta y esc:\n%s", out)
 	}
-	if send(m, keyQ) {
-		t.Error("q solo sale desde la pantalla principal")
-	}
+	send(m, press('x', "x"))
 	if len(f.got) != 1 {
 		t.Errorf("las teclas van a la pantalla de arriba: %v", f.got)
 	}

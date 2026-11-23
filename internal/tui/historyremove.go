@@ -73,11 +73,11 @@ func (r *removeDoc) keys() []key.Binding {
 	return []key.Binding{nextFieldKey}
 }
 
-// captures keeps every key while the task is typed, and esc while deleting
-// or after it.
+// captures keeps every key while the task is typed, esc while deleting or
+// after it, and q while deleting: quitting then could leave the link behind.
 func (r *removeDoc) captures(k tea.KeyPressMsg) bool {
 	if r.removing || r.res != nil {
-		return key.Matches(k, backKey)
+		return key.Matches(k, backKey) || r.removing && key.Matches(k, exitKey)
 	}
 	return !key.Matches(k, backKey)
 }
