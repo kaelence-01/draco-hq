@@ -369,7 +369,7 @@ en la consola clásica de Windows (`cmd`) se ve más limitado.
 | `ctrl+c` | Sale de draco, siempre |
 | `esc` | Vuelve a la pantalla anterior |
 | `?` | Muestra todas las teclas de la pantalla, también las que el pie compacto no trae (de nuevo, las oculta) |
-| `q` | Sale, desde la principal (el pie compacto de la principal no lo muestra: está en `?`) |
+| `q` | Sale, desde cualquier pantalla mientras no estés escribiendo: en un formulario, una búsqueda `/` o la barra de comandos, la `q` se escribe. Tampoco sale mientras se publica o se borra un documento (`ctrl+c` sí). Está en `?` |
 | `1`–`7` | En la principal, abre esa función directo |
 | `tab` | En la principal, pasa del menú a Recientes y vuelve |
 | `enter` / `tab` / `shift+tab` | En un formulario: siguiente campo / siguiente / anterior. Un formulario de varias páginas dice arriba en cuál estás (`●○○  Página 1 de 3 · Jira`); si no cabe en la terminal, se desplaza hasta el campo en el que estás |
@@ -455,9 +455,12 @@ terminal, con `draco` o sin él: `/g -i OPS-7 -b a1b2c3d`.
    **Resumen** dice qué se creará: el título, el destino, la página nueva
    junto a la elegida y el enlace que se agregará en la tarea. Nada se
    publica todavía.
-6. **Publicar.** `enter` publica. Mientras publica, `esc` no sale, para no
-   dejar el documento sin su enlace en la tarea. Al terminar muestra la URL;
-   si falló el enlace en Jira, lo dice.
+6. **Publicar.** `enter` publica. Mientras publica, `esc` y `q` no salen,
+   para no dejar el documento sin su enlace en la tarea. Al terminar muestra
+   la URL; si falló el enlace en Jira, lo dice. Después:
+   - `n` abre **otro documento**: Generar con la tarea vacía y el mismo
+     proyecto, para seguir con la siguiente tarea sin pasar por el menú;
+   - `enter` (o `esc`) vuelve al inicio.
 
 Desde 96 columnas, cada paso lleva arriba la línea de pasos
 (`✓ Tarea › ✓ Commits › Vista previa › Ubicación › Publicar`), con `✓` en los

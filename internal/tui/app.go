@@ -68,6 +68,8 @@ func toHome() tea.Msg { return homeMsg{} }
 
 var (
 	quitKey = key.NewBinding(key.WithKeys("ctrl+c"), key.WithHelp("ctrl+c", "salir"))
+	// exitKey quits too, from any screen that does not take q for itself.
+	exitKey = key.NewBinding(key.WithKeys("q"), key.WithHelp("q", "salir"))
 	helpKey = key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "más"))
 	backKey = key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "volver"))
 	lessKey = key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "menos"))
@@ -112,13 +114,12 @@ func (m *app) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case tea.KeyPressMsg:
 		if key.Matches(msg, quitKey) {
-			for len(m.stack) > 1 {
-				m.pop()
-			}
-			return m, tea.Quit
+			return m, m.quit()
 		}
 		if !m.captured(msg) {
 			switch {
+			case key.Matches(msg, exitKey):
+				return m, m.quit()
 			case key.Matches(msg, helpKey):
 				m.help.ShowAll = !m.help.ShowAll
 				return m, nil
@@ -167,6 +168,14 @@ func (m *app) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *app) top() screen { return m.stack[len(m.stack)-1] }
+
+// quit closes every screen, so the steps they launched are canceled.
+func (m *app) quit() tea.Cmd {
+	for len(m.stack) > 1 {
+		m.pop()
+	}
+	return tea.Quit
+}
 
 // captured reports whether the screen on top takes k from the frame.
 func (m *app) captured(k tea.KeyPressMsg) bool {
@@ -295,6 +304,9 @@ func (m *app) footer() string {
 		}
 	}
 	if full {
+		if !m.captured(tea.KeyPressMsg{Code: 'q', Text: "q"}) {
+			bindings = append(bindings, exitKey)
+		}
 		bindings = append(bindings, quitKey)
 	}
 	m.help.Styles = helpStyles

@@ -164,10 +164,14 @@ habla con los flujos; nunca con un adaptador.
   su `close()` y vuelve a la anterior. `backTo(s)` cierra las que están
   sobre `s` (al terminar el asistente de Configuración), y `toHome` cierra
   todas hasta la principal (al terminar de publicar).
-- **Teclas globales:** `ctrl+c` sale siempre; `q` sale desde la principal;
-  `?` muestra la ayuda completa de teclas de la pantalla (`bubbles/help`);
-  `esc` vuelve. Las tres últimas ceden ante `captures`, y el pie no ofrece
-  una tecla que la pantalla captura en ese momento.
+- **Teclas globales:** `ctrl+c` sale siempre; `q` sale desde cualquier
+  pantalla (bitácora 081); `?` muestra la ayuda completa de teclas de la
+  pantalla (`bubbles/help`); `esc` vuelve. Las tres últimas ceden ante
+  `captures`, y el pie no ofrece una tecla que la pantalla captura en ese
+  momento. Un formulario, una búsqueda o la barra capturan `q` mientras se
+  escribe; Publicar y Borrar la capturan mientras trabajan, para no dejar un
+  documento sin su enlace. `q` y `ctrl+c` van en la ayuda completa de todas
+  las pantallas.
 - **Logo en el marco:** con 29 líneas o más y al menos 63 columnas, la
   cabecera es el logo con la versión, la ruta, el perfil y el proyecto a su
   lado (7 líneas con la raya). El umbral es el alto que deja a cada pantalla
@@ -1122,9 +1126,14 @@ Se suman a las normas del §10:
 - **El título de la tarea no se muestra en Commits:** se lee en el paso
   siguiente (`FetchIssue`); la línea de Commits lleva solo la clave. Leerlo
   antes sería una llamada más al tracker solo para esta línea.
-- **`q salir` y `ctrl+c` van en la ayuda completa de la principal**, como en el
+- **`q salir` y `ctrl+c` van en la ayuda completa**, como en el
   prototipo: el pie compacto lleva `↑↓ elegir`, `enter`, `1-6` y `/` para que
-  `? más` quepa en 80 columnas.
+  `? más` quepa en 80 columnas. Desde la 081 los pone el marco en todas las
+  pantallas, no solo en la principal.
+- **`n` al terminar de publicar (081)** abre Generar sobre la principal
+  (`toHome` y `open` en secuencia), con la tarea vacía y el proyecto recién
+  usado. Lo ofrece `docAbout.again`; QA no lo tiene, y Publicar no sabe de
+  qué flujo es.
 - **La regla de QA sale de la pantalla:** `Config.QAState` (sin configurar,
   incompleta, sin cuenta, lista) y `HasQAReport` son funciones puras de
   `config`; Configuración y la principal las usan en vez de repetir la regla.

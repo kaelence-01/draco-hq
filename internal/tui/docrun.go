@@ -34,6 +34,9 @@ type docAbout struct {
 	tracker string
 	command string   // the same run in the command mode
 	steps   []string // the screens of the flow, for the line of steps
+	// again is the first screen of another run, offered once this one is
+	// published; nil offers none.
+	again func() screen
 }
 
 var (
@@ -73,7 +76,17 @@ type genRun struct {
 
 func (r *genRun) about() docAbout {
 	return docAbout{noun: "Documento", recent: "documentos de despliegue recientes", dest: r.bundle.Profile.Docs.Provider,
-		issue: r.session.Target.Issue, tracker: r.bundle.Profile.Tracker.Provider, command: r.command, steps: deploySteps}
+		issue: r.session.Target.Issue, tracker: r.bundle.Profile.Tracker.Provider, command: r.command, steps: deploySteps, again: r.again}
+}
+
+// again is the Generar form, empty, with the project just used.
+func (r *genRun) again() screen {
+	g := newGenerate(r.st)
+	if p := r.session.Target.ProjectName; p != "" {
+		g.project = p
+	}
+	g.form = g.build()
+	return g
 }
 
 func (r *genRun) updating() bool { return r.replace }
