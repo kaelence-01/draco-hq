@@ -86,7 +86,7 @@ internal/tui/
   projectform.go  formulario de Huh para crear y editar un proyecto, y retomar un borrador
   form.go       formularios: páginas con nombre y paginador, línea bajo cada campo, alto disponible
   generate.go   Generar: tarea y proyecto (formulario); abre el perfil
-  commits.go    Generar: selector de commits por lado, con hash a mano
+  commits.go    Generar: selector de commits por lado, con búsqueda y sugeridos
   progress.go   Generar: pasos de deploy.Session con progreso y cancelación
   preview.go    Generar y QA: vista previa (documento dibujado o Markdown, y archivos) y secciones no conservadas
   mdrender.go   renderizador del Markdown que genera draco, para la vista previa
@@ -158,6 +158,7 @@ habla con los flujos; nunca con un adaptador.
   | `captures(k tea.KeyPressMsg) bool` | Quitarle una tecla global (`?`, `esc`) al marco mientras la pantalla la necesita: un campo de texto, un filtro, una confirmación. `ctrl+c` nunca se captura |
   | `init() tea.Cmd` | Arrancar al mostrarse: al abrirse y al volver a quedar arriba. El formulario de Huh enfoca su primer campo (y, si ya se envió, se rehace con los mismos valores); una pantalla con pasos los lanza una sola vez |
   | `close()` | Soltar lo que la pantalla lanzó al cerrarse: cancela el `context` de un paso en curso |
+  | `paste(text string) tea.Cmd` | Recibir lo pegado (`tea.PasteMsg`, que no llega como teclas) en el campo que se está escribiendo; fuera de un campo no hace nada. Devuelve un paso si lo pegado lo pide (en Commits, leer los archivos del commit que queda bajo el cursor). Sin ella, el mensaje llega a `update`: así lo reciben un formulario de Huh o un `textinput` de Bubbles |
 
   `open(s)` apila; `esc` (o el mensaje `back`) cierra la de arriba, llama a
   su `close()` y vuelve a la anterior. `backTo(s)` cierra las que están
@@ -275,7 +276,7 @@ mismas decisiones que pregunta `draco g`:
 | # | Pantalla | Paso del flujo | Decisión del usuario |
 |---|---|---|---|
 | 1 | Tarea y proyecto (formulario) | `deploy.ProjectSides`, `profile.Open` | Clave de la tarea, proyecto (por defecto, el activo) |
-| 2 | Commits | `ChangeSource.CurrentBranch` y `RecentCommits` por lado | Marcar commits de backend y de frontend; `h` agrega un hash a mano |
+| 2 | Commits | `ChangeSource.CurrentBranch`, `Identity` y `Commits` por lado | Marcar commits de backend y de frontend; buscar con `/`, que también marca o agrega un hash |
 | 3 | Preparar documento (progreso) | `Resolve`, `FetchIssue`, `FindExisting` | Si ya existe: `1` actualizar, `2` crear otro, `3` cancelar |
 | 4 | Preparar documento (progreso) | `ReadCommits` | Si falla un lado, aviso y seguir con el otro |
 | 5 | Vista previa | `DraftCreate` / `DraftUpdate` | Pestañas: archivos por carpeta y documento (Markdown en `viewport`). Si `NotPreserved`, confirmar |
@@ -292,12 +293,29 @@ mismas decisiones que pregunta `draco g`:
   una credencial o un space que faltan se explican en el formulario, antes de
   elegir commits, y el selector usa el `ChangeSource` del perfil.
 - **Orden de los commits.** El documento enlaza el primer hash de cada lado.
-  Los marcados se pasan en el orden de la lista (el más reciente primero); el
-  hash manual va al final.
-- **Rama actual.** `RecentCommits` lee la rama en la que está el clon. Un
-  commit de otra rama se agrega con `h`; la pantalla dice en qué rama está
-  (`CurrentBranch`). Cada lado es una pestaña (`tab`), para caber en 80
-  columnas; la pestaña cuenta los commits marcados.
+  Los marcados se pasan del más reciente al más antiguo, por fecha (con la
+  misma fecha, en el orden en que se leyeron); los hashes a mano van al final.
+  El orden no sale de la lista porque un commit marcado puede dejar de verse
+  (la búsqueda, `m` o `a` lo esconden) y sigue marcado.
+- **Rama actual y todas las ramas (bitácora 080).** Se leen páginas de 100
+  commits de la rama del clon (`Commits` con `Skip`); `↓` en la última fila
+  lee la siguiente, también con la búsqueda aplicada. `a` cambia a todas las
+  ramas y vuelve a la primera página; la pestaña dice cuál se ve
+  (`CurrentBranch` o «todas las ramas»). Cada lado es una pestaña (`tab`),
+  para caber en 80 columnas; la pestaña cuenta los commits marcados.
+- **Sugeridos (bitácora 080).** Al abrir, cada lado busca en todas las ramas
+  y en toda la historia los commits cuyo mensaje menciona la tarea
+  (`Commits` con `Grep`; hasta 50). `deploy.MentionsIssue` descarta los que
+  solo coinciden por texto (`OPS-70` no es `OPS-7`), y se mira solo el asunto,
+  que es lo que el puerto trae. Van arriba con `★` y, salvo que se llegue
+  desde la barra con hashes, los del `user.email` del clon (`Identity`,
+  `deploy.Mine`) llegan marcados.
+- **Búsqueda (bitácora 080).** `/` usa el `filter` de las listas;
+  `deploy.CommitMatches` decide cada fila (todas las palabras, en el hash por
+  el comienzo o en mensaje, autor, correo y fecha). `enter` con un hash (7 a
+  40 hexadecimales, `deploy.LooksLikeHash`) lo marca si ya se leyó o lo
+  agrega a mano; es la única forma de agregar uno y reemplaza a la tecla `h`.
+  `m` deja los commits del `user.email` del clon.
 - **Archivos de cada commit (fase 7).** La pantalla Commits los lee con
   `ChangedFiles` de **un solo hash**, en un `tea.Cmd`, cuando el cursor llega
   al commit, cuando se agrega un hash a mano y, al abrirla desde la barra, para
@@ -835,6 +853,7 @@ Terminal y una terminal de Linux o WSL.
 | Ruta con los títulos de la pila | Con pantallas apiladas (Proyectos › formulario) se pierde de vista dónde se está |
 | Teclas globales que la pantalla puede capturar (`captures`) | Un campo de texto o un filtro necesita `?` y `esc`; sin esto, escribir `?` abre la ayuda |
 | `close()` al cerrar una pantalla | Es lo que cancela un paso en curso al pulsar `esc` |
+| Lo pegado por `paste`, en una línea | Bubble Tea v2 entrega lo pegado como `tea.PasteMsg`, no como teclas: los campos propios lo perdían. Los saltos de línea se vuelven un espacio porque todo campo es de una línea |
 | Lista de Proyectos propia, no `bubbles/list` | Pocas filas; `bubbles/list` trae paginación, barra de estado y colores fijos, y su filtro complica los tests |
 | Exportar con ruta editable, sin el diálogo nativo | Una ventana del sistema abierta desde la TUI la deja esperando sin señal visible, y en un test abriría una ventana real (en WSL, de Windows) |
 | Resolución de repos y opciones del backlog de `cmd` a `internal/backlog` | La TUI no importa `cmd`; copiar esas reglas daría dos backlogs que analizan distinto |
@@ -870,7 +889,9 @@ Obligatorias para toda pantalla nueva o modificada (las resume `CLAUDE.md`):
    una pantalla por paso, y `esc` vuelve al anterior sin lógica extra.
 4. **Teclas:** `ctrl+c` es del marco y nunca se captura. Si la pantalla tiene
    un campo de texto, un filtro o una confirmación, implementa `captures` y
-   reclama `?` y `esc` mientras los necesita. Cada tecla propia va en
+   reclama `?` y `esc` mientras los necesita, y acepta lo pegado: `paste`
+   en un campo propio o, en un `textinput`, `tea.PasteMsg` en `update`.
+   Cada tecla propia va en
    `keys()` (principal) o en `moreKeys()` (secundaria) con su ayuda en
    español; ninguna tecla oculta.
 5. **Red, git y disco lento en un `tea.Cmd`**, nunca en `update`: la pantalla
@@ -1092,7 +1113,10 @@ Se suman a las normas del §10:
   guía explica qué hace. Perfiles, Hallazgos, Exportar y Configuración
   también clasifican sus teclas (`↑↓` y `enter` en el pie; el resto en `?`).
 - **Commits clasifica sus teclas:** `↑↓`, `espacio`, `tab` (repo) y `enter` en
-  el pie; `h` y `↑/k`, `↓/j` en la ayuda completa. La ayuda de `tab` es
+  el pie; `/`, `m`, `a` y `↑/k`, `↓/j` en la ayuda completa. Los tres
+  primeros no caben en el pie de 80 columnas, así que la línea bajo la lista
+  los muestra siempre con su estado (`/ buscar · m míos · a todas las ramas`).
+  La ayuda de `tab` es
   «repo» y no «backend/frontend»: con la segunda el pie no cabía en 80
   columnas y se perdía `? más`.
 - **El título de la tarea no se muestra en Commits:** se lee en el paso

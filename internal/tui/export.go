@@ -168,6 +168,8 @@ func (d *exportDocs) keys() []key.Binding {
 
 func (d *exportDocs) captures(k tea.KeyPressMsg) bool { return d.filter.captures(k) }
 
+func (d *exportDocs) paste(s string) tea.Cmd { d.filter.paste(s); return nil }
+
 func (d *exportDocs) init() tea.Cmd {
 	if d.started {
 		return nil
@@ -381,6 +383,14 @@ func (t *exportText) update(msg tea.Msg) (screen, tea.Cmd) {
 		return t, cmd
 	case tea.KeyPressMsg:
 		return t.key(msg)
+	case tea.PasteMsg:
+		if t.exp == nil || t.confirm || t.saved != "" {
+			return t, nil
+		}
+		t.note = ""
+		var cmd tea.Cmd
+		t.path, cmd = t.path.Update(tea.PasteMsg{Content: oneLine(msg.Content)})
+		return t, cmd
 	}
 	return t, nil
 }

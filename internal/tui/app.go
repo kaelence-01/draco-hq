@@ -33,6 +33,9 @@ type (
 	// moreKeyer lists the keys that only the full help shows; the footer
 	// shows the ones in keys().
 	moreKeyer interface{ moreKeys() []key.Binding }
+	// paster takes pasted text into the field being typed, if any; a screen
+	// without it gets the paste in update (a Huh form).
+	paster interface{ paste(text string) tea.Cmd }
 )
 
 type openMsg struct{ s screen }
@@ -122,6 +125,10 @@ func (m *app) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case key.Matches(msg, backKey) && len(m.stack) > 1:
 				return m, back
 			}
+		}
+	case tea.PasteMsg:
+		if p, ok := m.top().(paster); ok {
+			return m, p.paste(msg.Content)
 		}
 	case openMsg:
 		m.stack = append(m.stack, msg.s)

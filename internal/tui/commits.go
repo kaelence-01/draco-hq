@@ -16,8 +16,12 @@ import (
 	"github.com/kaelence-01/draco-hq/internal/provider"
 )
 
-// recentCommits is how many commits each side lists.
-const recentCommits = 30
+// How many commits each read lists: a page of the list, and those that
+// mention the issue in any branch.
+const (
+	commitsPage  = 100
+	suggestedMax = 50
+)
 
 // The table: columns that do not grow, and how many items the strip lists.
 const (
@@ -34,7 +38,9 @@ const (
 var (
 	markKey = key.NewBinding(key.WithKeys("space"), key.WithHelp("espacio", "marcar"))
 	sideKey = key.NewBinding(key.WithKeys("tab", "left", "right"), key.WithHelp("tab", "repo"))
-	hashKey = key.NewBinding(key.WithKeys("h"), key.WithHelp("h", "hash a mano"))
+	findKey = key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "buscar"))
+	mineKey = key.NewBinding(key.WithKeys("m"), key.WithHelp("m", "solo los míos"))
+	allKey  = key.NewBinding(key.WithKeys("a"), key.WithHelp("a", "todas las ramas"))
 	goKey   = key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "continuar"))
 )
 
@@ -47,66 +53,87 @@ type fileRead struct {
 
 // side is one repo of the deploy and the commits the user marks in it.
 type side struct {
-	label   string
-	repo    deploy.Repo
-	loading bool
-	branch  string
-	commits []provider.Commit
-	err     error
-	cursor  int
-	picked  map[string]bool
-	manual  []string             // hashes typed by hand, in order
-	given   []string             // hashes from the command bar, marked when the side loads
-	files   map[string]*fileRead // by hash, read as the cursor reaches each commit
+	label       string
+	repo        deploy.Repo
+	loading     bool
+	paging      bool
+	full        bool // the last page was full: there may be older commits
+	branch      string
+	email       string
+	identityErr error
+	commits     []provider.Commit // the pages read, of the branch or of every branch
+	suggested   []provider.Commit // those that mention the issue, in any branch
+	err         error
+	cursor      int
+	picked      map[string]bool
+	known       map[string]provider.Commit // every commit read, by short hash
+	order       []string                   // the short hashes of known, as they arrived
+	manual      []string                   // hashes typed by hand, in order
+	given       []string                   // hashes from the command bar, marked when the side loads
+	files       map[string]*fileRead       // by hash, read as the cursor reaches each commit
 }
 
-// mark marks the given hashes: one in the list (by prefix, either way) is
-// picked; any other is added as typed by hand.
+// row is one line of the list: a commit, or a hash typed by hand.
+type row struct {
+	commit    *provider.Commit
+	hash      string
+	suggested bool
+}
+
+func (s *side) remember(list []provider.Commit) {
+	for _, c := range list {
+		if _, ok := s.known[c.ShortHash]; !ok {
+			s.known[c.ShortHash] = c
+			s.order = append(s.order, c.ShortHash)
+		}
+	}
+}
+
+// find is the commit read whose hash starts with h, or that h starts with.
+func (s *side) find(h string) (string, bool) {
+	i := slices.IndexFunc(s.order, func(c string) bool {
+		return strings.HasPrefix(c, h) || strings.HasPrefix(h, c) || strings.HasPrefix(s.known[c].Hash, h)
+	})
+	if i < 0 {
+		return "", false
+	}
+	return s.order[i], true
+}
+
+// mark marks the given hashes: one already read is picked; any other is added
+// as typed by hand.
 func (s *side) mark() {
 	for _, h := range s.given {
-		i := slices.IndexFunc(s.commits, func(c provider.Commit) bool {
-			return strings.HasPrefix(c.ShortHash, h) || strings.HasPrefix(h, c.ShortHash)
-		})
-		switch {
-		case i >= 0:
-			s.picked[s.commits[i].ShortHash] = true
-		case !slices.Contains(s.manual, h):
+		if c, ok := s.find(h); ok {
+			s.picked[c] = true
+		} else if !slices.Contains(s.manual, h) {
 			s.manual = append(s.manual, h)
 		}
 	}
 	s.given = nil
 }
 
-// hashes are the marked commits in the order of the list (newest first, the
-// one the document links), then the ones typed by hand.
+// hashes are the marked commits, newest first (the one the document links),
+// then the ones typed by hand.
 func (s *side) hashes() []string {
-	var out []string
-	for _, c := range s.commits {
-		if s.picked[c.ShortHash] {
-			out = append(out, c.ShortHash)
+	var marked []provider.Commit
+	for _, h := range s.order {
+		if s.picked[h] {
+			marked = append(marked, s.known[h])
 		}
+	}
+	slices.SortStableFunc(marked, func(a, b provider.Commit) int { return b.Date.Compare(a.Date) })
+	var out []string
+	for _, c := range marked {
+		out = append(out, c.ShortHash)
 	}
 	return append(out, s.manual...)
 }
 
-// rows are what the list shows: the commits, then the hashes typed by hand.
-func (s *side) rows() int { return len(s.commits) + len(s.manual) }
-
-// hashAt is the hash of a row of the list; empty past its end.
-func (s *side) hashAt(i int) string {
-	if i < len(s.commits) {
-		return s.commits[i].ShortHash
-	}
-	if j := i - len(s.commits); j < len(s.manual) {
-		return s.manual[j]
-	}
-	return ""
-}
-
 // subject is the message of a marked commit; one typed by hand has none.
 func (s *side) subject(hash string) string {
-	if i := slices.IndexFunc(s.commits, func(c provider.Commit) bool { return c.ShortHash == hash }); i >= 0 {
-		return s.commits[i].Subject
+	if c, ok := s.known[hash]; ok {
+		return c.Subject
 	}
 	return "(a mano)"
 }
@@ -123,9 +150,21 @@ func (s *side) repoName() string {
 }
 
 type commitsLoaded struct {
+	owner       *commits
+	side        int
+	branch      string
+	email       string
+	identityErr error
+	commits     []provider.Commit
+	suggested   []provider.Commit
+	err         error
+}
+
+type pageLoaded struct {
 	owner   *commits
 	side    int
-	branch  string
+	all     bool
+	skip    int
 	commits []provider.Commit
 	err     error
 }
@@ -146,8 +185,10 @@ type commits struct {
 	issue   string
 	sides   []*side
 	cur     int
-	typing  bool
-	hash    string
+	filter  filter
+	mine    bool
+	all     bool
+	fromBar bool
 	note    string
 	spinner spinner.Model
 	ctx     context.Context
@@ -169,11 +210,11 @@ func newCommits(st *state, bundle *profile.Bundle, sides *deploy.Sides, issue st
 }
 
 func newSide(label string, r deploy.Repo) *side {
-	return &side{label: label, repo: r, picked: map[string]bool{}, files: map[string]*fileRead{}}
+	return &side{label: label, repo: r, picked: map[string]bool{}, known: map[string]provider.Commit{}, files: map[string]*fileRead{}}
 }
 
 // preset takes the hashes of the command bar (-b, -f); each side marks its
-// own when it loads.
+// own when it loads, and nothing is marked for the user.
 func (c *commits) preset(back, front []string) {
 	for _, g := range []struct {
 		label, flag string
@@ -182,6 +223,7 @@ func (c *commits) preset(back, front []string) {
 		if len(g.hashes) == 0 {
 			continue
 		}
+		c.fromBar = true
 		i := slices.IndexFunc(c.sides, func(s *side) bool { return s.label == g.label })
 		if i < 0 {
 			c.note = "El proyecto no tiene " + strings.ToLower(g.label) + ": se ignoró " + g.flag
@@ -201,9 +243,26 @@ func (c *commits) keys() []key.Binding {
 	return append(keys, goKey)
 }
 
-func (c *commits) moreKeys() []key.Binding { return []key.Binding{hashKey, upKey, downKey} }
+func (c *commits) moreKeys() []key.Binding {
+	return []key.Binding{findKey, mineKey, allKey, upKey, downKey}
+}
 
-func (c *commits) captures(tea.KeyPressMsg) bool { return c.typing }
+func (c *commits) captures(k tea.KeyPressMsg) bool { return c.filter.captures(k) }
+
+// paste goes to the search; from a line copied from git log --oneline, only
+// its hash.
+func (c *commits) paste(s string) tea.Cmd {
+	if !c.filter.typing {
+		return nil
+	}
+	if f := strings.Fields(s); len(f) > 0 && c.filter.text == "" && deploy.LooksLikeHash(f[0]) {
+		c.filter.text = f[0]
+	} else {
+		c.filter.paste(s)
+	}
+	c.top()
+	return c.needCursor()
+}
 
 func (c *commits) close() { c.cancel() }
 
@@ -215,19 +274,40 @@ func (c *commits) init() tea.Cmd {
 	cmds := []tea.Cmd{c.spinner.Tick}
 	for i, s := range c.sides {
 		s.loading = true
-		cmds = append(cmds, c.load(i, s.repo.WorkDir))
+		cmds = append(cmds, c.load(i))
 	}
 	return tea.Batch(cmds...)
 }
 
-func (c *commits) load(i int, workDir string) tea.Cmd {
-	changes, ctx := c.bundle.Changes, c.ctx
+// load reads a side for the first time: its branch, the identity of the
+// clone, the first page and the commits that mention the issue.
+func (c *commits) load(i int) tea.Cmd {
+	changes, ctx, dir, issue := c.bundle.Changes, c.ctx, c.sides[i].repo.WorkDir, c.issue
 	return func() tea.Msg {
 		msg := commitsLoaded{owner: c, side: i}
-		if msg.branch, msg.err = changes.CurrentBranch(ctx, workDir); msg.err == nil {
-			msg.commits, msg.err = changes.RecentCommits(ctx, workDir, recentCommits)
+		if msg.branch, msg.err = changes.CurrentBranch(ctx, dir); msg.err != nil {
+			return msg
 		}
+		msg.email, msg.identityErr = changes.Identity(ctx, dir)
+		if msg.commits, msg.err = changes.Commits(ctx, dir, provider.CommitQuery{Limit: commitsPage}); msg.err != nil {
+			return msg
+		}
+		found, err := changes.Commits(ctx, dir, provider.CommitQuery{Limit: suggestedMax, AllBranches: true, Grep: issue})
+		msg.suggested = slices.DeleteFunc(found, func(cm provider.Commit) bool { return !deploy.MentionsIssue(cm.Subject, issue) })
+		msg.err = err
 		return msg
+	}
+}
+
+// loadPage reads the next page of a side: of its branch, or of every branch.
+func (c *commits) loadPage(i int) tea.Cmd {
+	s := c.sides[i]
+	s.paging = true
+	changes, ctx, dir := c.bundle.Changes, c.ctx, s.repo.WorkDir
+	q := provider.CommitQuery{Limit: commitsPage, Skip: len(s.commits), AllBranches: c.all}
+	return func() tea.Msg {
+		list, err := changes.Commits(ctx, dir, q)
+		return pageLoaded{owner: c, side: i, all: q.AllBranches, skip: q.Skip, commits: list, err: err}
 	}
 }
 
@@ -248,8 +328,7 @@ func (c *commits) need(i int, hash string) tea.Cmd {
 
 // needCursor reads the files of the commit under the cursor.
 func (c *commits) needCursor() tea.Cmd {
-	s := c.sides[c.cur]
-	return c.need(c.cur, s.hashAt(s.cursor))
+	return c.need(c.cur, c.cursorHash(c.sides[c.cur]))
 }
 
 // needMarked reads the files of every marked commit of a side.
@@ -261,16 +340,74 @@ func (c *commits) needMarked(i int) tea.Cmd {
 	return tea.Batch(cmds...)
 }
 
+// rows are what the list of a side shows: the commits that mention the issue,
+// then the others read, both as the search and m leave them; and the hashes
+// typed by hand.
+func (c *commits) rows(s *side) []row {
+	var out []row
+	seen := map[string]bool{}
+	add := func(list []provider.Commit, suggested bool) {
+		for i := range list {
+			cm := &list[i]
+			if seen[cm.ShortHash] {
+				continue
+			}
+			seen[cm.ShortHash] = true
+			if (!c.mine || deploy.Mine(*cm, s.email)) && deploy.CommitMatches(*cm, c.filter.text) {
+				out = append(out, row{commit: cm, hash: cm.ShortHash, suggested: suggested})
+			}
+		}
+	}
+	add(s.suggested, true)
+	add(s.commits, false)
+	for _, h := range s.manual {
+		out = append(out, row{hash: h})
+	}
+	return out
+}
+
+// narrowed reports whether the search or m leave out commits.
+func (c *commits) narrowed() bool { return c.mine || strings.TrimSpace(c.filter.text) != "" }
+
+// cursorHash is the hash under the cursor; empty when the list is.
+func (c *commits) cursorHash(s *side) string {
+	if rows := c.rows(s); s.cursor < len(rows) {
+		return rows[s.cursor].hash
+	}
+	return ""
+}
+
+// top puts the cursor of every side on its first row, after the list changed.
+func (c *commits) top() {
+	for _, s := range c.sides {
+		s.cursor = 0
+	}
+}
+
 func (c *commits) update(msg tea.Msg) (screen, tea.Cmd) {
 	switch msg := msg.(type) {
 	case commitsLoaded:
 		if msg.owner != c || c.ctx.Err() != nil {
 			return c, nil
 		}
+		return c, c.loaded(msg)
+	case pageLoaded:
+		if msg.owner != c || c.ctx.Err() != nil {
+			return c, nil
+		}
 		s := c.sides[msg.side]
-		s.loading, s.branch, s.commits, s.err = false, msg.branch, msg.commits, msg.err
-		s.mark()
-		return c, tea.Batch(c.need(msg.side, s.hashAt(s.cursor)), c.needMarked(msg.side))
+		if msg.all != c.all || msg.skip != len(s.commits) {
+			return c, nil
+		}
+		s.paging = false
+		if msg.err != nil {
+			c.note = "No se pudieron leer más commits: " + msg.err.Error()
+			return c, nil
+		}
+		s.commits = append(s.commits, msg.commits...)
+		s.full = len(msg.commits) == commitsPage
+		s.remember(msg.commits)
+		return c, c.needCursor()
 	case filesLoaded:
 		if msg.owner != c || c.ctx.Err() != nil {
 			return c, nil
@@ -282,35 +419,72 @@ func (c *commits) update(msg tea.Msg) (screen, tea.Cmd) {
 		c.spinner, cmd = c.spinner.Update(msg)
 		return c, cmd
 	case tea.KeyPressMsg:
-		if c.typing {
-			return c, c.typeHash(msg)
-		}
 		return c, c.press(msg)
 	}
 	return c, nil
 }
 
+// loaded keeps what the first read of a side gave and marks, unless the
+// command bar brought hashes, the user's commits that mention the issue.
+func (c *commits) loaded(msg commitsLoaded) tea.Cmd {
+	s := c.sides[msg.side]
+	s.loading, s.branch, s.err = false, msg.branch, msg.err
+	s.email, s.identityErr = msg.email, msg.identityErr
+	if msg.err != nil {
+		s.mark()
+		return nil
+	}
+	s.suggested, s.commits, s.full = msg.suggested, msg.commits, len(msg.commits) == commitsPage
+	s.remember(s.suggested)
+	s.remember(s.commits)
+	s.mark()
+	if !c.fromBar {
+		for _, cm := range s.suggested {
+			if deploy.Mine(cm, s.email) {
+				s.picked[cm.ShortHash] = true
+			}
+		}
+	}
+	return tea.Batch(c.need(msg.side, c.cursorHash(s)), c.needMarked(msg.side))
+}
+
 func (c *commits) press(k tea.KeyPressMsg) tea.Cmd {
 	s := c.sides[c.cur]
 	c.note = ""
+	if c.filter.typing && k.Code == tea.KeyEnter {
+		return c.enterSearch(s)
+	}
+	before := c.filter.text
+	if c.filter.handle(k) {
+		if c.filter.text != before {
+			c.top()
+		}
+		return c.needCursor()
+	}
+	rows := c.rows(s)
 	switch {
 	case key.Matches(k, upKey):
 		s.cursor = max(s.cursor-1, 0)
 		return c.needCursor()
 	case key.Matches(k, downKey):
-		s.cursor = min(s.cursor+1, max(s.rows()-1, 0))
+		if s.cursor >= len(rows)-1 && s.full && !s.paging && !s.loading {
+			return c.loadPage(c.cur)
+		}
+		s.cursor = min(s.cursor+1, max(len(rows)-1, 0))
 		return c.needCursor()
 	case key.Matches(k, sideKey) && len(c.sides) > 1:
 		c.cur = 1 - c.cur
 		return c.needCursor()
 	case key.Matches(k, markKey):
-		c.toggle(s)
-	case key.Matches(k, hashKey):
-		c.typing, c.hash = true, ""
+		c.toggle(s, rows)
+	case key.Matches(k, mineKey):
+		return c.toggleMine(s)
+	case key.Matches(k, allKey):
+		return c.toggleAll()
 	case key.Matches(k, goKey):
 		back, front := c.hashes()
 		if len(back) == 0 && len(front) == 0 {
-			c.note = "Marca al menos un commit con espacio, o agrega uno con h"
+			c.note = "Marca al menos un commit con espacio, o busca con /"
 			return nil
 		}
 		return open(newProgress(c.st, c.bundle, c.project, c.issue, back, front))
@@ -318,40 +492,73 @@ func (c *commits) press(k tea.KeyPressMsg) tea.Cmd {
 	return nil
 }
 
-func (c *commits) toggle(s *side) {
-	if s.cursor < len(s.commits) {
-		h := s.commits[s.cursor].ShortHash
-		s.picked[h] = !s.picked[h]
-		return
+// enterSearch ends the search; when what was typed is a hash, it marks that
+// commit, or adds it as typed by hand when it was not read.
+func (c *commits) enterSearch(s *side) tea.Cmd {
+	c.filter.typing = false
+	h := strings.TrimSpace(c.filter.text)
+	if !deploy.LooksLikeHash(h) {
+		return c.needCursor()
 	}
-	if i := s.cursor - len(s.commits); i < len(s.manual) {
-		s.manual = slices.Delete(s.manual, i, i+1)
-		s.cursor = min(s.cursor, max(s.rows()-1, 0))
+	c.filter.text = ""
+	c.top()
+	if found, ok := s.find(h); ok {
+		s.picked[found] = true
+		c.note = "✓ " + found + " marcado"
+		s.cursor = max(slices.IndexFunc(c.rows(s), func(r row) bool { return r.hash == found }), 0)
+		return tea.Batch(c.needCursor(), c.need(c.cur, found))
 	}
+	if !slices.Contains(s.manual, h) {
+		s.manual = append(s.manual, h)
+	}
+	s.cursor = len(c.rows(s)) - 1
+	return c.need(c.cur, h)
 }
 
-func (c *commits) typeHash(k tea.KeyPressMsg) tea.Cmd {
-	switch {
-	case key.Matches(k, backKey):
-		c.typing = false
-	case k.Code == tea.KeyEnter:
-		c.typing = false
-		h := strings.TrimSpace(c.hash)
-		s := c.sides[c.cur]
-		if h == "" || slices.Contains(s.hashes(), h) {
-			return nil
-		}
-		s.manual = append(s.manual, h)
-		s.cursor = s.rows() - 1
-		return c.need(c.cur, h)
-	case k.Code == tea.KeyBackspace:
-		if r := []rune(c.hash); len(r) > 0 {
-			c.hash = string(r[:len(r)-1])
-		}
-	case k.Text != "" && k.Text != " ":
-		c.hash += k.Text
+func (c *commits) toggle(s *side, rows []row) {
+	if s.cursor >= len(rows) {
+		return
 	}
-	return nil
+	if r := rows[s.cursor]; r.commit != nil {
+		s.picked[r.hash] = !s.picked[r.hash]
+		return
+	}
+	s.manual = slices.DeleteFunc(s.manual, func(h string) bool { return h == rows[s.cursor].hash })
+	s.cursor = min(s.cursor, max(len(rows)-2, 0))
+}
+
+// toggleMine shows only the commits of the user, when the clone says who that is.
+func (c *commits) toggleMine(s *side) tea.Cmd {
+	if !c.mine && s.email == "" && !s.loading {
+		if s.identityErr != nil {
+			c.note = "No se pudo leer tu user.email: " + s.identityErr.Error()
+		} else {
+			c.note = "Sin user.email en el repo: git config user.email"
+		}
+		return nil
+	}
+	c.mine = !c.mine
+	c.top()
+	return c.needCursor()
+}
+
+// toggleAll switches every side between its branch and every branch, from
+// the first page again; what is marked stays.
+func (c *commits) toggleAll() tea.Cmd {
+	if slices.ContainsFunc(c.sides, func(s *side) bool { return s.loading }) {
+		c.note = "Espera a que terminen de leerse los commits"
+		return nil
+	}
+	c.all = !c.all
+	var cmds []tea.Cmd
+	for i, s := range c.sides {
+		if s.err != nil {
+			continue
+		}
+		s.commits, s.full, s.cursor = nil, false, 0
+		cmds = append(cmds, c.loadPage(i))
+	}
+	return tea.Batch(cmds...)
 }
 
 // hashes are the commits of each side, ready for the request.
@@ -406,11 +613,12 @@ func (c *commits) wide(width, height int) string {
 func (c *commits) listBox(width, height int) string {
 	s := c.sides[c.cur]
 	inner := width - 4
+	rows := c.rows(s)
 	lines := []string{c.tabs(inner), faintStyle.Render(c.header(inner))}
-	lines = append(lines, c.state(s, inner)...)
-	hint := lipgloss.NewStyle().Width(inner).Render(c.hint(s))
-	rows := max(height-2-len(lines)-lipgloss.Height(hint), 1)
-	lines = append(lines, c.table(s, rows, inner)...)
+	lines = append(lines, c.state(s, rows, inner)...)
+	hint := lipgloss.NewStyle().Width(inner).Render(c.hint(s, rows))
+	n := max(height-2-len(lines)-lipgloss.Height(hint), 1)
+	lines = append(lines, c.table(s, rows, n, inner)...)
 	for len(lines) < height-2-lipgloss.Height(hint) {
 		lines = append(lines, "")
 	}
@@ -418,27 +626,67 @@ func (c *commits) listBox(width, height int) string {
 }
 
 // state is what stands in for the list while it loads, fails or is empty.
-func (c *commits) state(s *side, width int) []string {
+func (c *commits) state(s *side, rows []row, width int) []string {
+	wrap := func(text string) []string { return strings.Split(lipgloss.NewStyle().Width(width).Render(text), "\n") }
 	switch {
-	case s.loading:
+	case s.loading, s.paging && len(rows) == 0:
 		return []string{c.spinner.View() + " Leyendo los commits…"}
 	case s.err != nil:
-		return strings.Split(lipgloss.NewStyle().Width(width).Render(errStyle.Render("✗ "+s.err.Error())+"\n"+faintStyle.Render("Puedes agregar el hash a mano con h.")), "\n")
-	case s.rows() == 0:
+		return wrap(errStyle.Render("✗ "+s.err.Error()) + "\n" + faintStyle.Render("Puedes pegar el hash con / y agregarlo con enter."))
+	case len(rows) == 0 && c.narrowed():
+		more := ""
+		if s.full {
+			more = " ↓ lee " + strconv.Itoa(commitsPage) + " más."
+		}
+		return wrap(faintStyle.Render("Ningún commit coincide." + more))
+	case len(rows) == 0:
 		return []string{faintStyle.Render("Sin commits en esta rama.")}
 	}
 	return nil
 }
 
-// hint is the line under the list: the hash being typed, a note, or what h does.
-func (c *commits) hint(s *side) string {
+// hint is the line under the list: the search being typed, a note, or the
+// state of the search, m and a.
+func (c *commits) hint(s *side, rows []row) string {
 	switch {
-	case c.typing:
-		return "Hash (" + strings.ToLower(s.label) + "): " + c.hash + accentStyle.Render("█") + faintStyle.Render("   enter agrega · esc cancela")
+	case c.filter.typing:
+		return "/ " + c.filter.text + accentStyle.Render("█") + faintStyle.Render("   enter: un hash se marca o se agrega · esc limpia")
 	case c.note != "":
+		if strings.HasPrefix(c.note, "✓") {
+			return okStyle.Render(c.note)
+		}
 		return warnStyle.Render(c.note)
 	}
-	return faintStyle.Render("Un commit de otra rama se agrega con h.")
+	find := accentStyle.Render("/ ") + faintStyle.Render("buscar")
+	if c.filter.text != "" {
+		find = "filtro: " + c.filter.text + faintStyle.Render(" (esc lo quita)")
+	}
+	mine := faintStyle.Render("m míos")
+	if c.mine {
+		mine = accentStyle.Render("m: solo míos")
+	}
+	scope := faintStyle.Render("a todas las ramas")
+	if c.all {
+		scope = accentStyle.Render("a: todas las ramas")
+	}
+	return strings.Join([]string{find, mine, scope, faintStyle.Render(c.count(s, rows))}, faintStyle.Render(" · "))
+}
+
+// count is how many commits the list shows of those it has read.
+func (c *commits) count(s *side, rows []row) string {
+	seen := map[string]bool{}
+	for _, cm := range append(slices.Clip(s.suggested), s.commits...) {
+		seen[cm.ShortHash] = true
+	}
+	read := len(seen)
+	out := strconv.Itoa(read) + " leídos"
+	if c.narrowed() {
+		out = strconv.Itoa(len(rows)-len(s.manual)) + " de " + strconv.Itoa(read)
+	}
+	if s.paging {
+		out += ", leyendo más…"
+	}
+	return out
 }
 
 // tabs are the repos, the current one with its branch; the other gives up its
@@ -454,7 +702,9 @@ func (c *commits) tabs(width int) string {
 			switch {
 			case i == c.cur:
 				tab := accentStyle.Bold(true).Render("▸ "+label) + "  " + sd.repoName()
-				if sd.branch != "" {
+				if c.all {
+					tab += faintStyle.Render(" · todas las ramas")
+				} else if sd.branch != "" {
 					tab += faintStyle.Render(" · " + sd.branch)
 				}
 				tabs = append(tabs, tab)
@@ -494,30 +744,34 @@ func messageWidth(width int) int {
 	return max(width-fixed, 8)
 }
 
-// table shows the window of rows around the cursor that fits in rows lines.
-func (c *commits) table(s *side, rows, width int) []string {
+// table shows the window of rows around the cursor that fits in n lines; a
+// commit that mentions the issue carries a star.
+func (c *commits) table(s *side, rows []row, n, width int) []string {
 	msgWidth := messageWidth(width)
 	var out []string
-	start := window(s.cursor, s.rows(), rows)
-	for i := start; i < min(start+rows, s.rows()); i++ {
-		hash := s.hashAt(i)
+	start := window(s.cursor, len(rows), n)
+	for i := start; i < min(start+n, len(rows)); i++ {
+		r := rows[i]
 		cursor := "  "
 		if i == s.cursor {
 			cursor = accentStyle.Render("▸ ")
 		}
+		star := " "
+		if r.suggested {
+			star = accentStyle.Render("★")
+		}
 		message, author, date := faintStyle.Render("(a mano)"), "", ""
-		if i < len(s.commits) {
-			cm := s.commits[i]
-			message, author, date = cm.Subject, cm.Author, faintStyle.Render(cm.Date.Format("2006-01-02"))
+		if r.commit != nil {
+			message, author, date = r.commit.Subject, r.commit.Author, faintStyle.Render(r.commit.Date.Format("2006-01-02"))
 			if i == s.cursor {
 				message = accentStyle.Bold(true).Render(message)
 			}
 		}
-		row := cursor + box(s.picked[hash] || i >= len(s.commits)) + " " + cell(warnStyle.Render(hash), hashWidth) + " " + cell(message, msgWidth) + " "
+		line := cursor + box(s.picked[r.hash] || r.commit == nil) + star + cell(warnStyle.Render(r.hash), hashWidth) + " " + cell(message, msgWidth) + " "
 		if withWho(width) {
-			row += cell(author, authorWidth) + " " + cell(date, dateWidth) + " "
+			line += cell(author, authorWidth) + " " + cell(date, dateWidth) + " "
 		}
-		out = append(out, row+padLeft(fileCount(s, hash), filesWidth))
+		out = append(out, line+padLeft(fileCount(s, r.hash), filesWidth))
 	}
 	return out
 }
@@ -543,19 +797,25 @@ func (c *commits) detailBox(width, height int) string {
 
 // detail is the commit under the cursor and the files it changed.
 func (c *commits) detail(s *side) []string {
-	hash := s.hashAt(s.cursor)
-	if hash == "" {
+	rows := c.rows(s)
+	if s.cursor >= len(rows) {
 		return nil
 	}
+	r := rows[s.cursor]
 	var lines []string
-	if s.cursor < len(s.commits) {
-		cm := s.commits[s.cursor]
+	if cm := r.commit; cm != nil {
 		meta := slices.DeleteFunc([]string{cm.Author, cm.Date.Format("2006-01-02"), s.branch}, func(p string) bool { return p == "" })
+		if c.all || r.suggested {
+			meta = slices.DeleteFunc(meta, func(p string) bool { return p == s.branch })
+		}
 		lines = append(lines, accentStyle.Render(cm.ShortHash)+" "+boldStyle.Render(cm.Subject), faintStyle.Render(strings.Join(meta, " · ")))
+		if r.suggested {
+			lines = append(lines, accentStyle.Render("★")+faintStyle.Render(" menciona "+c.issue))
+		}
 	} else {
-		lines = append(lines, warnStyle.Render(hash)+faintStyle.Render(" (a mano)"))
+		lines = append(lines, warnStyle.Render(r.hash)+faintStyle.Render(" (a mano)"))
 	}
-	fr := s.files[hash]
+	fr := s.files[r.hash]
 	switch {
 	case fr == nil || !fr.done:
 		return append(lines, "", faintStyle.Render("ARCHIVOS"), c.spinner.View()+" Leyendo los archivos…")
@@ -596,8 +856,9 @@ func (c *commits) strip(width int) string {
 func (c *commits) narrow(width, height int) string {
 	s := c.sides[c.cur]
 	inner := width - 2
+	rows := c.rows(s)
 	lines := []string{boldStyle.Render(c.issue), c.tabs(inner), ""}
-	lines = append(lines, c.state(s, inner)...)
+	lines = append(lines, c.state(s, rows, inner)...)
 
 	commitsN, filesN := c.totals()
 	files := lipgloss.NewStyle().Width(inner).Render(faintStyle.Render("ARCHIVOS ") + c.cursorFiles(s))
@@ -605,11 +866,11 @@ func (c *commits) narrow(width, height int) string {
 		files = strings.Join(append(fl[:1], faintStyle.Render("…")), "\n")
 	}
 	bottom := []string{"", files, faintStyle.Render("MARCADOS ") + plural(commitsN, "commit", "commits") + " · " + plural(filesN, "archivo", "archivos"),
-		lipgloss.NewStyle().Width(inner).Render(c.hint(s))}
+		lipgloss.NewStyle().Width(inner).Render(c.hint(s, rows))}
 
 	lines = append(lines, faintStyle.Render(c.header(inner)))
-	rows := max(height-len(lines)-lipgloss.Height(strings.Join(bottom, "\n")), 3)
-	for _, r := range c.table(s, rows, inner) {
+	n := max(height-len(lines)-lipgloss.Height(strings.Join(bottom, "\n")), 3)
+	for _, r := range c.table(s, rows, n, inner) {
 		lines = append(lines, lipgloss.NewStyle().MaxWidth(inner).Render(r))
 	}
 	return lipgloss.NewStyle().Padding(0, 1).Render(strings.Join(append(lines, bottom...), "\n"))
@@ -617,9 +878,10 @@ func (c *commits) narrow(width, height int) string {
 
 // cursorFiles is the files of the commit under the cursor, in one line.
 func (c *commits) cursorFiles(s *side) string {
-	fr := s.files[s.hashAt(s.cursor)]
+	hash := c.cursorHash(s)
+	fr := s.files[hash]
 	switch {
-	case s.hashAt(s.cursor) == "":
+	case hash == "":
 		return faintStyle.Render("—")
 	case fr == nil || !fr.done:
 		return faintStyle.Render("leyendo…")

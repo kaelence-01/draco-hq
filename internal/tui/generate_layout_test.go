@@ -93,7 +93,7 @@ func TestCommitsReadTheFilesOfEachCommitOnce(t *testing.T) {
 	if e.git.calls[dir] != 2 {
 		t.Errorf("un commit ya leído no se vuelve a leer: %d llamadas", e.git.calls[dir])
 	}
-	typeText(e.m, "hf1e2d3c")
+	typeText(e.m, "/f1e2d3c")
 	send(e.m, keyEnter)
 	if e.git.calls[dir] != 3 || strings.Join(e.git.read[dir], ",") != "f1e2d3c" {
 		t.Errorf("un hash a mano también se lee: %d %v", e.git.calls[dir], e.git.read[dir])
@@ -155,7 +155,7 @@ func TestCommitsGiveWayWithoutRoom(t *testing.T) {
 	lines := strings.Split(view(e.m), "\n")
 	assertFits(t, lines, 80, 24)
 	out = strings.Join(lines, "\n")
-	for _, want := range []string{"OPS-7", "▸ Backend", "HASH", "a1b2c3d", "ARCHIVOS app/Http/Pagos/FiltroController.php, routes/api.php", "MARCADOS 0 commits · 0 archivos", "Un commit de otra rama se agrega con h."} {
+	for _, want := range []string{"OPS-7", "▸ Backend", "HASH", "a1b2c3d", "ARCHIVOS app/Http/Pagos/FiltroController.php, routes/api.php", "MARCADOS 0 commits · 0 archivos", "/ buscar · m míos · a todas las ramas · 3 leídos"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("falta %q:\n%s", want, out)
 		}
@@ -179,8 +179,8 @@ func TestCommitsSecondaryKeysAreInTheFullHelp(t *testing.T) {
 			t.Errorf("el pie lleva %q: %q", want, short)
 		}
 	}
-	if strings.Contains(short, "hash a mano") {
-		t.Errorf("h solo está en la ayuda completa (y en la línea bajo la lista): %q", short)
+	if strings.Contains(short, "buscar") || strings.Contains(short, "míos") {
+		t.Errorf("/, m y a solo están en la ayuda completa (y en la línea bajo la lista): %q", short)
 	}
 	e.resize(80, 24)
 	lines = strings.Split(view(e.m), "\n")
@@ -189,7 +189,7 @@ func TestCommitsSecondaryKeysAreInTheFullHelp(t *testing.T) {
 	}
 	e.resize(110, 34)
 	send(e.m, keyHelp)
-	if full := squash(view(e.m)); !strings.Contains(full, "h hash a mano") || !strings.Contains(full, "↑/k subir") {
+	if full := squash(view(e.m)); !strings.Contains(full, "/ buscar") || !strings.Contains(full, "m solo los míos") || !strings.Contains(full, "a todas las ramas") || !strings.Contains(full, "↑/k subir") {
 		t.Errorf("la ayuda completa lleva todas:\n%s", full)
 	}
 }

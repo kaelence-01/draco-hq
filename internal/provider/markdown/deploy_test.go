@@ -29,10 +29,11 @@ type changes struct{}
 func (changes) ChangedFiles(context.Context, string, []string) ([]string, error) {
 	return []string{"app/Http/Pagos/FiltroController.php", "routes/api.php"}, nil
 }
-func (changes) RecentCommits(context.Context, string, int) ([]provider.Commit, error) {
+func (changes) Commits(context.Context, string, provider.CommitQuery) ([]provider.Commit, error) {
 	return nil, nil
 }
 func (changes) CurrentBranch(context.Context, string) (string, error) { return "develop", nil }
+func (changes) Identity(context.Context, string) (string, error)      { return "", nil }
 
 // publish runs the deploy workflow the way the CLI or the TUI will.
 func publish(t *testing.T, s *deploy.Session) *deploy.Result {

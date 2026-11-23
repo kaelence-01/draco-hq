@@ -374,6 +374,11 @@ en la consola clásica de Windows (`cmd`) se ve más limitado.
 | `tab` | En la principal, pasa del menú a Recientes y vuelve |
 | `enter` / `tab` / `shift+tab` | En un formulario: siguiente campo / siguiente / anterior. Un formulario de varias páginas dice arriba en cuál estás (`●○○  Página 1 de 3 · Jira`); si no cabe en la terminal, se desplaza hasta el campo en el que estás |
 
+**Pegar** (`ctrl+shift+v`, clic derecho o el atajo de tu terminal) funciona en
+todo lugar donde escribes: formularios, la barra de comandos, los filtros `/`,
+la búsqueda de Commits y la ruta de Exportar. Si lo pegado trae varias
+líneas, se une en una.
+
 ### Barra de comandos
 
 En la principal, `/` abre una línea para escribir un comando como en la
@@ -402,16 +407,36 @@ terminal, con `draco` o sin él: `/g -i OPS-7 -b a1b2c3d`.
    formulario, **Lo que sigue** muestra los pasos, los repos del proyecto con
    su carpeta y el destino del perfil (el space o la carpeta Markdown), y se
    actualiza al cambiar de proyecto.
-2. **Commits.** Muestra una tabla con los commits recientes de cada repo (hash,
+2. **Commits.** Muestra una tabla con los commits de cada repo (hash,
    mensaje, autor, fecha y número de archivos), con la rama en la que está el
    clon. Desde 96 columnas, a la derecha va el **detalle del commit con sus
    archivos**, y abajo, **Seleccionados**: los commits marcados en los dos
    repos y el total de archivos, contando cada uno una vez por repo. En
    terminales angostas el detalle baja y la tabla suelta el autor y la fecha
    cuando no caben.
-   - `espacio` marca un commit;
+   - **Sugeridos (`★`):** arriba van los commits de cualquier rama cuyo
+     mensaje menciona la tarea (`OPS-7: …`, `[ops-7] …`; `OPS-70` no cuenta),
+     buscados en toda la historia. Los tuyos (por el `user.email` del clon)
+     llegan ya marcados; los de otras personas, no. Si llegaste desde la
+     barra con `-b` o `-f`, solo se marcan esos hashes.
+   - Se leen **100 commits**; con `↓` en la última fila se leen 100 más.
+   - `/` **busca mientras escribes**, en el hash (por el comienzo), el
+     mensaje, el autor, el correo y la fecha. Varias palabras deben estar
+     todas: `ana 2026-11 pagos`. `enter` deja el filtro y `esc` lo quita.
+     Si nada coincide y hay más commits, `↓` lee 100 más y sigue buscando.
+   - **Un hash en la búsqueda** (escrito o pegado, de 7 caracteres o más) se
+     marca con `enter`; si no está entre los leídos (por ejemplo, de otra
+     rama), se agrega «a mano» y draco lo verifica al leer sus archivos. De
+     una línea de `git log --oneline` pegada se queda con el hash.
+   - `m` muestra **solo los tuyos**, por el `user.email` del clon (si no lo
+     tiene, lo avisa: `git config user.email`).
+   - `a` alterna entre **la rama del clon y todas las ramas** (locales y
+     remotas); lo marcado se conserva.
+   - La línea bajo la lista dice qué está activo y cuántos commits se ven de
+     los leídos: `/ buscar · m míos · a todas las ramas · 100 leídos`.
+   - `espacio` marca un commit (o quita uno agregado a mano);
    - `tab` cambia entre backend y frontend;
-   - `h` agrega un hash a mano (por ejemplo, de otra rama): está en `?`;
+   - `/`, `m` y `a` están en `?`;
    - `enter` continúa.
 3. **Preparar documento.** Lee la tarea, busca si ya hay un documento y lee
    los archivos de los commits. Si el documento existe, pregunta si

@@ -42,14 +42,43 @@ func (Local) ChangedFiles(ctx context.Context, workDir string, hashes []string) 
 // logSep separates the fields of one commit in the git log output.
 const logSep = "\x1f"
 
-// RecentCommits returns the n newest commits of the current branch.
-func (Local) RecentCommits(ctx context.Context, workDir string, n int) ([]provider.Commit, error) {
-	format := strings.Join([]string{"%H", "%h", "%s", "%an", "%aI"}, logSep)
-	out, err := run(ctx, workDir, "log", fmt.Sprintf("-n%d", n), "--format="+format)
+// Commits lists the commits of the current branch, or of every branch.
+func (Local) Commits(ctx context.Context, workDir string, q provider.CommitQuery) ([]provider.Commit, error) {
+	out, err := run(ctx, workDir, logArgs(q)...)
 	if err != nil {
 		return nil, fmt.Errorf("error al leer el historial: %w", err)
 	}
 	return parseLog(out), nil
+}
+
+// logArgs is the git log of q. Grep goes inside its own argument, as fixed
+// text: it is never read as an option or a regular expression.
+func logArgs(q provider.CommitQuery) []string {
+	format := strings.Join([]string{"%H", "%h", "%s", "%an", "%ae", "%aI"}, logSep)
+	args := []string{"log", fmt.Sprintf("-n%d", q.Limit), "--format=" + format}
+	if q.Skip > 0 {
+		args = append(args, fmt.Sprintf("--skip=%d", q.Skip))
+	}
+	if q.AllBranches {
+		args = append(args, "--branches", "--remotes")
+	}
+	if q.Grep != "" {
+		args = append(args, "--regexp-ignore-case", "--fixed-strings", "--grep="+q.Grep)
+	}
+	return args
+}
+
+// Identity returns the user.email of the clone; empty when it is not set.
+func (Local) Identity(ctx context.Context, workDir string) (string, error) {
+	out, err := run(ctx, workDir, "config", "user.email")
+	var ee *exec.ExitError
+	if errors.As(err, &ee) && ee.ExitCode() == 1 {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("no se pudo leer user.email: %w", err)
+	}
+	return strings.TrimSpace(out), nil
 }
 
 // CurrentBranch returns the branch checked out in the clone.
@@ -65,11 +94,11 @@ func parseLog(out string) []provider.Commit {
 	var commits []provider.Commit
 	for _, line := range strings.Split(out, "\n") {
 		f := strings.Split(line, logSep)
-		if len(f) != 5 {
+		if len(f) != 6 {
 			continue
 		}
-		date, _ := time.Parse(time.RFC3339, f[4])
-		commits = append(commits, provider.Commit{Hash: f[0], ShortHash: f[1], Subject: f[2], Author: f[3], Date: date})
+		date, _ := time.Parse(time.RFC3339, f[5])
+		commits = append(commits, provider.Commit{Hash: f[0], ShortHash: f[1], Subject: f[2], Author: f[3], Email: f[4], Date: date})
 	}
 	return commits
 }
