@@ -125,6 +125,7 @@ Sin entradas: se hizo antes de que existiera la bitácora.
 | [078](./fase-7/078-logo.md) | Logo nuevo en la pantalla principal | `feature/logo` | 2026-11-17 | La cabeza del dragón de la marca, convertida a braille (6 líneas por 13 columnas), con el nombre; el marco la muestra en todas las pantallas desde 29 líneas y 63 columnas, sin quitarles sus 20 líneas de cuerpo; con menos espacio vuelve la cabecera de una línea y la principal conserva su logo propio |
 | [079](./fase-7/079-pegar-en-campos.md) | Pegar en los campos de la TUI | `fix/pegar-en-campos` | 2026-11-23 | Lo pegado llega como `tea.PasteMsg` y los campos propios lo perdían; interfaz opcional `paster` en el marco: hash a mano (de una línea de `git log --oneline` toma el hash), filtros `/`, barra de comandos y ruta de Exportar, en una línea |
 | [080](./fase-7/080-buscar-commits.md) | Buscar commits | `feature/buscar-commits` | 2026-11-23 | `ChangeSource.Commits(CommitQuery)` e `Identity`; en Commits, `/` busca por hash, mensaje, autor, correo y fecha y agrega un hash (sin `h`); `m` solo los míos; `a` todas las ramas; páginas de 100 con `↓`; sugeridos `★` que mencionan la tarea, los propios ya marcados |
+| [081](./fase-7/081-salir-y-otro-documento.md) | Salir con q y otro documento al publicar | `feature/salir-y-otro-documento` | 2026-11-23 | `q` sale desde cualquier pantalla que no la capture (no mientras se escribe, publica o borra); `n` tras publicar abre Generar vacío con el proyecto usado (`docAbout.again`) |
 
 ## Formato de cada entrada
 

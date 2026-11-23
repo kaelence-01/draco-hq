@@ -26,7 +26,6 @@ var (
 	downKey  = key.NewBinding(key.WithKeys("down", "j"), key.WithHelp("↓/j", "bajar"))
 	moveKey  = key.NewBinding(key.WithKeys("up", "k", "down", "j"), key.WithHelp("↑↓", "elegir"))
 	enterKey = key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "abrir"))
-	exitKey  = key.NewBinding(key.WithKeys("q"), key.WithHelp("q", "salir"))
 )
 
 const (
@@ -110,9 +109,9 @@ func (h *home) moreKeys() []key.Binding {
 		return nil
 	}
 	if h.focus {
-		return append(h.recent.moreKeys(), exitKey)
+		return h.recent.moreKeys()
 	}
-	return []key.Binding{upKey, downKey, exitKey}
+	return []key.Binding{upKey, downKey}
 }
 
 // numberKey opens the function with that number in the menu.
@@ -150,8 +149,6 @@ func (h *home) update(msg tea.Msg) (screen, tea.Cmd) {
 	switch {
 	case key.Matches(k, barKey) && len(h.st.deps.Commands) > 0:
 		h.bar, h.note = &cmdBar{st: h.st}, ""
-	case key.Matches(k, exitKey):
-		return h, tea.Quit
 	case key.Matches(k, recentKey) && h.boxShown:
 		h.focus, h.note = !h.focus, ""
 	case h.focus:

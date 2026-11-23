@@ -374,7 +374,7 @@ porque no guardan el proyecto de Jira (bitácora 071).
 | 071 | `feature/qa-multiproyecto` | `qa_jira.projects` (otros proyectos que heredan los valores del por defecto), `-j/--jira-project`, la lista de proyectos en el formulario solo cuando hay varios, el proyecto en el título del Kanban | ✅ |
 | 072 | `feature/qa-detectar-jira` | Configurar sin escribir ids: `draco qa setup` y `d` en Configuración › QA leen de Jira los estados del proyecto y los campos, y la QA elige por nombre, con Testing y los finalizados ya marcados. El autor eligió la lista de estados del proyecto en vez de las columnas del tablero, porque los tableros no son todos iguales | ✅ |
 | 073 | `fix/qa-setup-directo` | Probando la 072, el autor abrió el formulario manual y tomó los ejemplos por valores cargados. Ahora `enter` en QA detecta desde Jira mientras `qa_jira` está incompleto, el formulario no trae ejemplos que parezcan valores, y la detección muestra un resumen que se guarda con `enter` (o pide solo los campos que faltan) | ✅ |
-| 081 | `feature/qa-listas` (opcional) | Módulo y sprint elegidos de listas (componentes y sprints del tablero) | ⬜ |
+| 082 | `feature/qa-listas` (opcional) | Módulo y sprint elegidos de listas (componentes y sprints del tablero) | ⬜ |
 
 ### Mejoras sobre la fase 7 — proyectos y formularios
 
@@ -414,6 +414,7 @@ agregarlo a mano tampoco servía porque el campo no aceptaba pegar (bitácora
 |---|---|---|---|
 | 079 | `fix/pegar-en-campos` | Pegar en todo campo de la TUI: el hash a mano (se queda con el hash de una línea de `git log --oneline`), los filtros `/`, la barra de comandos y la ruta de Exportar | ✅ |
 | 080 | `feature/buscar-commits` | Un buscador `/` en Commits por hash, mensaje, autor y fecha, que también agrega un hash que no está en la lista; `m` para ver solo los commits propios; cargar más y buscar en todo el repo (todas las ramas); los commits que mencionan la tarea, sugeridos arriba (los propios, ya marcados); `h` se retira | ✅ |
+| 081 | `feature/salir-y-otro-documento` | `q` sale desde cualquier pantalla que no la capture (no mientras se escribe, publica o borra); `n` al terminar de publicar abre Generar vacío con el proyecto usado | ✅ |
 
 ### v1.0
 
